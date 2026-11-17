@@ -152,6 +152,8 @@ pub struct HotPathReport {
     /// S3: per function reachable from the entry.
     pub functions: Vec<FunctionReport>,
     pub copying_constructs: usize,
+    /// Beside S3: the sum of `calls_on_the_hot_path` over `functions`.
+    pub calls_to_functions_that_return_a_new_collection: usize,
     /// S4.
     pub fields_taken_out_of_self: Vec<TakeReport>,
     /// S5.
@@ -179,6 +181,11 @@ pub struct FunctionReport {
     pub lines: usize,
     pub copying: Vec<Hit>,
     pub allocating_macros: Vec<Hit>,
+    /// For a function that returns an owned collection and copies or
+    /// allocates: the calls to it written in the reachable functions. Its
+    /// constructs are counted once in S3 and run at each of these.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub calls_on_the_hot_path: Option<usize>,
 }
 
 #[derive(Serialize)]
@@ -607,7 +614,9 @@ pub fn run(opts: &Options) -> Result<Report, String> {
         let mut takes = Vec::new();
         let mut threads = Vec::new();
         let mut not_followed = Vec::new();
-        for index in entry.map(|e| krate.reachable(e)).unwrap_or_default() {
+        let reachable = entry.map(|e| krate.reachable(e)).unwrap_or_default();
+        let helper_calls = krate.call_sites_of_new_collections(&reachable);
+        for index in reachable {
             let f = &krate.functions[index];
             functions.push(FunctionReport {
                 function: f.name.clone(),
@@ -616,6 +625,10 @@ pub fn run(opts: &Options) -> Result<Report, String> {
                 lines: f.lines,
                 copying: f.copying.clone(),
                 allocating_macros: f.allocating_macros.clone(),
+                calls_on_the_hot_path: helper_calls
+                    .iter()
+                    .find(|(helper, _)| *helper == index)
+                    .map(|(_, sites)| *sites),
             });
             for t in &f.takes {
                 let put_back = f.assigned_self_fields.contains(&t.field);
@@ -680,6 +693,10 @@ pub fn run(opts: &Options) -> Result<Report, String> {
             bytes_differ_between_sizes: bytes_differ,
             measurement_support: support_used,
             copying_constructs: functions.iter().map(|f| f.copying.len()).sum(),
+            calls_to_functions_that_return_a_new_collection: helper_calls
+                .iter()
+                .map(|(_, sites)| sites)
+                .sum(),
             functions,
             fields_taken_out_of_self: takes,
             threads,
@@ -689,7 +706,7 @@ pub fn run(opts: &Options) -> Result<Report, String> {
 
     // S7, anywhere in the crate.
     let mut shared_ownership = Vec::new();
-    for s in &krate.shared {
+    for s in &krate.shared_ownership() {
         let owner = justify("S7", &|j| {
             (s.item == j.place
                 || s.item.ends_with(&format!(" {}", j.place))

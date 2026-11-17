@@ -20,6 +20,12 @@ pub const COPYING_METHODS: [&str; 6] = [
     "to_owned",
     "to_string",
 ];
+/// Return types that are a collection the caller owns. A function that
+/// returns one and contains a copying construct makes its copy at every
+/// call (reported beside S3).
+const OWNED_COLLECTIONS: [&str; 7] = [
+    "Vec", "VecDeque", "String", "HashMap", "HashSet", "BTreeMap", "BTreeSet",
+];
 /// Macros of the standard library that allocate. Reported beside S3.
 const ALLOCATING_MACROS: [&str; 2] = ["format", "vec"];
 /// Standard macros whose arguments are ordinary expressions and are read as
@@ -92,6 +98,8 @@ pub struct Function {
     /// How a method takes `self`: `exclusive` (`&mut self`), `shared`
     /// (`&self`) or `value`. `None` for a function with no `self`.
     pub receiver: Option<&'static str>,
+    /// The return type as written is an owned collection or a `String`.
+    pub returns_collection: bool,
     pub file: String,
     pub line: usize,
     pub lines: usize,
@@ -118,7 +126,15 @@ pub struct Shared {
 #[derive(Debug, Default)]
 pub struct Crate {
     pub functions: Vec<Function>,
+    /// What is shared by its spelling alone. With the rest:
+    /// [`Crate::shared_ownership`].
     pub shared: Vec<Shared>,
+    /// `Rc<T>` and `Arc<T>` as written, by the name of `T`: shared
+    /// ownership if `T` turns out to be in `cell_structs`.
+    shared_by_type: Vec<(String, Shared)>,
+    /// Structs of the crate with a field whose type names `Cell`,
+    /// `RefCell`, `Mutex`, `RwLock` or an atomic.
+    cell_structs: BTreeSet<String>,
     pub unsafe_uses: Vec<Hit>,
     /// `forbid` or `deny` when the crate root says so for `unsafe_code`.
     pub unsafe_lint: Option<String>,
@@ -178,18 +194,50 @@ fn type_name(ty: &syn::Type) -> Option<String> {
     }
 }
 
+/// The calls that give exclusive access to what a cell or a lock holds.
+const EXCLUSIVE_BORROWS: [&str; 3] = ["borrow_mut", "lock", "write"];
+
 /// `self.field`, possibly behind `&mut` or parentheses: the field's name.
-fn self_field(expr: &syn::Expr) -> Option<String> {
+/// Also a field reached through `.borrow_mut()`, `.lock()` or `.write()` on
+/// a field of `self` (with `.unwrap()` or `.expect(..)` after it), which is
+/// how a type built on `RefCell` or a lock holds its data: then the name
+/// of the field reached, and the call it was reached through.
+fn self_field(expr: &syn::Expr) -> Option<(String, Option<&'static str>)> {
+    let is_self = |e: &syn::Expr| matches!(e, syn::Expr::Path(p) if p.path.is_ident("self"));
     match expr {
         syn::Expr::Reference(r) => self_field(&r.expr),
         syn::Expr::Paren(p) => self_field(&p.expr),
-        syn::Expr::Field(f) => match (&*f.base, &f.member) {
-            (syn::Expr::Path(base), syn::Member::Named(name)) if base.path.is_ident("self") => {
-                Some(name.to_string())
+        syn::Expr::Field(f) => {
+            let syn::Member::Named(name) = &f.member else {
+                return None;
+            };
+            if is_self(&f.base) {
+                return Some((name.to_string(), None));
             }
-            _ => None,
-        },
+            let mut inner = &*f.base;
+            if let syn::Expr::MethodCall(m) = inner
+                && (m.method == "unwrap" || m.method == "expect")
+            {
+                inner = &m.receiver;
+            }
+            let syn::Expr::MethodCall(m) = inner else {
+                return None;
+            };
+            let through = EXCLUSIVE_BORROWS
+                .iter()
+                .find(|b| m.method == **b && m.args.is_empty())?;
+            matches!(&*m.receiver, syn::Expr::Field(holder) if is_self(&holder.base))
+                .then(|| (name.to_string(), Some(*through)))
+        }
         _ => None,
+    }
+}
+
+/// How a take is described: `mem::take`, or `mem::take through .lock()`.
+fn how_taken(how: &str, through: Option<&str>) -> String {
+    match through {
+        Some(call) => format!("{how} through .{call}()"),
+        None => how.to_string(),
     }
 }
 
@@ -232,11 +280,11 @@ impl<'ast> Visit<'ast> for Body<'_> {
         }
         if name == "take"
             && m.args.is_empty()
-            && let Some(field) = self_field(&m.receiver)
+            && let Some((field, through)) = self_field(&m.receiver)
         {
             self.f.takes.push(Take {
                 field,
-                how: "Option::take".to_string(),
+                how: how_taken("Option::take", through),
                 line: line(m.method.span()),
             });
         }
@@ -284,10 +332,10 @@ impl<'ast> Visit<'ast> for Body<'_> {
                 if (name == "take" || name == "replace" || name == "swap")
                     && (before == "mem" || path.len() == 1)
                 {
-                    if let Some(field) = c.args.first().and_then(self_field) {
+                    if let Some((field, through)) = c.args.first().and_then(self_field) {
                         self.f.takes.push(Take {
                             field,
-                            how: format!("mem::{name}"),
+                            how: how_taken(&format!("mem::{name}"), through),
                             line: line(span),
                         });
                     }
@@ -387,7 +435,7 @@ impl<'ast> Visit<'ast> for Body<'_> {
     }
 
     fn visit_expr_assign(&mut self, a: &'ast syn::ExprAssign) {
-        if let Some(field) = self_field(&a.left) {
+        if let Some((field, _)) = self_field(&a.left) {
             self.f.assigned_self_fields.insert(field);
         }
         visit::visit_expr_assign(self, a);
@@ -480,6 +528,8 @@ impl File<'_> {
                 syn::ReceiverKind::Reference(_, _, None) => "shared",
                 _ => "value",
             }),
+            returns_collection: matches!(&sig.output, syn::ReturnType::Type(_, ty)
+                if matches!(&**ty, syn::Type::Path(p) if OWNED_COLLECTIONS.contains(&last_ident(&p.path).as_str()))),
             file: self.file.clone(),
             line: start,
             lines: block
@@ -532,6 +582,19 @@ fn wraps(path: &syn::Path, outer: &str, inner: &[&str]) -> bool {
         return false;
     };
     args.args.iter().any(|a| matches!(a, syn::GenericArgument::Type(t) if type_name(t).is_some_and(|n| inner.contains(&n.as_str()))))
+}
+
+/// Whether a type names something its holder can be changed through from
+/// behind a shared reference.
+struct MentionsCell(bool);
+
+impl<'ast> Visit<'ast> for MentionsCell {
+    fn visit_type_path(&mut self, t: &'ast syn::TypePath) {
+        let name = last_ident(&t.path);
+        self.0 |= ["Cell", "RefCell", "Mutex", "RwLock"].contains(&name.as_str())
+            || name.starts_with("Atomic");
+        visit::visit_type_path(self, t);
+    }
 }
 
 impl<'ast> Visit<'ast> for File<'_> {
@@ -710,6 +773,11 @@ impl<'ast> Visit<'ast> for File<'_> {
         self.out
             .items
             .push((self.module.clone(), s.ident.to_string()));
+        let mut cells = MentionsCell(false);
+        cells.visit_fields(&s.fields);
+        if cells.0 {
+            self.out.cell_structs.insert(s.ident.to_string());
+        }
         let previous = std::mem::replace(&mut self.item, format!("struct {}", s.ident));
         visit::visit_item_struct(self, s);
         self.item = previous;
@@ -727,6 +795,27 @@ impl<'ast> Visit<'ast> for File<'_> {
             self.shared("Arc<Mutex<..>>", span);
         } else if last_ident(&t.path) == "Weak" {
             self.shared("Weak<..>", span);
+        } else if let Some(last) = t.path.segments.last()
+            && (last.ident == "Rc" || last.ident == "Arc")
+            && let syn::PathArguments::AngleBracketed(args) = &last.arguments
+            && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+            && let Some(inner) = type_name(inner)
+        {
+            // Whether this is shared ownership depends on the fields of the
+            // type inside, which may be declared in a file not yet read.
+            let construct = last.ident.to_string();
+            let item = self.item.clone();
+            let file = self.file.clone();
+            let line = line(span);
+            self.out.shared_by_type.push((
+                inner,
+                Shared {
+                    construct,
+                    item,
+                    file,
+                    line,
+                },
+            ));
         }
         visit::visit_type_path(self, t);
     }
@@ -766,6 +855,22 @@ impl<'ast> Visit<'ast> for File<'_> {
 impl Crate {
     /// Parses one file. `file` is its path as it should appear in the
     /// report; `module` is its module path (`a::b` for `src/a/b.rs`).
+    /// Everything counted as shared ownership (check S7): what is shared
+    /// by its spelling, then each `Rc<T>` or `Arc<T>` where `T` is a struct
+    /// of the crate with cell or lock fields. Call it when every file has
+    /// been added. Types are matched by name alone.
+    pub fn shared_ownership(&self) -> Vec<Shared> {
+        let by_type = self
+            .shared_by_type
+            .iter()
+            .filter(|(inner, _)| self.cell_structs.contains(inner))
+            .map(|(inner, s)| Shared {
+                construct: format!("{}<{inner}> ({inner} has cell or lock fields)", s.construct),
+                ..s.clone()
+            });
+        self.shared.iter().cloned().chain(by_type).collect()
+    }
+
     pub fn add_file(&mut self, file: &str, module: &[String], source: &str) -> Result<(), String> {
         let parsed =
             syn::parse_file(source).map_err(|e| format!("{file}:{}: {e}", line(e.span())))?;
@@ -1223,6 +1328,34 @@ impl Crate {
         }
     }
 
+    /// Of the functions in `hot`: each that returns an owned collection and
+    /// contains a copying construct or an allocating macro, with the number
+    /// of calls to it written in the functions of `hot`. S3 counts such a
+    /// function's copy once; it is made at every one of these calls, and
+    /// how often each runs is not known from the source.
+    pub fn call_sites_of_new_collections(&self, hot: &[usize]) -> Vec<(usize, usize)> {
+        hot.iter()
+            .copied()
+            .filter(|i| {
+                let f = &self.functions[*i];
+                f.returns_collection && !(f.copying.is_empty() && f.allocating_macros.is_empty())
+            })
+            .map(|helper| {
+                let sites = hot
+                    .iter()
+                    .map(|from| {
+                        let from = &self.functions[*from];
+                        from.calls
+                            .iter()
+                            .filter(|call| self.callees(from, call).contains(&helper))
+                            .count()
+                    })
+                    .sum();
+                (helper, sites)
+            })
+            .collect()
+    }
+
     /// Every function reachable from `entry`, the entry included, in the
     /// order found. A `drop` written in the crate (an `impl Drop`) is
     /// counted as reachable from everywhere, since values are dropped
@@ -1400,6 +1533,156 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["buf", "slot"]
         );
+    }
+
+    #[test]
+    fn a_field_taken_through_a_borrow_or_a_lock_on_a_field_of_self_is_seen() {
+        // RUST-092: in a port built on `Rc<RefCell<..>>` this is the only
+        // form taking a field out and putting it back can have.
+        let c = parse(
+            "pub struct Inner { listeners: Vec<u8>, slot: Option<u8>, queue: Vec<u8> }
+             pub struct S(std::rc::Rc<std::cell::RefCell<Inner>>);
+             pub struct L { inner: std::sync::Mutex<Inner>, state: std::sync::RwLock<Inner> }
+             impl S {
+                 pub fn tick(&self) {
+                     let l = std::mem::take(&mut self.0.borrow_mut().listeners);
+                     self.0.borrow_mut().listeners = l;
+                     let s = self.0.borrow_mut().slot.take();
+                     self.0.borrow_mut().slot = s;
+                 }
+             }
+             impl L {
+                 pub fn tick(&self, other: &Inner) {
+                     let q = std::mem::take(&mut self.inner.lock().unwrap().queue);
+                     self.inner.lock().unwrap().queue = q;
+                     let l = std::mem::replace(&mut self.state.write().expect(\"lock\").listeners, Vec::new());
+                     self.state.write().expect(\"lock\").listeners = l;
+                     let _ = other.queue.len();
+                 }
+             }
+             pub fn free(x: &std::cell::RefCell<Inner>) {
+                 let q = std::mem::take(&mut x.borrow_mut().queue); x.borrow_mut().queue = q;
+             }",
+        );
+        let seen = |name: &str| {
+            let f = &c.functions[c.find(name)[0]];
+            let taken: Vec<(String, String)> = f
+                .takes
+                .iter()
+                .map(|t| (t.field.clone(), t.how.clone()))
+                .collect();
+            (taken, f.assigned_self_fields.clone())
+        };
+        let pair = |a: &str, b: &str| (a.to_string(), b.to_string());
+        let set = |names: &[&str]| names.iter().map(|n| n.to_string()).collect::<BTreeSet<_>>();
+        assert_eq!(
+            seen("S::tick"),
+            (
+                vec![
+                    pair("listeners", "mem::take through .borrow_mut()"),
+                    pair("slot", "Option::take through .borrow_mut()")
+                ],
+                set(&["listeners", "slot"])
+            )
+        );
+        assert_eq!(
+            seen("L::tick"),
+            (
+                vec![
+                    pair("queue", "mem::take through .lock()"),
+                    pair("listeners", "mem::replace through .write()")
+                ],
+                set(&["listeners", "queue"])
+            )
+        );
+        // Not a field of `self`: as before, nothing.
+        assert_eq!(seen("free"), (vec![], set(&[])));
+    }
+
+    #[test]
+    fn shared_ownership_of_a_type_with_cell_fields_is_found() {
+        // RUST-093: the sharing of `Rc<RefCell<State>>` written as
+        // `Rc<State>` with the cells inside `State`.
+        let mut c = Crate::default();
+        c.add_file(
+            "src/lib.rs",
+            &[],
+            "use std::{rc::Rc, sync::Arc};
+             mod state;
+             pub struct Depot { zones: Vec<Rc<state::ZoneState>>, log: Arc<state::Log>, names: Rc<Names>, n: Rc<state::Counter> }
+             pub struct Names { all: Vec<String> }
+             pub fn first(d: &Depot) { let _z: Rc<state::ZoneState> = d.zones[0].clone(); }",
+        )
+        .unwrap();
+        // The types are declared in a file read after the one that uses them.
+        c.add_file(
+            "src/state.rs",
+            &["state".to_string()],
+            "use std::{cell::{Cell, RefCell}, sync::{Mutex, atomic::AtomicU64}};
+             pub struct ZoneState { load: Cell<u32>, waiting: RefCell<Vec<u32>> }
+             pub struct Log { lines: Mutex<Vec<String>> }
+             pub struct Counter(AtomicU64);",
+        )
+        .unwrap();
+        let found: Vec<(String, String, usize)> = c
+            .shared_ownership()
+            .into_iter()
+            .map(|s| (s.construct, s.item, s.line))
+            .collect();
+        let hit = |c: &str, item: &str, line| (c.to_string(), item.to_string(), line);
+        assert_eq!(
+            found,
+            [
+                hit(
+                    "Rc<ZoneState> (ZoneState has cell or lock fields)",
+                    "struct Depot",
+                    3
+                ),
+                hit("Arc<Log> (Log has cell or lock fields)", "struct Depot", 3),
+                hit(
+                    "Rc<Counter> (Counter has cell or lock fields)",
+                    "struct Depot",
+                    3
+                ),
+                hit(
+                    "Rc<ZoneState> (ZoneState has cell or lock fields)",
+                    "fn first",
+                    5
+                ),
+            ],
+            "`Rc<Names>` shares data nobody can change through it: not counted"
+        );
+    }
+
+    #[test]
+    fn call_sites_of_a_helper_that_returns_a_new_collection_are_counted() {
+        // RUST-094: the copy is written once, in the helper, and made at
+        // every call.
+        let c = parse(
+            "pub struct S { bag: Vec<u32>, names: Vec<String> }
+             impl S {
+                 fn bag(&self) -> Vec<u32> { self.bag.to_vec() }
+                 fn label(&self) -> String { format!(\"{}\", self.bag.len()) }
+                 fn total(&self) -> u32 { self.bag.iter().cloned().sum() }
+                 fn empty(&self) -> Vec<u32> { Vec::new() }
+                 pub fn tick(&mut self) {
+                     for b in self.bag() { let _ = b; }
+                     let _ = (self.bag().len(), self.label(), self.total(), self.empty());
+                     self.helper();
+                 }
+                 fn helper(&self) { let _ = self.bag(); }
+                 pub fn elsewhere(&self) { let _ = self.bag(); }
+             }",
+        );
+        let hot = c.reachable(c.find("S::tick")[0]);
+        let counted: Vec<(&str, usize)> = c
+            .call_sites_of_new_collections(&hot)
+            .into_iter()
+            .map(|(f, n)| (c.functions[f].name.as_str(), n))
+            .collect();
+        // `total` copies and returns a number; `empty` returns a collection
+        // and copies nothing; `elsewhere` is not on the hot path.
+        assert_eq!(counted, [("S::bag", 3), ("S::label", 1)]);
     }
 
     #[test]

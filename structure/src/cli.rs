@@ -146,7 +146,15 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
                 .chain(&f.allocating_macros)
                 .map(|c| format!("{} :{}", c.what, c.line))
                 .collect();
-            println!("         {} ({}): {}", f.function, f.file, hits.join(", "));
+            let called = f.calls_on_the_hot_path.map_or(String::new(), |n| {
+                format!("; returns a new collection and is called at {n} place(s) on the hot path")
+            });
+            println!(
+                "         {} ({}): {}{called}",
+                f.function,
+                f.file,
+                hits.join(", ")
+            );
         }
         for t in &h.fields_taken_out_of_self {
             let state = match (&t.justification, t.put_back) {

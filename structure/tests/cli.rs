@@ -344,6 +344,74 @@ impl Default for Sim { fn default() -> Sim { Sim::new(8) } }
 }
 
 #[test]
+fn sharing_written_inside_the_shared_type_is_seen() {
+    // RUST-092 to 094, the form four ports of one pilot took: the handle
+    // is `Rc<State>`, the cells are fields of `State`, a field is taken
+    // out through a borrow, and a helper hands out a new vector per call.
+    let lib = "use std::cell::RefCell;
+use std::rc::Rc;
+pub struct State { bag: RefCell<Vec<u64>>, listeners: RefCell<Vec<u64>> }
+pub struct Inner { listeners: Vec<u64> }
+pub struct Sim { state: Rc<State>, inner: RefCell<Inner> }
+impl Sim {
+    pub fn new(n: usize) -> Sim {
+        Sim { state: Rc::new(State { bag: RefCell::new(vec![1; n]), listeners: RefCell::new(Vec::new()) }), inner: RefCell::new(Inner { listeners: Vec::new() }) }
+    }
+    fn bag(&self) -> Vec<u64> { self.state.bag.borrow().to_vec() }
+    pub fn tick(&mut self) {
+        let listeners = std::mem::take(&mut self.inner.borrow_mut().listeners);
+        let total: u64 = self.bag().iter().sum();
+        let _ = (total, self.bag().len(), self.state.listeners.borrow().len());
+        self.inner.borrow_mut().listeners = listeners;
+    }
+}
+impl Default for Sim { fn default() -> Sim { Sim::new(8) } }
+";
+    let budget = r#", "budget": {"allocations_per_iteration": 2, "bytes_per_iteration": 2000, "reason": "the bag is copied twice"}"#;
+    let (code, report, text) = run(&repo(lib, &hot("Sim::tick", budget, true), "[]"));
+    assert_eq!(code, 1, "{text}");
+    let all = reasons(&report);
+    assert!(
+        all.contains("Rc<State> (State has cell or lock fields) in struct Sim")
+            && all.contains("has no stated owner (S7)"),
+        "{text}"
+    );
+    assert!(
+        all.contains(
+            "`self.listeners` is taken out with mem::take through .borrow_mut() and put back"
+        ),
+        "{text}"
+    );
+    let h = &report["hot_paths"][0];
+    let bag = h["functions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["function"] == "Sim::bag")
+        .unwrap();
+    assert_eq!(bag["calls_on_the_hot_path"], 2, "{text}");
+    assert_eq!(h["copying_constructs"], 1, "{text}");
+    assert_eq!(
+        h["calls_to_functions_that_return_a_new_collection"], 2,
+        "{text}"
+    );
+    assert!(
+        text.contains("returns a new collection and is called at 2 place(s) on the hot path"),
+        "{text}"
+    );
+
+    // Stated, they pass like any other.
+    let stated = r#"[{"check": "S7", "where": "struct Sim", "construct": "Rc<State> (State has cell or lock fields)", "reason": "the view holds it too"},
+                     {"check": "S4", "where": "Sim::tick", "construct": "listeners", "reason": "a listener reads the simulation"}]"#;
+    let (code, report, text) = run(&repo(lib, &hot("Sim::tick", budget, true), stated));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (0, &J::from("pass_with_flags")),
+        "{text}"
+    );
+}
+
+#[test]
 fn unsafe_is_counted_with_its_place() {
     let lib = "pub struct Sim(u64);
 impl Sim {

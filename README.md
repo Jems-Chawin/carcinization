@@ -93,12 +93,15 @@ No CI service is set up.
   nobody wrote a case for, and it has not been run on a real project.
 - `carcinify structure`: an entry point defined twice, under `cfg(feature)`
   and `cfg(not(feature))`, cannot be declared.
-- `carcinify structure` misses three things the step-four pilot ran into.
-  A field of `self` that is taken out and put back is not seen when it is
-  reached through a `RefCell` borrow. Shared ownership is counted where
-  `Rc<RefCell<..>>` is written, and not where an `Rc` holds a type whose
-  fields are cells. A helper that copies is counted once, however many
-  times the hot path calls it.
+- `carcinify structure` now sees three things the step-four pilot ran
+  into, each within limits. A field of `self` taken out and put back
+  through a `RefCell` borrow or a lock is seen when the borrow is written
+  in the same expression, not when it is held in a variable first. An `Rc`
+  or `Arc` of a type whose own fields are cells is counted as shared
+  ownership, by the type's name. A helper that returns a new collection is
+  still one copying construct, with the number of calls to it written on
+  the hot path printed beside it, which is not how often they run. The
+  pilot's numbers were measured before this.
 - The limits each tool states for itself are in its README.
 
 ## Build and test

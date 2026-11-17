@@ -163,11 +163,11 @@ as declared; every other number in it is measured or counted by the tool.
 | | What | Fails when |
 |---|---|---|
 | S1, S2 | Allocations and bytes requested per iteration of each hot path, measured at each declared input size | over the budget at any size; no budget; no reason for the budget; no driver. Flagged when the counts differ between sizes; when allocations were measured and S3 lists nothing that explains them; and when the sizes measured the same (allocations and bytes equal, time per iteration within 10% of each other), which is what a constructor or support function that ignores its argument gives |
-| S3 | `clone`, `cloned`, `collect`, `to_vec`, `to_owned`, `to_string` in each function reachable from the hot path, with file and line; `format!` and `vec!` beside them | never: it is a count for a reader, set beside S1 |
-| S4 | A field of `self` taken out with `mem::take`, `mem::replace`, `mem::swap` or `Option::take` and assigned again in the same function | there is no justification |
+| S3 | `clone`, `cloned`, `collect`, `to_vec`, `to_owned`, `to_string` in each function reachable from the hot path, with file and line; `format!` and `vec!` beside them. A reachable function that returns an owned collection (`Vec`, `VecDeque`, `String`, a map or a set) and contains one of these is listed with the number of calls to it written in the reachable functions, `calls_on_the_hot_path` | never: it is a count for a reader, set beside S1 |
+| S4 | A field of `self` taken out with `mem::take`, `mem::replace`, `mem::swap` or `Option::take` and assigned again in the same function. A field reached through `.borrow_mut()`, `.lock()` or `.write()` on a field of `self` counts as one (`self.inner.borrow_mut().queue`) | there is no justification |
 | S5 | `thread::spawn`, `thread::scope`, `.spawn(..)`, a thread pool or runtime, reachable from the hot path | there is no justification |
 | S6 | Files over 1,000 lines not counting their `#[cfg(test)]` modules (test lines are given beside), functions over 150; `impl` blocks per type, fields per struct | never: flagged |
-| S7 | `Rc<RefCell<..>>`, `Arc<Mutex<..>>` (and `RwLock`, `Cell`), `Weak<..>`, anywhere in the crate | no owner is stated |
+| S7 | `Rc<RefCell<..>>`, `Arc<Mutex<..>>` (and `RwLock`, `Cell`), `Weak<..>`, anywhere in the crate; and `Rc<T>` or `Arc<T>` where `T` is a struct of the crate with a field whose type names `Cell`, `RefCell`, `Mutex`, `RwLock` or an atomic | no owner is stated |
 | `unsafe` | Every `unsafe` block, function and impl with its place; whether the crate has `#![forbid(unsafe_code)]`; test code listed apart | never: flagged when the port's own source has any |
 | S9 | Nanoseconds per iteration from the same run, and the author's declaration on the algorithm | never: a missing declaration is flagged |
 
@@ -175,6 +175,24 @@ The two kinds of check cover each other. An allocation count misses a
 `mem::take` that is put back and an `Rc<RefCell<..>>`, which do not
 allocate per iteration. The construct counts catch those by name and say
 nothing of cost.
+
+What the construct counts are and are not:
+
+- S3 counts constructs, not copies made. A helper that returns a new
+  vector is one construct however often it is called, so
+  `calls_on_the_hot_path` is printed beside it, and the sum for a hot path
+  is `calls_to_functions_that_return_a_new_collection`. That is the number
+  of calls written, not how often they run: a call in a loop is one. Which
+  function a call reaches is decided by name, as everywhere in this tool.
+- S4 sees a field reached through a borrow or a lock only when it is
+  written in one expression. `let mut this = self.0.borrow_mut();` followed
+  by `mem::take(&mut this.queue)` is not seen.
+- S7 counts every `Weak<..>`, shared or not, so a port with one owner and
+  back-references has a count from those alone. It finds the types named
+  in struct fields and inside function bodies, not those in a function's
+  signature. `Rc<T>` is matched to `T` by the name of the type, and only a
+  struct's own fields are read: cells one level further in, in a field's
+  own type, are not followed, and neither is a type alias for the handle.
 
 Verdict: `fail` if any check failed, `pass_with_flags` if there is
 something for a reader to look at, else `pass`.

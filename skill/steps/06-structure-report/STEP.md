@@ -102,7 +102,10 @@ matches nothing fails the run.
 ### 4. Read what does not fail
 
 - **S3, the copying calls.** Each remaining one has a reason you can say.
-  A clone of something that really needs a second life is fine.
+  A clone of something that really needs a second life is fine. A function
+  listed with "returns a new collection and is called at N place(s)" makes
+  its copy at each of those calls: one construct there can be most of the
+  allocations.
 - **A support function was used.** Flagged, with its place. Read it: the
   numbers are for the input it builds. It should build what production
   sees, at the size asked for, and nothing else.
