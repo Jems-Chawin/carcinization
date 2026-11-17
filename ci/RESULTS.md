@@ -27,9 +27,9 @@ takes and nothing more.
 | result | exit 0: as `expected.tsv`, which had 34 rows then and has 36 now | exit 0: as `expected.tsv`, 34 rows then, 36 now | **not completed**: see below |
 
 The last commit at which a run was as expected in every row, of those
-recorded below: macOS, 97994d3; Linux arm64, d0462fe. The two differ in
-this file alone. Commit ids in this
-file are those of the development history.
+recorded below: 4d088b3, on both. Commit ids in this file up to 97994d3
+are those of the development history, which is not published; 4d088b3 is a
+commit of this repository.
 
 The image is `rust:1.100.0-trixie` at
 `sha256:e19840879045c951c905d0eaa9887f3439c62000e429963371b376bac8d38c31`,
@@ -278,6 +278,24 @@ its 36 minutes and up to 53. The decide suite: 29 passed and 1 ignored in
 1,222 s, with 10 runs repeated in eight tests; the NumPy test passed in
 196 s after 12 repeats. No test gave up. Both structure suites 46. No
 second attempt was made, and Linux was not run again.
+
+At 4d088b3, on 2026-11-17 (the structure tool sees a field taken through a
+borrow or a lock, sharing written inside the shared type, and prints the
+calls to a helper that returns a new collection; `ci/run-all.sh` now runs
+every test binary of a suite after one fails), one attempt on each system,
+macOS then Linux, each started when the load had read under 6 for five
+minutes. Both are as expected: exit 0, 36 rows, no run repeated.
+
+- macOS, 24 minutes, load average 4.7 at the start and 4.6 at the end,
+  above 12 for two of those minutes and up to 20.7. The decide suite: 29
+  passed and 1 ignored in 756 s; the NumPy test passed in 76 s; both
+  structure suites 50.
+- Linux arm64, 30 minutes, load average on the host 4.3 at the start and
+  4.0 at the end, above 20 for eight minutes and up to 29.7. The decide
+  suite: 29 and 1 ignored in 581 s; the NumPy test passed in 568 s; both
+  structure suites 50.
+
+Both runs included the two tests that ask crates.io (`RUN_LIVE=1`).
 
 ## Differences found, and what was done
 
