@@ -1,0 +1,19 @@
+[package]
+name = "fleet_appeasement"
+description = "The appeasement port of fleet.py as a Python module, for carcinify diff"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+# Nothing here can be tested without an interpreter; the logic and its tests
+# are in fleet-core, and carcinify diff tests this crate from Python.
+test = false
+doctest = false
+
+[dependencies]
+fleet-core = { path = "../core" }
+pyo3 = "0.30.1"

@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/google-genai/owners",
+ "status": 200,
+ "fetched_at": 1794687504,
+ "body": "{\"users\": [{\"login\": \"cortesi\", \"kind\": \"user\"}]}"
+}

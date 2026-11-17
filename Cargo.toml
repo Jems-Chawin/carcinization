@@ -1,0 +1,10 @@
+[workspace]
+members = ["carcinify", "harness", "structure", "deps", "decide"]
+# The worked example is its own workspace with its own Cargo.lock, as a
+# user's crate would be. Keeping it out also keeps Cargo from merging the
+# harness's serde_json features into the crate under test.
+exclude = ["examples"]
+resolver = "3"
+
+[workspace.package]
+license = "MIT OR Apache-2.0"

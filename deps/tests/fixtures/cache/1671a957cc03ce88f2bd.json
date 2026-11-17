@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/serde-saphyr/owners",
+ "status": 200,
+ "fetched_at": 1794687085,
+ "body": "{\"users\": [{\"login\": \"bourumir-wyngs\", \"kind\": \"user\"}]}"
+}

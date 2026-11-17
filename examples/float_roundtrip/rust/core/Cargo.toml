@@ -1,0 +1,19 @@
+[package]
+name = "ledger-core"
+description = "Worked example for carcinify diff: the ledger store in plain Rust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+# Off by default on purpose. Without it serde_json reads some floats one bit
+# off (396.03999999999996 comes back as 396.04); with it, f64 -> JSON -> f64
+# is exact. suite-buggy.json builds without it, suite-fixed.json with it.
+float-roundtrip = ["serde_json/float_roundtrip"]
+
+[dependencies]
+# Record <-> JSON line.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"

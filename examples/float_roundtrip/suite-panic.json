@@ -1,0 +1,6 @@
+{
+  "schema": "carcinify/diff/suite/1",
+  "original": {"kind": "python", "path": ["python"], "module": "ledger"},
+  "candidate": {"kind": "pyo3", "crate": "rust/py", "module": "ledger_rs", "features": ["float-roundtrip"]},
+  "cases": ["cases/panic.jsonl"]
+}

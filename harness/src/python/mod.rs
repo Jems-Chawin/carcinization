@@ -1,0 +1,328 @@
+//! Everything specific to Python: the driver that runs inside the
+//! interpreter, and building a PyO3 crate with maturin.
+//!
+//! Another source language would get a sibling of this module. Nothing
+//! outside it knows what Python is.
+
+pub mod fresh;
+
+use crate::provenance::sha256_file;
+use crate::side::SideConfig;
+use crate::suite::SideSpec;
+use serde::Serialize;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+pub const DRIVER: &str = include_str!("driver.py");
+
+pub struct Tools {
+    pub python: PathBuf,
+    pub maturin: PathBuf,
+}
+
+/// The parts of a side's report entry that are known before it runs.
+#[derive(Serialize, Default)]
+pub struct Built {
+    pub kind: &'static str,
+    pub module: String,
+    /// Directories the module may be loaded from; anything else is refused.
+    #[serde(skip)]
+    pub load_roots: Vec<PathBuf>,
+    /// Python side: directories put on `sys.path`.
+    #[serde(skip)]
+    pub source_dirs: Vec<PathBuf>,
+    /// Directories the suite declares as shared between the sides.
+    #[serde(skip)]
+    pub shared_roots: Vec<PathBuf>,
+    /// PyO3 side: functions the suite allows to be Python.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub python_functions: Vec<String>,
+    /// PyO3 side: the crate directory.
+    #[serde(skip)]
+    pub crate_dir: Option<PathBuf>,
+    /// PyO3 side: the root of the crate's Cargo workspace, which holds
+    /// Cargo.lock and any sibling crates the build pulls in.
+    #[serde(skip)]
+    pub workspace_dir: Option<PathBuf>,
+    /// PyO3 side: true when the crate was cleaned before this build because
+    /// its inputs were not those of the last build in the target directory
+    /// (or there was no record of one). False for an incremental build.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rebuilt_from_clean: Option<bool>,
+    /// PyO3 side: the target directory this run built in.
+    #[serde(skip)]
+    pub target_dir: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub build_command: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wheel: Option<Wheel>,
+}
+
+#[derive(Serialize)]
+pub struct Wheel {
+    pub file: String,
+    pub sha256: String,
+}
+
+fn tail(path: &Path) -> String {
+    let text = std::fs::read(path).unwrap_or_default();
+    String::from_utf8_lossy(&text[text.len().saturating_sub(3000)..]).into_owned()
+}
+
+fn utf8(p: &Path) -> Result<String, String> {
+    p.to_str()
+        .map(str::to_string)
+        .ok_or_else(|| format!("path is not UTF-8: {}", p.display()))
+}
+
+/// Gets one side ready to run. For a PyO3 crate that means building a wheel
+/// with maturin now, from the working tree, and unpacking it into `work`:
+/// the module that runs is the one just built, never one already installed.
+pub fn prepare(
+    name: &'static str,
+    spec: &SideSpec,
+    suite_dir: &Path,
+    repo_root: &Path,
+    shared: &[PathBuf],
+    work: &Path,
+    tools: &Tools,
+) -> Result<(SideConfig, Built), String> {
+    let driver = work.join("driver.py");
+    std::fs::write(&driver, DRIVER).map_err(|e| format!("cannot write driver: {e}"))?;
+    let dir = |rel: &str| {
+        let p = suite_dir.join(rel);
+        p.canonicalize()
+            .map_err(|e| format!("{name}: {}: {e}", p.display()))
+    };
+    let (module, built) = match spec {
+        SideSpec::Python { path, module } => {
+            let dirs = path.iter().map(|p| dir(p)).collect::<Result<Vec<_>, _>>()?;
+            if dirs.is_empty() {
+                return Err(format!("{name}: \"path\" must name at least one directory"));
+            }
+            let built = Built {
+                kind: "python",
+                module: module.clone(),
+                load_roots: dirs.clone(),
+                source_dirs: dirs,
+                ..Built::default()
+            };
+            (module, built)
+        }
+        SideSpec::Pyo3 {
+            crate_dir,
+            module,
+            features,
+            no_default_features,
+            python_functions,
+        } => {
+            let crate_dir = dir(crate_dir)?;
+            let located = Command::new("cargo")
+                .args(["locate-project", "--workspace", "--message-format", "plain"])
+                .current_dir(&crate_dir)
+                .output()
+                .map_err(|e| format!("{name}: cannot run cargo: {e}"))?;
+            if !located.status.success() {
+                return Err(format!(
+                    "{name}: {} is not a Cargo package: {}",
+                    crate_dir.display(),
+                    String::from_utf8_lossy(&located.stderr).trim()
+                ));
+            }
+            let workspace_dir = Path::new(String::from_utf8_lossy(&located.stdout).trim())
+                .parent()
+                .map(Path::to_path_buf)
+                .ok_or("cargo gave no workspace path")?;
+            let out = work.join(format!("{name}-wheel"));
+            let unpacked = work.join(format!("{name}-module"));
+            let mut cmd = vec![
+                utf8(&tools.maturin)?,
+                "build".to_string(),
+                "--release".to_string(),
+                "--locked".to_string(),
+                "--interpreter".to_string(),
+                utf8(&tools.python)?,
+                "--manifest-path".to_string(),
+                utf8(&crate_dir.join("Cargo.toml"))?,
+                "--out".to_string(),
+                utf8(&out)?,
+            ];
+            // Cargo puts the finished library at one path per target
+            // directory whatever the features, so two runs of the same crate
+            // with different features could hand each other's library to
+            // maturin. Each feature set gets a target directory of its own.
+            let mut variant = features.clone();
+            variant.sort();
+            variant.insert(
+                0,
+                if *no_default_features {
+                    "bare"
+                } else {
+                    "default"
+                }
+                .to_string(),
+            );
+            let variant: String = variant
+                .join("+")
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_alphanumeric() || "+-_".contains(c) {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            cmd.push("--target-dir".to_string());
+            let target_dir = workspace_dir.join("target/carcinify-diff").join(variant);
+            cmd.push(utf8(&target_dir)?);
+            if *no_default_features {
+                cmd.push("--no-default-features".to_string());
+            }
+            if !features.is_empty() {
+                cmd.push("--features".to_string());
+                cmd.push(features.join(","));
+            }
+            let build = fresh::Build {
+                repo_root,
+                crate_dir: &crate_dir,
+                workspace_dir: &workspace_dir,
+                target_dir: &target_dir,
+                local: std::cell::OnceCell::new(),
+            };
+            // One run at a time per target directory, from the check of the
+            // build record to the unpacked wheel. Otherwise a second run of
+            // the same crate and features could clean the directory while
+            // this one is building in it. The lock file sits beside the
+            // target directory, since a clean may remove the directory.
+            let lock_path = target_dir.with_extension("lock");
+            if let Some(parent) = lock_path.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("{name}: cannot create {}: {e}", parent.display()))?;
+            }
+            let lock = std::fs::File::create(&lock_path)
+                .map_err(|e| format!("{name}: cannot create {}: {e}", lock_path.display()))?;
+            lock.lock()
+                .map_err(|e| format!("{name}: cannot lock {}: {e}", lock_path.display()))?;
+            let cleaned = build.clean_if_inputs_changed()?;
+            let log_path = work.join(format!("{name}-build.log"));
+            let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
+            eprintln!(
+                "carcinify diff: building {name} with maturin ({})",
+                crate_dir.display()
+            );
+            let status = Command::new(&cmd[0])
+                .args(&cmd[1..])
+                .current_dir(&crate_dir)
+                .stdout(log.try_clone().map_err(|e| e.to_string())?)
+                .stderr(log)
+                .status()
+                .map_err(|e| {
+                    format!(
+                        "{name}: cannot run maturin ({}): {e}",
+                        tools.maturin.display()
+                    )
+                })?;
+            if !status.success() {
+                build.forget();
+                return Err(format!(
+                    "{name}: maturin build failed ({status}):\n{}",
+                    tail(&log_path)
+                ));
+            }
+            build.record()?;
+            let wheels: Vec<PathBuf> = std::fs::read_dir(&out)
+                .map_err(|e| e.to_string())?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.extension().is_some_and(|x| x == "whl"))
+                .collect();
+            let [wheel] = wheels.as_slice() else {
+                return Err(format!(
+                    "{name}: expected one wheel from maturin, found {}",
+                    wheels.len()
+                ));
+            };
+            let unzip = Command::new(&tools.python)
+                .args(["-I", "-m", "zipfile", "-e"])
+                .arg(wheel)
+                .arg(&unpacked)
+                .output()
+                .map_err(|e| format!("{name}: cannot unpack wheel: {e}"))?;
+            if !unzip.status.success() {
+                return Err(format!(
+                    "{name}: cannot unpack wheel: {}",
+                    String::from_utf8_lossy(&unzip.stderr)
+                ));
+            }
+            drop(lock);
+            let built = Built {
+                kind: "pyo3",
+                module: module.clone(),
+                python_functions: python_functions.clone(),
+                load_roots: vec![unpacked],
+                crate_dir: Some(crate_dir),
+                workspace_dir: Some(workspace_dir),
+                rebuilt_from_clean: Some(cleaned),
+                target_dir: Some(target_dir),
+                build_command: Some(cmd),
+                wheel: Some(Wheel {
+                    file: wheel
+                        .file_name()
+                        .map(|f| f.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                    sha256: sha256_file(wheel)?,
+                }),
+                ..Built::default()
+            };
+            (module, built)
+        }
+    };
+    let mut built = built;
+    built.shared_roots = shared.to_vec();
+    let strings = |dirs: &[PathBuf]| dirs.iter().map(|p| utf8(p)).collect::<Result<Vec<_>, _>>();
+    let roots = strings(&built.load_roots)?;
+    let shared_roots = strings(shared)?;
+    let sys_path = [roots.clone(), shared_roots.clone()].concat();
+    let init = serde_json::json!({
+        "op": "init",
+        "module": module,
+        // The side's own directories first, then the shared ones.
+        "sys_path": sys_path,
+        "must_load_from": roots,
+        "shared_roots": shared_roots,
+        // Set by the caller.
+        "shared_hashes": [],
+        // Filled in by the caller once both sides are prepared.
+        "other_roots": [],
+        // A PyO3 side's functions must be the compiled ones, unless the
+        // suite names them as Python on purpose.
+        "require_extension": built.kind == "pyo3",
+        "python_functions": built.python_functions,
+        // Set by the caller.
+        "count_calls": true,
+    });
+    let cfg = SideConfig {
+        name,
+        program: tools.python.clone(),
+        // -I: no PYTHONPATH, no user site-packages, no current directory on
+        // sys.path. The module comes from where the suite says, or not at all.
+        // pycache_prefix: bytecode is cached in the work directory, which is
+        // new on every run. Python trusts a cache file whose recorded source
+        // time and size match, so a cache left beside the source by an
+        // earlier run could be executed in place of a source file that was
+        // changed without its time or size changing. This way none is read
+        // from the repository and none is written into it.
+        args: vec![
+            "-I".to_string(),
+            "-X".to_string(),
+            format!(
+                "pycache_prefix={}",
+                utf8(&work.join(format!("{name}-pycache")))?
+            ),
+            utf8(&driver)?,
+        ],
+        init,
+        log: work.join(format!("{name}.log")),
+    };
+    Ok((cfg, built))
+}

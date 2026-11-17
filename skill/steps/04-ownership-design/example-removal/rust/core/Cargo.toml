@@ -1,0 +1,8 @@
+[package]
+name = "board-core"
+description = "Two ports of board.py in plain Rust: a plain index that goes stale, and a checked handle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true

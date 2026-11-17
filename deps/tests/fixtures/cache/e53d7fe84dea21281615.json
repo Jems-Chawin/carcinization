@@ -1,0 +1,1 @@
+{"url": "https://crates.io/api/v1/crates/yaml_serde/owners", "status": 200, "fetched_at": 1794689281, "body": "{\"users\": [{\"login\": \"ingydotnet\", \"kind\": \"user\"}]}"}

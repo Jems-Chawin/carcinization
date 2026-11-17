@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/serde_yaml",
+ "status": 200,
+ "fetched_at": 1794687073,
+ "body": "{\"crate\": {\"name\": \"serde_yaml\", \"description\": \"YAML data format for Serde\", \"downloads\": 471783667, \"recent_downloads\": 101356317, \"repository\": \"https://github.com/dtolnay/serde-yaml\", \"created_at\": \"2016-02-27T06:46:34.205590Z\"}, \"versions\": [{\"num\": \"0.9.34+deprecated\", \"created_at\": \"2024-03-25T00:50:19.759577Z\", \"yanked\": false, \"license\": \"MIT OR Apache-2.0\", \"rust_version\": \"1.64\", \"lib_links\": null, \"trustpub_data\": null}, {\"num\": \"0.9.34-deprecated\", \"created_at\": \"2024-03-25T00:48:52.974794Z\", \"yanked\": false, \"license\": \"MIT OR Apache-2.0\", \"rust_version\": \"1.64\", \"lib_links\": null, \"trustpub_data\": null}, {\"num\": \"0.1.0\", \"created_at\": \"2016-02-27T06:46:34.205590Z\", \"yanked\": false, \"license\": \"MIT\", \"rust_version\": null, \"lib_links\": null, \"trustpub_data\": null}]}"
+}

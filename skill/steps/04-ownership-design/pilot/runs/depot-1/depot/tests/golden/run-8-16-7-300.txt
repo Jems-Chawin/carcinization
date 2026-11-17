@@ -1,0 +1,25 @@
+depot 300 13821083003132776037 1800 63 19 1781 0 47 6387 16
+zone 0 222 9 w 1793:0,1796:0 c 49,51,53,54
+zone 1 230 0 w  c 48,59
+zone 2 215 1 w  c 56,61,62
+zone 3 197 1 w  c 52,57,46,50
+zone 4 210 2 w 1799:0 c 
+zone 5 228 0 w  c 
+zone 6 255 0 w  c 60,58
+zone 7 224 0 w  c 55
+courier 46 3 4 20 0 30 b 1786:3
+courier 48 1 6 12 0 34 b 1790:2,1791:2
+courier 49 0 5 3 0 24 b 1797:1
+courier 50 3 8 10 0 26 b 1778:4,1798:1
+courier 51 0 6 1 0 27 b 1766:3,1773:2,1794:1
+courier 52 3 8 0 2 20 b 1781:3,1784:2,1788:1
+courier 53 0 4 6 0 8 b 
+courier 54 0 4 5 0 6 b 
+courier 55 7 6 7 0 11 b 1777:5,1787:4,1792:1
+courier 56 2 5 0 0 10 b 
+courier 57 3 4 19 0 9 b 
+courier 58 6 8 1 0 12 b 
+courier 59 1 7 17 0 7 b 1795:1
+courier 60 6 6 11 0 3 b 
+courier 61 2 4 7 0 2 b 
+courier 62 2 7 1 0 0 b 

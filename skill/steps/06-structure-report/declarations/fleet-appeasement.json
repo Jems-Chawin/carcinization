@@ -1,0 +1,44 @@
+{
+  "schema": "carcinify/structure/declaration/2",
+  "crate": "../../04-ownership-design/example/rust/core",
+  "design_note": "../../04-ownership-design/example/DESIGN.md",
+  "hot_paths": [
+    {
+      "entry": "appeasement::Fleet::tick",
+      "budget": {
+        "allocations_per_iteration": 0,
+        "bytes_per_iteration": 0,
+        "reason": "From DESIGN.md: a tick only changes numbers that already exist and returns nothing."
+      },
+      "driver": {
+        "input": "8 and 24 units placed by seed 7; 24 is the size the example's own allocation test uses",
+        "construct": "fleet_core::appeasement::Fleet::new",
+        "sizes": [
+          {
+            "label": "8 units",
+            "args": [
+              8,
+              7
+            ]
+          },
+          {
+            "label": "24 units",
+            "args": [
+              24,
+              7
+            ]
+          }
+        ],
+        "call": {
+          "method": "tick"
+        },
+        "warm_up": 20,
+        "iterations": 100
+      },
+      "same_algorithm": {
+        "same": true,
+        "statement": "Both ports search every other unit for the nearest, as fleet.py does; nothing was changed but who owns the data."
+      }
+    }
+  ]
+}

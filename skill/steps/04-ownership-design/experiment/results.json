@@ -1,0 +1,432 @@
+[
+ {
+  "run": "control-1",
+  "arm": "control",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 303.3
+  },
+  "counts": {
+   "hot_functions": [
+    "as_slice",
+    "below",
+    "enqueue",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 1,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 7
+   },
+   "lines": 260
+  },
+  "stated_budget": null,
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "control-2",
+  "arm": "control",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 304.4
+  },
+  "counts": {
+   "hot_functions": [
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 1,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 5
+   },
+   "lines": 230
+  },
+  "stated_budget": null,
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "control-3",
+  "arm": "control",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 562.6
+  },
+  "counts": {
+   "hot_functions": [
+    "as_slice",
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 2,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 8
+   },
+   "lines": 245
+  },
+  "stated_budget": null,
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "control-4",
+  "arm": "control",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 429.1
+  },
+  "counts": {
+   "hot_functions": [
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 2,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 6
+   },
+   "lines": 238
+  },
+  "stated_budget": null,
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "step-1",
+  "arm": "step",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 306.8
+  },
+  "counts": {
+   "hot_functions": [
+    "as_slice",
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 3,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 7
+   },
+   "lines": 224
+  },
+  "stated_budget": "- **Allocation budget per iteration, after warm-up:** 0, because a tick only",
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "step-2",
+  "arm": "step",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 285.5
+  },
+  "counts": {
+   "hot_functions": [
+    "as_slice",
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 2,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 7
+   },
+   "lines": 228
+  },
+  "stated_budget": "- **Allocation budget per iteration (one `tick`), after warm-up:** 0, because a tick only moves fixed-size packet values between existing queues and adds to existing counters. The one legitimate allocating event is a queue growing past the largest length it has ever had; that is amortised doubling, ",
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "step-3",
+  "arm": "step",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 262.7
+  },
+  "counts": {
+   "hot_functions": [
+    "as_slice",
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 3,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 6
+   },
+   "lines": 252
+  },
+  "stated_budget": "- **Allocation budget per iteration, after warm-up:** 0, because a tick only",
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ },
+ {
+  "run": "step-4",
+  "arm": "step",
+  "fmt": true,
+  "clippy": true,
+  "own_tests": true,
+  "hot_path": {
+   "allocations_per_tick": 0.0,
+   "bytes_per_tick": 0.0,
+   "ns_per_tick": 318.8
+  },
+  "counts": {
+   "hot_functions": [
+    "below",
+    "inject",
+    "pick",
+    "pump",
+    "tick"
+   ],
+   "hot": {
+    "clone": 0,
+    "collect": 0,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 0
+   },
+   "crate": {
+    "clone": 0,
+    "collect": 1,
+    "to_vec_owned_string": 0,
+    "mem_take_replace": 0,
+    "rc_refcell_arc_mutex": 0,
+    "vec_new_in_body": 2
+   },
+   "lines": 237
+  },
+  "stated_budget": "- **Allocation budget per iteration, after warm-up:** 0, because a tick only",
+  "harness": {
+   "exit": 0,
+   "verdict": "pass",
+   "summary": {
+    "cases": 31,
+    "identical": 31,
+    "identical_with_relaxations": 0,
+    "different": 0,
+    "errors": 0
+   },
+   "commit": "3ff0eac6fc6219aeac25202930d7c7d8168fe6d8",
+   "dirty": false,
+   "reasons": []
+  }
+ }
+]

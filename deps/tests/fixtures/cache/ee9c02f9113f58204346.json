@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/soap-client/owners",
+ "status": 200,
+ "fetched_at": 1794687434,
+ "body": "{\"users\": [{\"login\": \"adminypc\", \"kind\": \"user\"}]}"
+}

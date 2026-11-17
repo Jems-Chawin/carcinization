@@ -1,0 +1,20 @@
+[package]
+name = "carcinify-decide"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+# The files in tests/ run the binary: they are built as the test targets
+# decide of the carcinify crate (carcinify/Cargo.toml).
+autotests = false
+license.workspace = true
+description = "Measures where a Python workload's time goes and sets a declared decision to port, or not, beside the measurements"
+
+[dependencies]
+# Typed reading of the declaration file with unknown fields rejected, and a
+# report with fields in a fixed order.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# The harness's own code for the commit, the dirty check and hashes: one
+# implementation of those, not four.
+carcinify-diff = { path = "../harness" }

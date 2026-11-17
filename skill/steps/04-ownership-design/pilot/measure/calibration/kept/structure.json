@@ -1,0 +1,46 @@
+{
+  "schema": "carcinify/structure/declaration/2",
+  "crate": "depot",
+  "hot_paths": [
+    {
+      "entry": "Depot::step",
+      "budget": {
+        "allocations_per_iteration": 0,
+        "bytes_per_iteration": 0,
+        "reason": "set by the measurer, not by the port's author: zero, so that the tool prints what is above it"
+      },
+      "driver": {
+        "input": "a depot built by Depot::new(zones, couriers, seed), nobody listening",
+        "construct": "depot::Depot::new",
+        "sizes": [
+          {
+            "label": "8 zones, 16 couriers",
+            "args": [
+              8,
+              16,
+              7
+            ]
+          },
+          {
+            "label": "16 zones, 64 couriers",
+            "args": [
+              16,
+              64,
+              7
+            ]
+          }
+        ],
+        "call": {
+          "method": "step"
+        },
+        "warm_up": 300,
+        "iterations": 300
+      },
+      "same_algorithm": {
+        "same": true,
+        "statement": "declared by the measurer: the task is a port, not a new algorithm"
+      }
+    }
+  ],
+  "justifications": []
+}

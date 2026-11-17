@@ -1,0 +1,19 @@
+# Copied beside each finished run by measure.py: the run's `relay` crate as
+# a Python module, so rustify-diff can compare it with relay.py.
+[package]
+name = "relay_rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[dependencies]
+relay = { path = "../relay" }
+pyo3 = "0.30.1"
+
+[workspace]

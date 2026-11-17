@@ -1,0 +1,6 @@
+{
+ "url": "https://pypi.org/pypi/zeep/json",
+ "status": 200,
+ "fetched_at": 1794687339,
+ "body": "{\"info\": {\"name\": \"zeep\", \"version\": \"4.3.3\", \"summary\": \"A Python SOAP client\", \"license\": \"MIT\", \"license_expression\": null, \"project_urls\": {\"Changelog\": \"https://github.com/mvantellingen/python-zeep/blob/main/CHANGES\", \"Documentation\": \"https://docs.python-zeep.org\", \"Repository\": \"https://github.com/mvantellingen/python-zeep\"}, \"home_page\": null, \"description\": \"\"}}"
+}

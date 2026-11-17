@@ -1,0 +1,11 @@
+[package]
+name = "fleet-core"
+description = "Two ports of fleet.py in plain Rust: the counter-example and the designed one"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# No dependencies: the allocation test in tests/ counts with its own
+# twenty-line allocator.

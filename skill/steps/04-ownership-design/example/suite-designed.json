@@ -1,0 +1,6 @@
+{
+  "schema": "carcinify/diff/suite/1",
+  "original": {"kind": "python", "path": ["python"], "module": "fleet"},
+  "candidate": {"kind": "pyo3", "crate": "rust/py-designed", "module": "fleet_designed"},
+  "cases": ["cases/simulate.jsonl"]
+}

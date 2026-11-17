@@ -1,0 +1,39 @@
+{
+  "schema": "carcinify/structure/declaration/2",
+  "crate": "../../../04-ownership-design/experiment/runs/control-4/relay",
+  "hot_paths": [
+    {
+      "entry": "Sim::tick",
+      "budget": {
+        "allocations_per_iteration": 0,
+        "bytes_per_iteration": 0,
+        "reason": "The task says tick is the hot path; a tick moves packets between queues that already exist."
+      },
+      "driver": {
+        "input": "32 nodes, seed 7, as in the experiment's own measurement",
+        "construct": "relay::Sim::new",
+        "sizes": [
+          {
+            "label": "8",
+            "args": [
+              8,
+              7
+            ]
+          },
+          {
+            "label": "32",
+            "args": [
+              32,
+              7
+            ]
+          }
+        ],
+        "call": {
+          "method": "tick"
+        },
+        "warm_up": 2000,
+        "iterations": 2000
+      }
+    }
+  ]
+}

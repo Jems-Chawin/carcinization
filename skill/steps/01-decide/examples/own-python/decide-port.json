@@ -1,0 +1,30 @@
+{
+  "schema": "carcinify/decide/declaration/2",
+  "project_root": ".",
+  "workload": {
+    "description": "One upload of the largest customer file seen so far, 200,000 records, 5.4 MB of text, checked for duplicates inside the upload request. The workload starts from the file's bytes, as the request does.",
+    "file": "upload.py",
+    "function": "run",
+    "args": [],
+    "repeat": 5
+  },
+  "candidate": {
+    "file": "dedupe.py",
+    "function": "find_duplicates_in_upload"
+  },
+  "language_or_algorithm": {
+    "statement": "What is left is the language: one pass that splits each line, and one pass that builds each fingerprint a character at a time, both in the interpreter. No better algorithm is known; the grouping is already one pass.",
+    "better_algorithm_in_python": "none_known"
+  },
+  "decision": {
+    "choice": "port",
+    "goals": [
+      "speed"
+    ],
+    "reason": "The check is one function with one caller, entered once per upload, and it is nearly all of the request's time for a large file. What crosses the boundary is cheap on the way in: one bytes object, handed over whole. On the way out it is about 10,000 pairs of ids, some 30,000 Python objects if built one by one; the port can give them back as one flat buffer of integers. Reading the file is inside the candidate and inside the measurement, because the port will do that too. The rest of the import parses the file again for its own needs, as it does today after this check.",
+    "need": {
+      "statement": "The upload page waits for this request, which may take one second in all. The other steps take about 0.8 seconds for the largest file, so the duplicate check has to finish within 0.2 seconds.",
+      "workload_must_take_at_most_seconds": 0.2
+    }
+  }
+}

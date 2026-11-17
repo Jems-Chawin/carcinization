@@ -1,0 +1,37 @@
+{
+  "schema": "carcinify/structure/declaration/2",
+  "crate": "../../04-ownership-design/example-removal/rust/core",
+  "design_note": "../../04-ownership-design/example-removal/DESIGN.md",
+  "hot_paths": [
+    {
+      "entry": "plain_index::Board::tick",
+      "budget": {
+        "allocations_per_iteration": 1,
+        "bytes_per_iteration": 64,
+        "reason": "From DESIGN.md: only the growth of `done`, amortised. One finished task per tick on average adds a 16-byte entry; doubling growth keeps the average under one allocation and 64 bytes."
+      },
+      "driver": {
+        "input": "a board run from seed 7, which keeps a handful of tasks open",
+        "construct": "board_core::plain_index::Board::new",
+        "sizes": [
+          {
+            "label": "seed 7",
+            "args": [
+              7
+            ]
+          }
+        ],
+        "call": {
+          "method": "tick"
+        },
+        "warm_up": 1000,
+        "iterations": 4000,
+        "one_size_reason": "Board::new takes a seed and nothing else; the board grows and shrinks by itself as it runs, so there is no size to choose"
+      },
+      "same_algorithm": {
+        "same": false,
+        "statement": "A bounds check stands in for the Python's scan of the list for the blocker. It is a different question, not only a different algorithm: see the example's README."
+      }
+    }
+  ]
+}

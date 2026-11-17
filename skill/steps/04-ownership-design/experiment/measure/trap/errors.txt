@@ -1,0 +1,4 @@
+literal.rs:67:13: error[E0499]: cannot borrow `hub.traffic` as mutable more than once at a time: second mutable borrow occurs here
+literal.rs:67:36: error[E0502]: cannot borrow `hub.nodes` as immutable because it is also borrowed as mutable: immutable borrow occurs here
+literal.rs:76:23: error[E0499]: cannot borrow `*self` as mutable more than once at a time: second mutable borrow occurs here
+error: aborting due to 3 previous errors

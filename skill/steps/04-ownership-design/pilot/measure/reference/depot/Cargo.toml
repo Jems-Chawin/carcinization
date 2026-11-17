@@ -1,0 +1,12 @@
+[package]
+name = "depot"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+
+[workspace]
+
+[[test]]
+name = "callers"
+path = "../../../task/tests/callers.rs"

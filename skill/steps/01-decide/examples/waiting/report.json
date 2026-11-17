@@ -1,0 +1,460 @@
+{
+  "candidate": {
+    "best_case": {
+      "holds_only_if": null,
+      "note": "the candidate's own Python taken away entirely; a real port saves less",
+      "seconds_saved_per_run": 0.00034496089079485303,
+      "workload_seconds_if_the_candidate_cost_nothing": 0.7137127471092053,
+      "workload_seconds_now": 0.7140577080000001
+    },
+    "boundary": {
+      "bytes_in_per_call": {
+        "largest": 36420,
+        "median": 36420
+      },
+      "bytes_out_per_call": {
+        "largest": 24,
+        "median": 24
+      },
+      "calls_from_inside_itself": 0,
+      "calls_sampled": 1,
+      "compiled_packages_called_while_it_runs": {},
+      "compiled_packages_loaded": [],
+      "compiled_packages_of_the_locals_and_globals": [],
+      "compiled_packages_of_the_objects_crossing": [],
+      "entered_from_outside": 1,
+      "first_call": {
+        "arguments": {
+          "invoices": "list of tuple, length 400",
+          "target": "str, length 3"
+        },
+        "call": 1,
+        "in_bytes": 36420,
+        "in_objects": 822,
+        "out_bytes": 24,
+        "out_objects": 1,
+        "returns": "float"
+      },
+      "implementation": "cpython",
+      "inside_the_candidate": {
+        "cpu_seconds_of_all_threads": 0.0026639999999999997,
+        "wall_seconds": 0.738177834
+      },
+      "largest_call": {
+        "arguments": {
+          "invoices": "list of tuple, length 400",
+          "target": "str, length 3"
+        },
+        "call": 1,
+        "in_bytes": 36420,
+        "in_objects": 822,
+        "out_bytes": 24,
+        "out_objects": 1,
+        "returns": "float"
+      },
+      "largest_object_of_each_compiled_package_bytes": {},
+      "machine": {
+        "calibration_after": 0.002268148848321827,
+        "calibration_before": 0.0007925202018005395,
+        "load_average_after": [
+          8.14892578125,
+          6.89892578125,
+          10.89306640625
+        ],
+        "load_average_before": [
+          8.14892578125,
+          6.89892578125,
+          10.89306640625
+        ],
+        "logical_cpus": 8
+      },
+      "modules_of_the_types_crossing": [],
+      "object_limit_per_value": 200000,
+      "objects_in_per_call": {
+        "largest": 822,
+        "median": 822
+      },
+      "objects_looked_at_per_value": 20000,
+      "objects_out_per_call": {
+        "largest": 1,
+        "median": 1
+      },
+      "process": {
+        "cpu_seconds": 0.003747,
+        "wall_seconds": 0.739262125
+      },
+      "python": "3.9.6",
+      "samples_cut_at_the_limit": 0,
+      "total_bytes_of_each_compiled_package_seen": {},
+      "walks_cut_short": 0,
+      "watched_from_outside": {
+        "kept_off_the_cpu": 0.0032,
+        "seconds": 1.062
+      }
+    },
+    "caller_names": [
+      "run"
+    ],
+    "callers": 1,
+    "calls": 1,
+    "calls_into_compiled_code": {
+      "available": false,
+      "compiled_packages_loaded": [],
+      "implementation": "cpython",
+      "machine": {
+        "calibration_after": 0.003834439954318869,
+        "calibration_before": 0.0015823002347823412,
+        "load_average_after": [
+          8.14892578125,
+          6.89892578125,
+          10.89306640625
+        ],
+        "load_average_before": [
+          8.14892578125,
+          6.89892578125,
+          10.89306640625
+        ],
+        "logical_cpus": 8
+      },
+      "process": {
+        "cpu_seconds": 0.000011000000000011,
+        "wall_seconds": 0.000010750000000003812
+      },
+      "python": "3.9.6",
+      "watched_from_outside": {
+        "kept_off_the_cpu": 0.0024,
+        "seconds": 0.321
+      },
+      "why": "sys.monitoring needs Python 3.12 or later"
+    },
+    "ceiling": {
+      "holds_only_if": null,
+      "meaning": "1 / (1 - p): the gain if the candidate's own Python cost nothing at all. A real port gains less.",
+      "note": null,
+      "p": 0.0005,
+      "the_whole_workload_could_be_at_most_this_many_times_faster": 1.0
+    },
+    "compiled_modules_imported_by_its_file": [],
+    "compiled_packages_loaded_and_not_seen_in_the_candidate": [],
+    "cumulative_share_of_the_profile": 0.9999,
+    "declared": {
+      "file": "exchange_rates.py",
+      "function": "convert",
+      "line": null,
+      "uses_no_compiled_package": null,
+      "with_stand_ins": null
+    },
+    "declared_to_use_no_compiled_package": null,
+    "file_sha256": "c4223e7f339e641614d0cdd94273bf07b20c43a3ec95167d9b2407ca20cfb8aa",
+    "largest_callees": [
+      {
+        "calls": 20,
+        "cumulative_seconds": 0.7479595010000001,
+        "name": "fetch_rate",
+        "where": "own_python"
+      },
+      {
+        "calls": 1,
+        "cumulative_seconds": 5.8750000000000005e-6,
+        "name": "<built-in method builtins.round>",
+        "where": "compiled"
+      }
+    ],
+    "line": 20,
+    "made_of_seconds_in_the_profile": {
+      "compiled": 0.7477520440000001,
+      "library_python": 0.0,
+      "own_python": 0.000361456
+    },
+    "own_python_share": 0.0005,
+    "own_python_share_bounds": null,
+    "own_python_share_holds_only_if": null,
+    "seconds_per_call_estimate": 0.7139578206042355,
+    "uses_compiled_packages": [],
+    "where_compiled_packages_were_seen": {
+      "built_in_functions_called_while_it_runs": {},
+      "calls_seen_by_sys_monitoring_while_it_runs": null,
+      "local_variables_and_named_globals": [],
+      "named_in_the_candidate_or_in_project_functions_it_calls": {},
+      "types_of_the_objects_going_in_and_out": []
+    },
+    "with_stand_ins": null
+  },
+  "contradictions": [],
+  "declaration": {
+    "file": "skill/steps/01-decide/examples/waiting/decide.json",
+    "sha256": "2531ef55880b4e59b5308385bb393779010d1aa3a6174ebd1a0cfd5a36827718"
+  },
+  "declared_decision": {
+    "choice": "do_not_port",
+    "goals": [],
+    "need": null,
+    "reason": "Almost all of the time is spent waiting for the rates service. A port would wait just as long."
+  },
+  "exit_status": 0,
+  "flag_kinds": [],
+  "flags": [],
+  "git": {
+    "commit": "b8f160dc9b281bd87e7400a74a85e034b3cb3ed3",
+    "dirty": []
+  },
+  "language_or_algorithm": {
+    "alternative_measured": null,
+    "declared_by_the_author": {
+      "better_algorithm_in_python": "exists_untried",
+      "statement": "Neither: the code asks the rates service once per currency and waits for each answer. Asking for all twenty rates in one request, or at the same time, would shorten the wait in any language.",
+      "tried": null
+    }
+  },
+  "limits_used": {
+    "algorithm_removed_most": 0.5,
+    "busy_calibration": 0.1,
+    "busy_while_running": 0.15,
+    "dominant": 0.5,
+    "many_calls": 1000,
+    "many_objects": 10000.0,
+    "min_share_to_port_for_speed": 0.2,
+    "min_wall_seconds": 0.2,
+    "not_watched_above_this_share_of_the_cpus": 0.5,
+    "small_call_seconds": 1e-6,
+    "small_saving_seconds_per_day": 60.0,
+    "stand_in_cpu_over_wall": 1.05,
+    "stand_in_object_bytes": 65536.0,
+    "stand_in_surplus_per_entry_seconds": 1.0,
+    "stand_in_total_bytes": 1048576.0,
+    "stand_ins_leave_calls": 0.01,
+    "stand_ins_remove_little": 0.05
+  },
+  "machine": {
+    "arch": "aarch64",
+    "interpreter": "Python 3.9.6",
+    "logical_cpus": 8,
+    "os": "macos",
+    "python": "3.9.6",
+    "python_implementation": "cpython"
+  },
+  "machine_was_busy": [],
+  "need_for_speed": null,
+  "not_measured": [
+    "Load that came and went inside a run. The machine is judged busy from a short loop of pure computation timed before and after every run, and on Linux from the time the main thread was ready and not running. On other systems a burst of load that began and ended inside one run is not seen. Slow disks and networks are not seen at all: only the CPU is tested. A workload whose own threads or child processes keep running after it returns makes the machine read as busy.",
+    "Whether the workload is representative. The tool ran what the declaration names; a small or unusual input gives a true profile of the wrong thing. The file, function, arguments and times are above so that a reader can judge.",
+    "Compiled work reached without a function call. Arithmetic on large integers, string building, and operators on objects of compiled packages (`a @ b`, `a + b` on arrays) run in compiled code and are counted as time of the Python function they are written in. No instrument used here sees them. Such a function looks like the best candidate and a port of it gains nothing.",
+    "Compiled work reached by calling an object that is not a built-in function: most of NumPy's functions (`np.dot`, `np.add`), a compiled type called to make an object, the standard library's JSON encoder. The profiler counts it as time of the Python function that makes the call. On Python 3.12 and later the tool times such calls made while the candidate runs with `sys.monitoring` and takes the long ones off the candidate's share; on older Pythons it does not see them.",
+    "Every use of a compiled package. The tool looks for one in five places: the names used by the candidate and by the project's functions it calls; the types of the objects that go in and come out of the candidate, as far as lists, dictionaries, instance attributes and slots lead; the local variables of those functions when they return and the globals they name; the built-in functions called while it runs; and on Python 3.12 and later every call made while it runs. An object of a compiled package that is never bound to a name, or sits deeper than the walk goes, and is used only through operators, is found by none of them. When such a package is loaded in the process and nothing was found, the report says so.",
+    "What the stand-ins do. Where the candidate uses a compiled package the author names the same workload with the package's work replaced; the tool times it. It refuses one that is the workload again, that does not call the candidate, that still passes large objects of the package to it, or (Python 3.12 and later) that still makes long calls into the package. It cannot check the rest: a stand-in that still does the work on data the checks do not see leaves the candidate's share too high, and one that skips Python work as well makes it too low.",
+    "Work in other threads, in child processes and on a GPU. The profile covers the main thread. To a comparison of wall time with this process's CPU time, a child process or a GPU at work looks the same as waiting; CPU time of child processes is given where the operating system reports it, GPU time is not seen at all.",
+    "Whether the cost is the language's or the algorithm's. That is the author's judgment, printed as declared; where an alternative in Python was named, the tool measured it.",
+    "What a port would cost to write, test and keep, and what the call across the boundary would cost. The number of calls and the data per call are measured; the cost of converting them is not.",
+    "Whether static types or errors caught at compile time are worth a port here. Time measurements neither support nor contradict those goals."
+  ],
+  "reasons": [],
+  "schema": "carcinify/decide/report/2",
+  "verdict": "consistent",
+  "verdict_means": "`consistent`: no measurement contradicts the declared decision. It does not mean the decision is right. `contradicted`: a measurement plainly does. `incomplete`: something needed is missing. `consistent_if_the_stand_ins_are_faithful`: nothing contradicts a port for speed, and only because of the stand-in workload the author wrote: the candidate uses a compiled package, and how little of its time may be its own Python is known from the stand-ins alone. `consistent_on_the_authors_word`: nothing contradicts a port for speed, a compiled package is loaded in the process, the tool saw the candidate use none and cannot be sure, and the author states that it uses none; the candidate's share holds only if that is true. `unreliable`: the machine was busy while the measurements were made, so none of the figures below should be used; measure again.",
+  "where_the_time_goes": {
+    "classification": "mostly_waiting",
+    "how": "Waiting is one minus CPU time over wall time in the fastest plain run. The rest is split in the proportions of one run under cProfile, with waiting first taken out of the compiled part, since a sleep or a read is a compiled call. A compiled call shorter than the limit below on average is counted with the Python code that makes it. Where the candidate uses a compiled package, the long calls into it that only `sys.monitoring` sees are moved from the project's own Python to compiled code; work reached through operators stays in the project's own Python, and the classification then says the two are not separated.",
+    "instrumented_run": {
+      "seconds_by_where": {
+        "compiled": 0.7477520440000001,
+        "library_python": 0.0,
+        "own_python": 0.00044999800000000006
+      },
+      "times_slower_than_plain": 1.05,
+      "wall_seconds": 0.748218166
+    },
+    "largest_outside_the_project": [
+      {
+        "calls": 20,
+        "file": "~",
+        "long_calls": true,
+        "name": "<built-in method time.sleep>",
+        "self_seconds": 0.7477520440000001,
+        "where": "compiled"
+      },
+      {
+        "calls": 20,
+        "file": "~",
+        "long_calls": false,
+        "name": "<built-in method builtins.sum>",
+        "self_seconds": 0.000049333,
+        "where": "compiled"
+      },
+      {
+        "calls": 400,
+        "file": "~",
+        "long_calls": false,
+        "name": "<built-in method builtins.len>",
+        "self_seconds": 0.000022082000000000003,
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "file": "~",
+        "long_calls": false,
+        "name": "<built-in method builtins.round>",
+        "self_seconds": 5.8750000000000005e-6,
+        "where": "compiled"
+      }
+    ],
+    "moved_from_own_python_to_compiled_code": 0.0,
+    "own_python_functions": [
+      {
+        "callers": 0,
+        "calls": 1,
+        "cumulative_share": 1.0,
+        "file": "workload.py",
+        "line": 9,
+        "name": "run",
+        "own_python_share_with_what_it_calls": 0.0006,
+        "self_share": 0.0
+      },
+      {
+        "callers": 1,
+        "calls": 1,
+        "cumulative_share": 0.9999,
+        "file": "exchange_rates.py",
+        "line": 20,
+        "name": "convert",
+        "own_python_share_with_what_it_calls": 0.0005,
+        "self_share": 0.0002
+      },
+      {
+        "callers": 1,
+        "calls": 20,
+        "cumulative_share": 0.9997,
+        "file": "exchange_rates.py",
+        "line": 13,
+        "name": "fetch_rate",
+        "own_python_share_with_what_it_calls": 0.0003,
+        "self_share": 0.0002
+      },
+      {
+        "callers": 1,
+        "calls": 1,
+        "cumulative_share": 0.0001,
+        "file": "workload.py",
+        "line": 11,
+        "name": "<listcomp>",
+        "own_python_share_with_what_it_calls": 0.0001,
+        "self_share": 0.0001
+      }
+    ],
+    "own_python_functions_seen": 4,
+    "own_python_includes_work_inside_compiled_packages": [],
+    "own_python_may_include_work_inside_loaded_packages": [],
+    "shares": {
+      "compiled_code": 0.0002,
+      "library_python": 0.0,
+      "own_python": 0.0006,
+      "waiting": 0.9992
+    },
+    "short_compiled_call_seconds": 0.00002
+  },
+  "workload": {
+    "declared": {
+      "args": [
+        400
+      ],
+      "description": "One day's invoices, 400 of them in twenty currencies, converted to EUR. The size of an ordinary day.",
+      "file": "workload.py",
+      "function": "run",
+      "repeat": 5
+    },
+    "file": "skill/steps/01-decide/examples/waiting/workload.py",
+    "file_sha256": "657828405dacf6327f7f25c5e4c7a9fa0882c7fe7dea10202e76114503bbbd0e",
+    "measured_with_nothing_attached": {
+      "calibration": {
+        "calibration_after": 0.0013764561059806946,
+        "calibration_before": 0.012489768026095692,
+        "load_average_after": [
+          8.14892578125,
+          6.89892578125,
+          10.89306640625
+        ],
+        "load_average_before": [
+          8.162109375,
+          6.88037109375,
+          10.91015625
+        ],
+        "logical_cpus": 8
+      },
+      "calibration_outside": {
+        "cpus_used_by_the_measured_process": 0.0,
+        "logical_cpus": 8,
+        "watched_from_outside": {
+          "kept_off_the_cpu": 0.0035,
+          "seconds": 4.594
+        }
+      },
+      "child_process_cpu_seconds_median": 0.0,
+      "cpu_seconds_median": 0.0005779999999999674,
+      "fastest_run": {
+        "calibration_after": 0.0030938014760620858,
+        "calibration_before": 0.0047774493150709585,
+        "child_process_cpu_seconds": 0.0,
+        "cpu_seconds": 0.0005960000000000409,
+        "main_thread_cpu_seconds": 0.0005984169999999622,
+        "seconds_ready_and_not_running": null,
+        "wall_seconds": 0.7140577080000001
+      },
+      "main_thread_cpu_seconds_median": 0.0005786250000000548,
+      "peak_memory_bytes": 23658496,
+      "quiet_runs": 5,
+      "runs": [
+        {
+          "calibration_after": 0.0030938014760620858,
+          "calibration_before": 0.0047774493150709585,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.0005960000000000409,
+          "main_thread_cpu_seconds": 0.0005984169999999622,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7140577080000001
+        },
+        {
+          "calibration_after": 0.0050675635764523275,
+          "calibration_before": 0.0030938014760620858,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.0005269999999999997,
+          "main_thread_cpu_seconds": 0.0005290410000000079,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.75415725
+        },
+        {
+          "calibration_after": 0.00378579065212159,
+          "calibration_before": 0.0050675635764523275,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.0005460000000000464,
+          "main_thread_cpu_seconds": 0.0005474580000000007,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7324554590000001
+        },
+        {
+          "calibration_after": 0.0013374369538704522,
+          "calibration_before": 0.00378579065212159,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.0007160000000000499,
+          "main_thread_cpu_seconds": 0.0007159589999999882,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7348305839999996
+        },
+        {
+          "calibration_after": 0.001988797948545229,
+          "calibration_before": 0.0013374369538704522,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.0005779999999999674,
+          "main_thread_cpu_seconds": 0.0005786250000000548,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7243262079999995
+        }
+      ],
+      "wall_seconds": {
+        "fastest": 0.7140577080000001,
+        "median": 0.7324554590000001,
+        "slowest": 0.75415725,
+        "spread_of_median": 0.055
+      }
+    },
+    "project_root": "skill/steps/01-decide/examples/waiting"
+  }
+}

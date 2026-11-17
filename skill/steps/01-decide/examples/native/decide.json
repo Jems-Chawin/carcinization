@@ -1,0 +1,20 @@
+{
+  "schema": "carcinify/decide/declaration/2",
+  "project_root": ".",
+  "workload": {
+    "description": "One hour of events: 24 batches of 4,000 records, each written as JSON, compressed and hashed.",
+    "file": "workload.py",
+    "function": "run",
+    "args": [24],
+    "repeat": 5
+  },
+  "candidate": {"file": "archive.py", "function": "pack"},
+  "language_or_algorithm": {
+    "statement": "Neither is at fault: pack is three calls into the standard library, and the work of each is done in compiled code already.",
+    "better_algorithm_in_python": "none_known"
+  },
+  "decision": {
+    "choice": "do_not_port",
+    "reason": "The project's own Python is a fraction of a percent of the time. The compression level is the thing to look at, not the language."
+  }
+}

@@ -1,0 +1,4 @@
+{"id": "scale-7", "fn": "scale", "args": [7]}
+{"id": "label-7", "fn": "label", "args": [7]}
+{"id": "check-ok", "fn": "check", "args": [5]}
+{"id": "check-negative", "fn": "check", "args": [-5], "expect_raise": true}

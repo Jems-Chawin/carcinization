@@ -1,0 +1,24 @@
+[package]
+name = "ledger_rs"
+description = "Worked example for carcinify diff: ledger-core as a Python module"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+# Nothing here can be tested without an interpreter; the logic and its tests
+# are in ledger-core, and the harness tests this crate from Python.
+test = false
+doctest = false
+
+[features]
+float-roundtrip = ["ledger-core/float-roundtrip"]
+
+[dependencies]
+ledger-core = { path = "../core" }
+# The Python binding. Built by maturin, which sets the extension-module link
+# flags itself, so the old `extension-module` feature is not used.
+pyo3 = "0.30.1"

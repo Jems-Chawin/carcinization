@@ -1,0 +1,2248 @@
+{
+  "schema": "carcinify/deps/report/2",
+  "verdict": "complete",
+  "exit_status": 0,
+  "reasons": [],
+  "not_judged": [
+    "Whether a crate covers the part of the library the piece uses. The report lists what the piece uses; someone has to read the crate's documentation against that list.",
+    "Whether a crate is correct, sound, or well written. Downloads, age and release dates say that people use it and that it is maintained, not that it is right.",
+    "Whether a crate is what it claims to be. Its repository link, description and name are typed by whoever published it, and are not evidence of anything. Download counts are a weak signal: they are dominated by being a dependency of something else, and a crate with 245 million downloads has been taken over. Only an owner that is a GitHub team of the organisation, or a release through trusted publishing from its repository, is checked by crates.io.",
+    "Whether \"none found by these queries\" means none exists. A crate's name often has nothing in common with the Python library's. It means these searches of crates.io, on this day, returned nothing that was kept; the queries are in the report so that they can be run again and added to.",
+    "Whether porting the dependency is worth it at all. Keeping it in Python is listed for every dependency because it is often the right choice, not as a fallback."
+  ],
+  "generated_at": "2026-11-14T21:11:47Z",
+  "source": {
+    "answers": 82,
+    "answers_fetched_on_this_run": 0,
+    "answers_from_the_cache": 82,
+    "mode": "replay",
+    "note": "An answer from the cache is a file in a directory the caller names. The tool cannot tell whether it was changed after it was fetched.",
+    "oldest_cached_answer": "2026-11-14T21:10:24Z"
+  },
+  "advisory_lookup": {
+    "checked": true,
+    "fetched_at": "2026-11-14T21:10:24Z",
+    "probe": "serde_yaml",
+    "status": 200,
+    "url": "https://rustsec.org/packages/serde_yaml.html",
+    "works": true
+  },
+  "unread_imports": [],
+  "flags": [],
+  "min_publish_age_days": 14,
+  "proposal": {
+    "file": "proposal.json",
+    "sha256": "f15bbcc9559e7a6b76ea4e7b991490b192c50e523c2b67cd1afae55a40fcf58f"
+  },
+  "python": {
+    "files": [
+      "python/assistant.py"
+    ],
+    "interpreter": "3.9.6"
+  },
+  "dependencies": [
+    {
+      "import": "google.adk",
+      "used": [
+        {
+          "file": "python/assistant.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            8
+          ],
+          "module": "google.adk.agents",
+          "uses": [
+            "Agent"
+          ]
+        },
+        {
+          "file": "python/assistant.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            9
+          ],
+          "module": "google.adk.runners",
+          "uses": [
+            "Runner"
+          ]
+        }
+      ],
+      "pypi": {
+        "exists": true,
+        "fetched_at": "2026-11-14T21:10:25Z",
+        "home_page": null,
+        "license": null,
+        "name": "google-adk",
+        "name_declared_by": "the proposal",
+        "organisations": [
+          "github.com/google"
+        ],
+        "organisations_from": "the project's source, repository and home links on PyPI",
+        "project_urls": {
+          "changelog": "https://github.com/google/adk-python/blob/main/CHANGELOG.md",
+          "documentation": "https://google.github.io/adk-docs/",
+          "homepage": "https://google.github.io/adk-docs/",
+          "repository": "https://github.com/google/adk-python"
+        },
+        "provides_the_import": {
+          "agrees_with_the_proposal": null,
+          "projects": [],
+          "source": "the two names resemble each other; the library is not installed in the interpreter the tool ran"
+        },
+        "summary": "Agent Development Kit",
+        "version": "2.14.1"
+      },
+      "searches": [
+        {
+          "query": "google-adk",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=google-adk&per_page=10",
+          "fetched_at": "2026-11-14T21:10:25Z",
+          "total": 7,
+          "top": [
+            {
+              "description": "Keel core API contract types (contracts-v1). Single source of truth: contracts/core_api.rs.",
+              "downloads": 664,
+              "name": "keel-core-api",
+              "newest_version": "0.7.0",
+              "recent_downloads": 456,
+              "updated_at": "2026-09-17T23:50:20.395867Z"
+            },
+            {
+              "description": "Keel persistence layer: the Journal trait and its WAL-mode SQLite backend (architecture spec §4.2–4.3), plus the discovery store that feeds ",
+              "downloads": 583,
+              "name": "keel-journal",
+              "newest_version": "0.7.0",
+              "recent_downloads": 393,
+              "updated_at": "2026-09-17T23:50:48.769306Z"
+            },
+            {
+              "description": "The Keel kernel, Tier 1 scope: policy-driven cache/rate/breaker/timeout/retry execution on tokio, per architecture spec §4. Same conformance",
+              "downloads": 488,
+              "name": "keelrun-core",
+              "newest_version": "0.7.0",
+              "recent_downloads": 329,
+              "updated_at": "2026-09-17T23:51:17.216211Z"
+            },
+            {
+              "description": "proc-macro crate for the `keel` Rust front end: #[keel::wrap] reads keel.toml at compile time (walking up from CARGO_MANIFEST_DIR) and gener",
+              "downloads": 389,
+              "name": "keel-macros",
+              "newest_version": "0.7.0",
+              "recent_downloads": 265,
+              "updated_at": "2026-09-17T23:51:44.032450Z"
+            },
+            {
+              "description": "The `keel` binary: run | init | doctor | status | explain. The product's face — every command has a byte-deterministic `--json` twin and sta",
+              "downloads": 297,
+              "name": "keelrun-cli",
+              "newest_version": "0.7.0",
+              "recent_downloads": 184,
+              "updated_at": "2026-09-17T23:52:19.835736Z"
+            },
+            {
+              "description": "Cryptographic audit-trail core: RFC 6962-style Merkle log, Ed25519 identity, salted-tombstone redaction.",
+              "downloads": 211,
+              "name": "witness-log-core",
+              "newest_version": "0.7.1",
+              "recent_downloads": 211,
+              "updated_at": "2026-11-14T03:32:42.927407Z"
+            },
+            {
+              "description": "witness-log: offline verification CLI for witnessed audit logs and witness quorums.",
+              "downloads": 128,
+              "name": "witness-log-cli",
+              "newest_version": "0.7.1",
+              "recent_downloads": 128,
+              "updated_at": "2026-11-14T03:33:33.559207Z"
+            }
+          ]
+        },
+        {
+          "query": "google adk",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=google%20adk&per_page=10",
+          "fetched_at": "2026-11-14T21:10:25Z",
+          "total": 85,
+          "top": [
+            {
+              "description": "A2A Remote Agent MCP server for ADK-Rust Enterprise — agent-card discovery, task management, streaming, and push notifications",
+              "downloads": 75,
+              "name": "mcp-a2a",
+              "newest_version": "1.3.0",
+              "recent_downloads": 6,
+              "updated_at": "2026-08-13T18:20:22.693124Z"
+            },
+            {
+              "description": "Keel core API contract types (contracts-v1). Single source of truth: contracts/core_api.rs.",
+              "downloads": 664,
+              "name": "keel-core-api",
+              "newest_version": "0.7.0",
+              "recent_downloads": 456,
+              "updated_at": "2026-09-17T23:50:20.395867Z"
+            },
+            {
+              "description": "Keel persistence layer: the Journal trait and its WAL-mode SQLite backend (architecture spec §4.2–4.3), plus the discovery store that feeds ",
+              "downloads": 583,
+              "name": "keel-journal",
+              "newest_version": "0.7.0",
+              "recent_downloads": 393,
+              "updated_at": "2026-09-17T23:50:48.769306Z"
+            },
+            {
+              "description": "The Keel kernel, Tier 1 scope: policy-driven cache/rate/breaker/timeout/retry execution on tokio, per architecture spec §4. Same conformance",
+              "downloads": 488,
+              "name": "keelrun-core",
+              "newest_version": "0.7.0",
+              "recent_downloads": 329,
+              "updated_at": "2026-09-17T23:51:17.216211Z"
+            },
+            {
+              "description": "proc-macro crate for the `keel` Rust front end: #[keel::wrap] reads keel.toml at compile time (walking up from CARGO_MANIFEST_DIR) and gener",
+              "downloads": 389,
+              "name": "keel-macros",
+              "newest_version": "0.7.0",
+              "recent_downloads": 265,
+              "updated_at": "2026-09-17T23:51:44.032450Z"
+            },
+            {
+              "description": "The `keel` binary: run | init | doctor | status | explain. The product's face — every command has a byte-deterministic `--json` twin and sta",
+              "downloads": 297,
+              "name": "keelrun-cli",
+              "newest_version": "0.7.0",
+              "recent_downloads": 184,
+              "updated_at": "2026-09-17T23:52:19.835736Z"
+            },
+            {
+              "description": "BitPolar: near-optimal vector quantization with zero training overhead — 3-bit precision, provably unbiased inner products (ICLR 2026)",
+              "downloads": 224,
+              "name": "bitpolar",
+              "newest_version": "0.3.3",
+              "recent_downloads": 57,
+              "updated_at": "2026-03-28T09:30:17.676305Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 104,
+              "name": "agentx-adk-gemini",
+              "newest_version": "2.0.0",
+              "recent_downloads": 104,
+              "updated_at": "2026-08-17T06:26:56.341915Z"
+            },
+            {
+              "description": "An action control plane for AI agents: gate, record, and approve MCP tool calls with a tamper-evident audit chain.",
+              "downloads": 490,
+              "name": "warden-agent",
+              "newest_version": "0.1.0",
+              "recent_downloads": 409,
+              "updated_at": "2026-08-11T06:37:48.831611Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 23274,
+              "name": "adk-gemini",
+              "newest_version": "2.3.0",
+              "recent_downloads": 10577,
+              "updated_at": "2026-10-09T16:39:25.208680Z"
+            }
+          ]
+        },
+        {
+          "query": "adk",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=adk&per_page=10",
+          "fetched_at": "2026-11-14T21:10:26Z",
+          "total": 243,
+          "top": [
+            {
+              "description": "A Rust implementation of ADK(Agent Development Kit)",
+              "downloads": 2100,
+              "name": "adk",
+              "newest_version": "0.2.1",
+              "recent_downloads": 20,
+              "updated_at": "2025-04-12T20:59:19.154881Z"
+            },
+            {
+              "description": "LLM model integrations for Rust Agent Development Kit (ADK-Rust) (Gemini, OpenAI, Claude, DeepSeek, etc.)",
+              "downloads": 53895,
+              "name": "adk-model",
+              "newest_version": "2.3.0",
+              "recent_downloads": 26697,
+              "updated_at": "2026-10-09T16:39:46.824534Z"
+            },
+            {
+              "description": "LLM model integrations for Rust Agent Development Kit (ADK-Rust) (Gemini, OpenAI, Claude, DeepSeek, etc.)",
+              "downloads": 102,
+              "name": "agentx-adk-model",
+              "newest_version": "2.0.2",
+              "recent_downloads": 102,
+              "updated_at": "2026-08-18T21:18:27.793672Z"
+            },
+            {
+              "description": "Command-line launcher for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 6396,
+              "name": "adk-cli",
+              "newest_version": "2.3.0",
+              "recent_downloads": 1510,
+              "updated_at": "2026-10-09T16:49:11.141303Z"
+            },
+            {
+              "description": "Retrieval-Augmented Generation for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 4405,
+              "name": "adk-rag",
+              "newest_version": "2.3.0",
+              "recent_downloads": 1887,
+              "updated_at": "2026-10-09T16:39:48.391685Z"
+            },
+            {
+              "description": "CLI scaffolding tool for ADK-Rust — generate agent projects from templates",
+              "downloads": 2024,
+              "name": "cargo-adk",
+              "newest_version": "2.3.0",
+              "recent_downloads": 1386,
+              "updated_at": "2026-10-09T16:49:54.307381Z"
+            },
+            {
+              "description": "Agent Development Kit (ADK) for building powerful, interoperable AI agents with the Agent-to-Agent (A2A) protocol",
+              "downloads": 1967,
+              "name": "inference-gateway-adk",
+              "newest_version": "0.18.2",
+              "recent_downloads": 218,
+              "updated_at": "2026-11-10T00:46:17.373350Z"
+            },
+            {
+              "description": "CLI tool for Gemini ADK agent development — create, run, web, eval, deploy, api_server",
+              "downloads": 65,
+              "name": "gemini-adk-cli-rs",
+              "newest_version": "4.0.0",
+              "recent_downloads": 39,
+              "updated_at": "2026-10-02T08:14:05.442805Z"
+            },
+            {
+              "description": "Agent implementations for Rust Agent Development Kit (ADK-Rust, LLM, Custom, Workflow agents)",
+              "downloads": 51189,
+              "name": "adk-agent",
+              "newest_version": "2.3.0",
+              "recent_downloads": 19717,
+              "updated_at": "2026-10-09T16:44:10.448593Z"
+            },
+            {
+              "description": "Agent Client Protocol integration for ADK-Rust — use ACP coding agents or expose an ADK agent to editors",
+              "downloads": 2425,
+              "name": "adk-acp",
+              "newest_version": "2.3.0",
+              "recent_downloads": 1843,
+              "updated_at": "2026-10-09T16:43:37.019442Z"
+            }
+          ]
+        },
+        {
+          "query": "agent development kit",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=agent%20development%20kit&per_page=10",
+          "fetched_at": "2026-11-14T21:10:28Z",
+          "total": 369,
+          "top": [
+            {
+              "description": "Binary artifact storage for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 35781,
+              "name": "adk-artifact",
+              "newest_version": "2.3.0",
+              "recent_downloads": 9617,
+              "updated_at": "2026-10-09T16:39:40.964983Z"
+            },
+            {
+              "description": "Binary artifact storage for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 82,
+              "name": "agentx-adk-artifact",
+              "newest_version": "2.0.0",
+              "recent_downloads": 82,
+              "updated_at": "2026-08-17T06:26:06.511247Z"
+            },
+            {
+              "description": "HTTP server and A2A protocol for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 24548,
+              "name": "adk-server",
+              "newest_version": "2.3.0",
+              "recent_downloads": 7781,
+              "updated_at": "2026-10-09T16:47:49.947222Z"
+            },
+            {
+              "description": "OpenTelemetry integration for Rust Agent Development Kit (ADK-Rust) agent observability",
+              "downloads": 71655,
+              "name": "adk-telemetry",
+              "newest_version": "2.3.0",
+              "recent_downloads": 33262,
+              "updated_at": "2026-10-09T16:39:11.242350Z"
+            },
+            {
+              "description": "OpenTelemetry integration for Rust Agent Development Kit (ADK-Rust) agent observability",
+              "downloads": 172,
+              "name": "agentx-adk-telemetry",
+              "newest_version": "2.0.0",
+              "recent_downloads": 172,
+              "updated_at": "2026-08-17T07:41:49.011343Z"
+            },
+            {
+              "description": "Tool system for Rust Agent Development Kit (ADK-Rust) agents (FunctionTool, MCP, Google Search)",
+              "downloads": 43738,
+              "name": "adk-tool",
+              "newest_version": "2.3.0",
+              "recent_downloads": 23273,
+              "updated_at": "2026-10-09T16:43:05.538789Z"
+            },
+            {
+              "description": "Tool system for Rust Agent Development Kit (ADK-Rust) agents (FunctionTool, MCP, Google Search)",
+              "downloads": 103,
+              "name": "agentx-adk-tool",
+              "newest_version": "2.0.1",
+              "recent_downloads": 103,
+              "updated_at": "2026-08-18T20:58:34.523719Z"
+            },
+            {
+              "description": "Semantic memory and search for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 14999,
+              "name": "adk-memory",
+              "newest_version": "2.3.0",
+              "recent_downloads": 4003,
+              "updated_at": "2026-10-09T16:39:45.568333Z"
+            },
+            {
+              "description": "Session management and state persistence for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 58081,
+              "name": "adk-session",
+              "newest_version": "2.3.0",
+              "recent_downloads": 26380,
+              "updated_at": "2026-10-09T16:39:50.006303Z"
+            },
+            {
+              "description": "Session management and state persistence for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 108,
+              "name": "agentx-adk-session",
+              "newest_version": "2.0.0",
+              "recent_downloads": 108,
+              "updated_at": "2026-08-17T06:58:20.849047Z"
+            }
+          ]
+        },
+        {
+          "query": "google adk agent",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=google%20adk%20agent&per_page=10",
+          "fetched_at": "2026-11-14T21:10:30Z",
+          "total": 76,
+          "top": [
+            {
+              "description": "A2A Remote Agent MCP server for ADK-Rust Enterprise — agent-card discovery, task management, streaming, and push notifications",
+              "downloads": 75,
+              "name": "mcp-a2a",
+              "newest_version": "1.3.0",
+              "recent_downloads": 6,
+              "updated_at": "2026-08-13T18:20:22.693124Z"
+            },
+            {
+              "description": "BitPolar: near-optimal vector quantization with zero training overhead — 3-bit precision, provably unbiased inner products (ICLR 2026)",
+              "downloads": 224,
+              "name": "bitpolar",
+              "newest_version": "0.3.3",
+              "recent_downloads": 57,
+              "updated_at": "2026-03-28T09:30:17.676305Z"
+            },
+            {
+              "description": "Keel core API contract types (contracts-v1). Single source of truth: contracts/core_api.rs.",
+              "downloads": 664,
+              "name": "keel-core-api",
+              "newest_version": "0.7.0",
+              "recent_downloads": 456,
+              "updated_at": "2026-09-17T23:50:20.395867Z"
+            },
+            {
+              "description": "Keel persistence layer: the Journal trait and its WAL-mode SQLite backend (architecture spec §4.2–4.3), plus the discovery store that feeds ",
+              "downloads": 583,
+              "name": "keel-journal",
+              "newest_version": "0.7.0",
+              "recent_downloads": 393,
+              "updated_at": "2026-09-17T23:50:48.769306Z"
+            },
+            {
+              "description": "The Keel kernel, Tier 1 scope: policy-driven cache/rate/breaker/timeout/retry execution on tokio, per architecture spec §4. Same conformance",
+              "downloads": 488,
+              "name": "keelrun-core",
+              "newest_version": "0.7.0",
+              "recent_downloads": 329,
+              "updated_at": "2026-09-17T23:51:17.216211Z"
+            },
+            {
+              "description": "proc-macro crate for the `keel` Rust front end: #[keel::wrap] reads keel.toml at compile time (walking up from CARGO_MANIFEST_DIR) and gener",
+              "downloads": 389,
+              "name": "keel-macros",
+              "newest_version": "0.7.0",
+              "recent_downloads": 265,
+              "updated_at": "2026-09-17T23:51:44.032450Z"
+            },
+            {
+              "description": "The `keel` binary: run | init | doctor | status | explain. The product's face — every command has a byte-deterministic `--json` twin and sta",
+              "downloads": 297,
+              "name": "keelrun-cli",
+              "newest_version": "0.7.0",
+              "recent_downloads": 184,
+              "updated_at": "2026-09-17T23:52:19.835736Z"
+            },
+            {
+              "description": "Tool system for Rust Agent Development Kit (ADK-Rust) agents (FunctionTool, MCP, Google Search)",
+              "downloads": 103,
+              "name": "agentx-adk-tool",
+              "newest_version": "2.0.1",
+              "recent_downloads": 103,
+              "updated_at": "2026-08-18T20:58:34.523719Z"
+            },
+            {
+              "description": "Tool system for Rust Agent Development Kit (ADK-Rust) agents (FunctionTool, MCP, Google Search)",
+              "downloads": 43738,
+              "name": "adk-tool",
+              "newest_version": "2.3.0",
+              "recent_downloads": 23273,
+              "updated_at": "2026-10-09T16:43:05.538789Z"
+            },
+            {
+              "description": "Rust port of the Google Agent Development Kit (ADK).",
+              "downloads": 130,
+              "name": "adk-rs",
+              "newest_version": "0.6.0",
+              "recent_downloads": 8,
+              "updated_at": "2026-06-10T14:10:27.742224Z"
+            }
+          ]
+        },
+        {
+          "query": "adk-rust",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=adk-rust&per_page=10",
+          "fetched_at": "2026-11-14T21:10:32Z",
+          "total": 169,
+          "top": [
+            {
+              "description": "Rust Agent Development Kit - Build AI agents in Rust with modular components for models, tools, memory, and more.",
+              "downloads": 41132,
+              "name": "adk-rust",
+              "newest_version": "2.3.0",
+              "recent_downloads": 17458,
+              "updated_at": "2026-10-09T16:51:47.273489Z"
+            },
+            {
+              "description": "Command-line launcher for Rust Agent Development Kit (ADK-Rust) agents",
+              "downloads": 6396,
+              "name": "adk-cli",
+              "newest_version": "2.3.0",
+              "recent_downloads": 1510,
+              "updated_at": "2026-10-09T16:49:11.141303Z"
+            },
+            {
+              "description": "Agent Client Protocol integration for ADK-Rust — use ACP coding agents or expose an ADK agent to editors",
+              "downloads": 2425,
+              "name": "adk-acp",
+              "newest_version": "2.3.0",
+              "recent_downloads": 1843,
+              "updated_at": "2026-10-09T16:43:37.019442Z"
+            },
+            {
+              "description": "Agent Client Protocol integration for ADK-Rust — use ACP coding agents or expose an ADK agent to editors",
+              "downloads": 68,
+              "name": "agentx-adk-acp",
+              "newest_version": "2.0.1",
+              "recent_downloads": 68,
+              "updated_at": "2026-08-18T21:07:13.504546Z"
+            },
+            {
+              "description": "Tool system for Rust Agent Development Kit (ADK-Rust) agents (FunctionTool, MCP, Google Search)",
+              "downloads": 103,
+              "name": "agentx-adk-tool",
+              "newest_version": "2.0.1",
+              "recent_downloads": 103,
+              "updated_at": "2026-08-18T20:58:34.523719Z"
+            },
+            {
+              "description": "Tool system for Rust Agent Development Kit (ADK-Rust) agents (FunctionTool, MCP, Google Search)",
+              "downloads": 43738,
+              "name": "adk-tool",
+              "newest_version": "2.3.0",
+              "recent_downloads": 23273,
+              "updated_at": "2026-10-09T16:43:05.538789Z"
+            },
+            {
+              "description": "OpenTelemetry integration for Rust Agent Development Kit (ADK-Rust) agent observability",
+              "downloads": 172,
+              "name": "agentx-adk-telemetry",
+              "newest_version": "2.0.0",
+              "recent_downloads": 172,
+              "updated_at": "2026-08-17T07:41:49.011343Z"
+            },
+            {
+              "description": "LLM model integrations for Rust Agent Development Kit (ADK-Rust) (Gemini, OpenAI, Claude, DeepSeek, etc.)",
+              "downloads": 102,
+              "name": "agentx-adk-model",
+              "newest_version": "2.0.2",
+              "recent_downloads": 102,
+              "updated_at": "2026-08-18T21:18:27.793672Z"
+            },
+            {
+              "description": "OpenTelemetry integration for Rust Agent Development Kit (ADK-Rust) agent observability",
+              "downloads": 71655,
+              "name": "adk-telemetry",
+              "newest_version": "2.3.0",
+              "recent_downloads": 33262,
+              "updated_at": "2026-10-09T16:39:11.242350Z"
+            },
+            {
+              "description": "LLM model integrations for Rust Agent Development Kit (ADK-Rust) (Gemini, OpenAI, Claude, DeepSeek, etc.)",
+              "downloads": 53895,
+              "name": "adk-model",
+              "newest_version": "2.3.0",
+              "recent_downloads": 26697,
+              "updated_at": "2026-10-09T16:39:46.824534Z"
+            }
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "name": "adk",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"google\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 581,
+            "description": "A Rust implementation of ADK(Agent Development Kit)",
+            "downloads_weak_signal": {
+              "all_time": 2100,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 20
+            },
+            "fetched_at": "2026-11-14T21:10:34Z",
+            "first_published": "2025-04-12T19:30:11Z",
+            "latest_age_days": 581,
+            "latest_published": "2025-04-12T20:59:19Z",
+            "latest_version": "0.2.1",
+            "license": "MIT",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "Yougigun"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/yougigun/rust-adk",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:37Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk.html",
+            "trusted_publishing": null,
+            "versions": 3,
+            "versions_in_the_last_365_days": 0,
+            "yanked_versions": [
+              "0.1.0"
+            ]
+          },
+          "flags": [
+            "1 version(s) were yanked: 0.1.0"
+          ]
+        },
+        {
+          "name": "adk-rust",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"google\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 349,
+            "description": "Rust Agent Development Kit - Build AI agents in Rust with modular components for models, tools, memory, and more.",
+            "downloads_weak_signal": {
+              "all_time": 41132,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 17458
+            },
+            "fetched_at": "2026-11-14T21:10:38Z",
+            "first_published": "2025-11-30T14:55:28Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T16:51:47Z",
+            "latest_version": "2.3.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jkmaina"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zavora-ai/adk-rust",
+            "rust_version": "1.95",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:41Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk-rust.html",
+            "trusted_publishing": null,
+            "versions": 31,
+            "versions_in_the_last_365_days": 31,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "adk-core",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"google\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 349,
+            "description": "Core traits and types for Rust Agent Development Kit (ADK-Rust) agents, tools, sessions, and events",
+            "downloads_weak_signal": {
+              "all_time": 76656,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 34773
+            },
+            "fetched_at": "2026-11-14T21:10:42Z",
+            "first_published": "2025-11-30T13:45:07Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T16:39:08Z",
+            "latest_version": "2.3.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jkmaina"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zavora-ai/adk-rust",
+            "rust_version": "1.95",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:45Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk-core.html",
+            "trusted_publishing": null,
+            "versions": 31,
+            "versions_in_the_last_365_days": 31,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "adk-agent",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"google\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 349,
+            "description": "Agent implementations for Rust Agent Development Kit (ADK-Rust, LLM, Custom, Workflow agents)",
+            "downloads_weak_signal": {
+              "all_time": 51189,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 19717
+            },
+            "fetched_at": "2026-11-14T21:10:47Z",
+            "first_published": "2025-11-30T14:15:17Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T16:44:10Z",
+            "latest_version": "2.3.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jkmaina"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zavora-ai/adk-rust",
+            "rust_version": "1.95",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:51Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk-agent.html",
+            "trusted_publishing": null,
+            "versions": 31,
+            "versions_in_the_last_365_days": 31,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "adk-model",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"google\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 349,
+            "description": "LLM model integrations for Rust Agent Development Kit (ADK-Rust) (Gemini, OpenAI, Claude, DeepSeek, etc.)",
+            "downloads_weak_signal": {
+              "all_time": 53895,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 26697
+            },
+            "fetched_at": "2026-11-14T21:10:53Z",
+            "first_published": "2025-11-30T13:48:27Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T16:39:46Z",
+            "latest_version": "2.3.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jkmaina"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zavora-ai/adk-rust",
+            "rust_version": "1.95",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:58Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk-model.html",
+            "trusted_publishing": null,
+            "versions": 30,
+            "versions_in_the_last_365_days": 30,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "adk-runner",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"google\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 349,
+            "description": "Agent execution runtime for Rust Agent Development Kit (ADK-Rust) agents",
+            "downloads_weak_signal": {
+              "all_time": 51146,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 19757
+            },
+            "fetched_at": "2026-11-14T21:11:00Z",
+            "first_published": "2025-11-30T14:25:58Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T16:42:27Z",
+            "latest_version": "2.3.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jkmaina"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zavora-ai/adk-rust",
+            "rust_version": "1.95",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:04Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk-runner.html",
+            "trusted_publishing": null,
+            "versions": 31,
+            "versions_in_the_last_365_days": 31,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "google-adk",
+          "proposed_as": null,
+          "exists": false,
+          "classification": "not_found",
+          "evidence": [
+            "crates.io answered 404 for https://crates.io/api/v1/crates/google-adk at 2026-11-14T21:11:06Z"
+          ],
+          "facts": null,
+          "flags": [
+            "there is no crate of this name on crates.io"
+          ]
+        }
+      ],
+      "not_examined": [
+        "keel-core-api",
+        "keel-journal",
+        "keelrun-core",
+        "keel-macros",
+        "keelrun-cli",
+        "mcp-a2a",
+        "agentx-adk-model",
+        "adk-cli",
+        "adk-rag",
+        "adk-artifact",
+        "agentx-adk-artifact",
+        "adk-server",
+        "adk-telemetry",
+        "agentx-adk-telemetry",
+        "bitpolar",
+        "adk-acp",
+        "agentx-adk-acp",
+        "agentx-adk-tool"
+      ],
+      "dismissed": [],
+      "outcome": "community_crates",
+      "outcome_reason": "candidates exist; none could be tied to the organisation behind the Python library by evidence the tool can check",
+      "options": [
+        "Use the crate `adk` (community).",
+        "Use the crate `adk-rust` (community).",
+        "Use the crate `adk-core` (community).",
+        "Use the crate `adk-agent` (community).",
+        "Use the crate `adk-model` (community).",
+        "Use the crate `adk-runner` (community).",
+        "Keep it in Python and call across the boundary, or keep the part of the piece that uses it in Python. For numerical, scientific and ML libraries, whose work is already done in compiled code, this is usually the right choice.",
+        "Write the part the piece needs in Rust, if what it uses is small. The list of names used, above, is the size of that job."
+      ],
+      "declared_decision": null,
+      "flags": [
+        "the proposed candidate `google-adk` does not exist on crates.io"
+      ]
+    },
+    {
+      "import": "google.genai",
+      "used": [
+        {
+          "file": "python/assistant.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            7
+          ],
+          "module": "google",
+          "uses": [
+            "genai.Client"
+          ]
+        }
+      ],
+      "pypi": {
+        "exists": true,
+        "fetched_at": "2026-11-14T21:11:08Z",
+        "home_page": null,
+        "license": "Apache-2.0",
+        "name": "google-genai",
+        "name_declared_by": "the proposal",
+        "organisations": [
+          "github.com/googleapis"
+        ],
+        "organisations_from": "the project's source, repository and home links on PyPI",
+        "project_urls": {
+          "Homepage": "https://github.com/googleapis/python-genai"
+        },
+        "provides_the_import": {
+          "agrees_with_the_proposal": null,
+          "projects": [],
+          "source": "the two names resemble each other; the library is not installed in the interpreter the tool ran"
+        },
+        "summary": "GenAI Python SDK",
+        "version": "3.3.0"
+      },
+      "searches": [
+        {
+          "query": "google-genai",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=google-genai&per_page=10",
+          "fetched_at": "2026-11-14T21:11:09Z",
+          "total": 10,
+          "top": [
+            {
+              "description": "Bindigns for the Google AI Platform API",
+              "downloads": 2803,
+              "name": "google-genai",
+              "newest_version": "0.0.2",
+              "recent_downloads": 257,
+              "updated_at": "2024-12-24T00:27:53.664241Z"
+            },
+            {
+              "description": "Unofficial Rust port of the Google Gen AI Python SDK (google-genai) for the Gemini Developer API. Not affiliated with Google.",
+              "downloads": 245,
+              "name": "gemini-genai",
+              "newest_version": "0.4.0",
+              "recent_downloads": 245,
+              "updated_at": "2026-10-03T08:35:41.249903Z"
+            },
+            {
+              "description": "Keel core API contract types (contracts-v1). Single source of truth: contracts/core_api.rs.",
+              "downloads": 664,
+              "name": "keel-core-api",
+              "newest_version": "0.7.0",
+              "recent_downloads": 456,
+              "updated_at": "2026-09-17T23:50:20.395867Z"
+            },
+            {
+              "description": "Keel persistence layer: the Journal trait and its WAL-mode SQLite backend (architecture spec §4.2–4.3), plus the discovery store that feeds ",
+              "downloads": 583,
+              "name": "keel-journal",
+              "newest_version": "0.7.0",
+              "recent_downloads": 393,
+              "updated_at": "2026-09-17T23:50:48.769306Z"
+            },
+            {
+              "description": "The Keel kernel, Tier 1 scope: policy-driven cache/rate/breaker/timeout/retry execution on tokio, per architecture spec §4. Same conformance",
+              "downloads": 488,
+              "name": "keelrun-core",
+              "newest_version": "0.7.0",
+              "recent_downloads": 329,
+              "updated_at": "2026-09-17T23:51:17.216211Z"
+            },
+            {
+              "description": "proc-macro crate for the `keel` Rust front end: #[keel::wrap] reads keel.toml at compile time (walking up from CARGO_MANIFEST_DIR) and gener",
+              "downloads": 389,
+              "name": "keel-macros",
+              "newest_version": "0.7.0",
+              "recent_downloads": 265,
+              "updated_at": "2026-09-17T23:51:44.032450Z"
+            },
+            {
+              "description": "The `keel` binary: run | init | doctor | status | explain. The product's face — every command has a byte-deterministic `--json` twin and sta",
+              "downloads": 297,
+              "name": "keelrun-cli",
+              "newest_version": "0.7.0",
+              "recent_downloads": 184,
+              "updated_at": "2026-09-17T23:52:19.835736Z"
+            },
+            {
+              "description": "Batteries-included mock server for LLM APIs and agents — OpenAI, Anthropic, Gemini, Bedrock and more. Run agentic workflows with zero provid",
+              "downloads": 376,
+              "name": "vidaimock",
+              "newest_version": "0.3.1",
+              "recent_downloads": 335,
+              "updated_at": "2026-08-04T11:54:27.720884Z"
+            },
+            {
+              "description": "Ask System One questions of an OpenAI, Anthropic or Gemini model instead of a decision model",
+              "downloads": 14,
+              "name": "decision-model-adapter",
+              "newest_version": "0.1.0",
+              "recent_downloads": 14,
+              "updated_at": "2026-10-03T13:54:57.101460Z"
+            },
+            {
+              "description": "Google GenAI Gemini API client for elizaOS - Rust implementation with text generation, embeddings, and image analysis",
+              "downloads": 30,
+              "name": "elizaos-plugin-google-genai",
+              "newest_version": "2.0.0",
+              "recent_downloads": 5,
+              "updated_at": "2026-03-17T10:18:58.569661Z"
+            }
+          ]
+        },
+        {
+          "query": "google genai",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=google%20genai&per_page=10",
+          "fetched_at": "2026-11-14T21:11:10Z",
+          "total": 101,
+          "top": [
+            {
+              "description": "Google GenAI Gemini API client for elizaOS - Rust implementation with text generation, embeddings, and image analysis",
+              "downloads": 30,
+              "name": "elizaos-plugin-google-genai",
+              "newest_version": "2.0.0",
+              "recent_downloads": 5,
+              "updated_at": "2026-03-17T10:18:58.569661Z"
+            },
+            {
+              "description": "Bindigns for the Google AI Platform API",
+              "downloads": 2803,
+              "name": "google-genai",
+              "newest_version": "0.0.2",
+              "recent_downloads": 257,
+              "updated_at": "2024-12-24T00:27:53.664241Z"
+            },
+            {
+              "description": "Unofficial Rust port of the Google Gen AI Python SDK (google-genai) for the Gemini Developer API. Not affiliated with Google.",
+              "downloads": 245,
+              "name": "gemini-genai",
+              "newest_version": "0.4.0",
+              "recent_downloads": 245,
+              "updated_at": "2026-10-03T08:35:41.249903Z"
+            },
+            {
+              "description": "Keel core API contract types (contracts-v1). Single source of truth: contracts/core_api.rs.",
+              "downloads": 664,
+              "name": "keel-core-api",
+              "newest_version": "0.7.0",
+              "recent_downloads": 456,
+              "updated_at": "2026-09-17T23:50:20.395867Z"
+            },
+            {
+              "description": "Keel persistence layer: the Journal trait and its WAL-mode SQLite backend (architecture spec §4.2–4.3), plus the discovery store that feeds ",
+              "downloads": 583,
+              "name": "keel-journal",
+              "newest_version": "0.7.0",
+              "recent_downloads": 393,
+              "updated_at": "2026-09-17T23:50:48.769306Z"
+            },
+            {
+              "description": "The Keel kernel, Tier 1 scope: policy-driven cache/rate/breaker/timeout/retry execution on tokio, per architecture spec §4. Same conformance",
+              "downloads": 488,
+              "name": "keelrun-core",
+              "newest_version": "0.7.0",
+              "recent_downloads": 329,
+              "updated_at": "2026-09-17T23:51:17.216211Z"
+            },
+            {
+              "description": "proc-macro crate for the `keel` Rust front end: #[keel::wrap] reads keel.toml at compile time (walking up from CARGO_MANIFEST_DIR) and gener",
+              "downloads": 389,
+              "name": "keel-macros",
+              "newest_version": "0.7.0",
+              "recent_downloads": 265,
+              "updated_at": "2026-09-17T23:51:44.032450Z"
+            },
+            {
+              "description": "The `keel` binary: run | init | doctor | status | explain. The product's face — every command has a byte-deterministic `--json` twin and sta",
+              "downloads": 297,
+              "name": "keelrun-cli",
+              "newest_version": "0.7.0",
+              "recent_downloads": 184,
+              "updated_at": "2026-09-17T23:52:19.835736Z"
+            },
+            {
+              "description": "Multi-provider LLM API client for Gemini, ChatGPT, Claude, DeepSeek, Qwen, Ollama, and llama.cpp. Supports tool calling, logprobs, structure",
+              "downloads": 2384,
+              "name": "samvadsetu",
+              "newest_version": "1.0.1",
+              "recent_downloads": 40,
+              "updated_at": "2026-08-09T06:58:36.102887Z"
+            },
+            {
+              "description": "A Rust client library for Google's Generative AI (Gemini) API with streaming, function calling, and multi-turn conversations",
+              "downloads": 1223,
+              "name": "genai-rs",
+              "newest_version": "0.15.0",
+              "recent_downloads": 409,
+              "updated_at": "2026-11-14T20:47:14.348270Z"
+            }
+          ]
+        },
+        {
+          "query": "gemini",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=gemini&per_page=10",
+          "fetched_at": "2026-11-14T21:11:12Z",
+          "total": 3208,
+          "top": [
+            {
+              "description": "Small set of types useful for working with the Gemini protocol",
+              "downloads": 8074,
+              "name": "gemini",
+              "newest_version": "0.0.5",
+              "recent_downloads": 271,
+              "updated_at": "2022-07-15T02:53:37.158599Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 23274,
+              "name": "adk-gemini",
+              "newest_version": "2.3.0",
+              "recent_downloads": 10577,
+              "updated_at": "2026-10-09T16:39:25.208680Z"
+            },
+            {
+              "description": "Unofficial Rust port of the Google Gen AI Python SDK (google-genai) for the Gemini Developer API. Not affiliated with Google.",
+              "downloads": 245,
+              "name": "gemini-genai",
+              "newest_version": "0.4.0",
+              "recent_downloads": 245,
+              "updated_at": "2026-10-03T08:35:41.249903Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 61009,
+              "name": "gemini-rust",
+              "newest_version": "2.1.0",
+              "recent_downloads": 16021,
+              "updated_at": "2026-09-05T04:55:11.784342Z"
+            },
+            {
+              "description": "Authoritative Gemini tokenizer for Rust, ported from the official Google Python GenAI SDK",
+              "downloads": 6050,
+              "name": "gemini-tokenizer",
+              "newest_version": "0.2.0",
+              "recent_downloads": 3138,
+              "updated_at": "2026-02-07T11:52:37.097430Z"
+            },
+            {
+              "description": "A library for interacting with the Google Gemini API",
+              "downloads": 9683,
+              "name": "ask_gemini",
+              "newest_version": "0.1.4",
+              "recent_downloads": 256,
+              "updated_at": "2024-06-03T23:11:53.890650Z"
+            },
+            {
+              "description": "High-performance Rust client for the Gemini Multimodal Live API",
+              "downloads": 1831,
+              "name": "gemini-live",
+              "newest_version": "0.1.9",
+              "recent_downloads": 1159,
+              "updated_at": "2026-08-26T23:32:38.265533Z"
+            },
+            {
+              "description": "Library to use Google Gemini API. Automatic context management, schema generation, function calling and more.",
+              "downloads": 35054,
+              "name": "gemini-client-api",
+              "newest_version": "7.7.1",
+              "recent_downloads": 1135,
+              "updated_at": "2026-10-20T09:25:58.376375Z"
+            },
+            {
+              "description": "Derive Toolpath provenance documents from Gemini CLI conversation logs",
+              "downloads": 1855,
+              "name": "toolpath-gemini",
+              "newest_version": "0.6.1",
+              "recent_downloads": 1125,
+              "updated_at": "2026-07-30T20:31:31.569547Z"
+            },
+            {
+              "description": "Provider-agnostic Rust clients and wire types for agentic AI APIs",
+              "downloads": 819,
+              "name": "rath-rs",
+              "newest_version": "0.3.5",
+              "recent_downloads": 423,
+              "updated_at": "2026-11-01T20:42:45.803103Z"
+            }
+          ]
+        },
+        {
+          "query": "gemini api client",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=gemini%20api%20client&per_page=10",
+          "fetched_at": "2026-11-14T21:11:14Z",
+          "total": 1451,
+          "top": [
+            {
+              "description": "Library to use Google Gemini API. Automatic context management, schema generation, function calling and more.",
+              "downloads": 35054,
+              "name": "gemini-client-api",
+              "newest_version": "7.7.1",
+              "recent_downloads": 1135,
+              "updated_at": "2026-10-20T09:25:58.376375Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 23274,
+              "name": "adk-gemini",
+              "newest_version": "2.3.0",
+              "recent_downloads": 10577,
+              "updated_at": "2026-10-09T16:39:25.208680Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 104,
+              "name": "agentx-adk-gemini",
+              "newest_version": "2.0.0",
+              "recent_downloads": 104,
+              "updated_at": "2026-08-17T06:26:56.341915Z"
+            },
+            {
+              "description": "Gemini's API for accessing large language models (LLMs).",
+              "downloads": 716,
+              "name": "api_gemini",
+              "newest_version": "0.8.1",
+              "recent_downloads": 169,
+              "updated_at": "2026-06-17T07:08:03.769557Z"
+            },
+            {
+              "description": "Google Gemini API client for Miyabi LLM - Provider-specific implementation",
+              "downloads": 2608,
+              "name": "miyabi-llm-google",
+              "newest_version": "0.1.2",
+              "recent_downloads": 410,
+              "updated_at": "2025-11-22T06:41:29.145582Z"
+            },
+            {
+              "description": "Procedural macros for gemini-client-api",
+              "downloads": 2099,
+              "name": "gemini-proc-macros",
+              "newest_version": "1.1.3",
+              "recent_downloads": 695,
+              "updated_at": "2026-08-26T04:05:39.952309Z"
+            },
+            {
+              "description": "Gemini (Google) adapter for tail-fin: cookie-authenticated HTTP client — text + file attach + multi-turn; no browser",
+              "downloads": 335,
+              "name": "tail-fin-gemini",
+              "newest_version": "0.8.0",
+              "recent_downloads": 71,
+              "updated_at": "2026-07-08T09:51:08.819275Z"
+            },
+            {
+              "description": "Google Gemini API client and agent executor for runkon-flow. Supports both direct API calls and generic subprocess runtimes.",
+              "downloads": 537,
+              "name": "runkon-google",
+              "newest_version": "0.9.0-alpha",
+              "recent_downloads": 445,
+              "updated_at": "2026-11-06T03:22:42.138024Z"
+            },
+            {
+              "description": "A trait-based framework for building agent loops with pluggable LLM clients, tools, and memory",
+              "downloads": 358,
+              "name": "loopctl",
+              "newest_version": "0.5.0",
+              "recent_downloads": 204,
+              "updated_at": "2026-11-03T10:13:38.851818Z"
+            },
+            {
+              "description": "Rust client for Google Gemini API",
+              "downloads": 61009,
+              "name": "gemini-rust",
+              "newest_version": "2.1.0",
+              "recent_downloads": 16021,
+              "updated_at": "2026-09-05T04:55:11.784342Z"
+            }
+          ]
+        },
+        {
+          "query": "genai",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=genai&per_page=10",
+          "fetched_at": "2026-11-14T21:11:16Z",
+          "total": 426,
+          "top": [
+            {
+              "description": "Multi-AI Providers Library for Rust. (OpenAI, Gemini, Anthropic, DeepSeek, Ollama, OMLX, AWS Bedrock, Vertex, Xai, Groq, Kimi, GLM and many ",
+              "downloads": 613548,
+              "name": "genai",
+              "newest_version": "0.7.4",
+              "recent_downloads": 303011,
+              "updated_at": "2026-11-11T22:46:03.187701Z"
+            },
+            {
+              "description": "Unofficial Rust port of the Google Gen AI Python SDK (google-genai) for the Gemini Developer API. Not affiliated with Google.",
+              "downloads": 245,
+              "name": "gemini-genai",
+              "newest_version": "0.4.0",
+              "recent_downloads": 245,
+              "updated_at": "2026-10-03T08:35:41.249903Z"
+            },
+            {
+              "description": "Procedural macros for genai-rs: automatic function declaration generation for Gemini API tool calling",
+              "downloads": 1407,
+              "name": "genai-rs-macros",
+              "newest_version": "0.15.0",
+              "recent_downloads": 458,
+              "updated_at": "2026-11-14T20:44:58.338812Z"
+            },
+            {
+              "description": "A Rust client library for Google's Generative AI (Gemini) API with streaming, function calling, and multi-turn conversations",
+              "downloads": 1223,
+              "name": "genai-rs",
+              "newest_version": "0.15.0",
+              "recent_downloads": 409,
+              "updated_at": "2026-11-14T20:47:14.348270Z"
+            },
+            {
+              "description": "AgentPrism fork of genai (rust-genai): multi-AI-provider client plus the pi-ai layer — assistant/stream contract, GenaiStreamFn, and optiona",
+              "downloads": 103,
+              "name": "genai-agentprism",
+              "newest_version": "0.7.0-beta.19.1-agentprism",
+              "recent_downloads": 80,
+              "updated_at": "2026-08-12T22:16:50.132928Z"
+            },
+            {
+              "description": "Calculate the price of generative AI API calls",
+              "downloads": 3254,
+              "name": "genai-prices",
+              "newest_version": "0.2.3",
+              "recent_downloads": 3254,
+              "updated_at": "2026-11-10T21:51:57.247133Z"
+            },
+            {
+              "description": "Provider-neutral streaming agent loops and tools for rust-genai",
+              "downloads": 26,
+              "name": "rust-genai-agent",
+              "newest_version": "0.2.0",
+              "recent_downloads": 8,
+              "updated_at": "2026-08-12T22:17:03.776920Z"
+            },
+            {
+              "description": "Multi-provider generative-AI model backend (the omnia:model boundary)",
+              "downloads": 22,
+              "name": "omnia-genai",
+              "newest_version": "0.31.0",
+              "recent_downloads": 22,
+              "updated_at": "2026-10-22T01:24:12.389622Z"
+            },
+            {
+              "description": "Forge-maintained genai 0.6.5 fork with corrected parallel tool-call streaming.",
+              "downloads": 113,
+              "name": "forge-agent-genai",
+              "newest_version": "0.6.5-forge.1",
+              "recent_downloads": 78,
+              "updated_at": "2026-07-30T17:32:09.080533Z"
+            },
+            {
+              "description": "Compatibility layer that converts onnxruntime-genai genai_config.json into native onnx-genai inference metadata",
+              "downloads": 250,
+              "name": "onnx-genai-genai-config",
+              "newest_version": "0.1.0-dev.6",
+              "recent_downloads": 142,
+              "updated_at": "2026-09-10T08:29:32.843013Z"
+            }
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "name": "google-genai",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"googleapis\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 693,
+            "description": "Bindigns for the Google AI Platform API",
+            "downloads_weak_signal": {
+              "all_time": 2803,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 257
+            },
+            "fetched_at": "2026-11-14T21:11:18Z",
+            "first_published": "2024-12-21T09:49:53Z",
+            "latest_age_days": 690,
+            "latest_published": "2024-12-24T00:27:53Z",
+            "latest_version": "0.0.2",
+            "license": "MIT",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "cortesi"
+              }
+            ],
+            "proc_macro": false,
+            "repository": null,
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:22Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/google-genai.html",
+            "trusted_publishing": null,
+            "versions": 2,
+            "versions_in_the_last_365_days": 0,
+            "yanked_versions": []
+          },
+          "flags": [
+            "names no repository"
+          ]
+        },
+        {
+          "name": "gemini-genai",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"googleapis\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 83,
+            "description": "Unofficial Rust port of the Google Gen AI Python SDK (google-genai) for the Gemini Developer API. Not affiliated with Google.",
+            "downloads_weak_signal": {
+              "all_time": 245,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 245
+            },
+            "fetched_at": "2026-11-14T21:11:23Z",
+            "first_published": "2026-08-22T22:59:27Z",
+            "latest_age_days": 42,
+            "latest_published": "2026-10-03T08:35:41Z",
+            "latest_version": "0.4.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "siosig"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/siosig/genai-rs",
+            "rust_version": "1.88",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:26Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/gemini-genai.html",
+            "trusted_publishing": {
+              "provider": "github",
+              "repository": "siosig/genai-rs",
+              "run_id": "37110133564",
+              "sha": "5bf1e0a2199a2da6236cc9e2c61f56f5dfe0186d"
+            },
+            "versions": 5,
+            "versions_in_the_last_365_days": 5,
+            "yanked_versions": []
+          },
+          "flags": [
+            "the crate itself is 83 day(s) old"
+          ]
+        },
+        {
+          "name": "gemini-rust",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"googleapis\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 599,
+            "description": "Rust client for Google Gemini API",
+            "downloads_weak_signal": {
+              "all_time": 61009,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 16021
+            },
+            "fetched_at": "2026-11-14T21:11:28Z",
+            "first_published": "2025-03-25T01:10:15Z",
+            "latest_age_days": 70,
+            "latest_published": "2026-09-05T04:55:11Z",
+            "latest_version": "2.1.0",
+            "license": "MIT",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "npatsakula"
+              },
+              {
+                "kind": "user",
+                "login": "flachesis"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/flachesis/gemini-rust",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:31Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/gemini-rust.html",
+            "trusted_publishing": null,
+            "versions": 23,
+            "versions_in_the_last_365_days": 6,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "adk-gemini",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"googleapis\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 320,
+            "description": "Rust client for Google Gemini API",
+            "downloads_weak_signal": {
+              "all_time": 23274,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 10577
+            },
+            "fetched_at": "2026-11-14T21:11:33Z",
+            "first_published": "2025-12-29T04:05:45Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T16:39:25Z",
+            "latest_version": "2.3.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jkmaina"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zavora-ai/adk-rust",
+            "rust_version": "1.95",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:37Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/adk-gemini.html",
+            "trusted_publishing": null,
+            "versions": 23,
+            "versions_in_the_last_365_days": 23,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "gemini",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"googleapis\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 2351,
+            "description": "Small set of types useful for working with the Gemini protocol",
+            "downloads_weak_signal": {
+              "all_time": 8074,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 271
+            },
+            "fetched_at": "2026-11-14T21:11:39Z",
+            "first_published": "2020-06-07T16:59:04Z",
+            "latest_age_days": 1583,
+            "latest_published": "2022-07-15T02:53:37Z",
+            "latest_version": "0.0.5",
+            "license": "GPL-3.0-only",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "sloane-shark"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://nest.pijul.com/mat/gemini-projects",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:42Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/gemini.html",
+            "trusted_publishing": null,
+            "versions": 5,
+            "versions_in_the_last_365_days": 0,
+            "yanked_versions": [
+              "0.0.1"
+            ]
+          },
+          "flags": [
+            "no release for 1583 days",
+            "1 version(s) were yanked: 0.0.1"
+          ]
+        },
+        {
+          "name": "genai",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"googleapis\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 896,
+            "description": "Multi-AI Providers Library for Rust. (OpenAI, Gemini, Anthropic, DeepSeek, Ollama, OMLX, AWS Bedrock, Vertex, Xai, Groq, Kimi, GLM and many more)",
+            "downloads_weak_signal": {
+              "all_time": 613548,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 303011
+            },
+            "fetched_at": "2026-11-14T21:11:44Z",
+            "first_published": "2024-06-01T19:18:59Z",
+            "latest_age_days": 2,
+            "latest_published": "2026-11-11T22:46:03Z",
+            "latest_version": "0.7.4",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "jeremychone"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/jeremychone/rust-genai",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:11:47Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/genai.html",
+            "trusted_publishing": null,
+            "versions": 156,
+            "versions_in_the_last_365_days": 81,
+            "yanked_versions": [
+              "0.5.0-alpha.8",
+              "0.5.0-alpha.7",
+              "0.4.0-alpha.13-WIP",
+              "0.4.0-alpha.2",
+              "0.4.0-alpha.1",
+              "0.2.0-rc.4"
+            ]
+          },
+          "flags": [
+            "the latest version is 2 day(s) old, younger than the minimum publish age of 14: do not take it yet",
+            "6 version(s) were yanked: 0.5.0-alpha.8, 0.5.0-alpha.7, 0.4.0-alpha.13-WIP, 0.4.0-alpha.2, 0.4.0-alpha.1, 0.2.0-rc.4"
+          ]
+        }
+      ],
+      "not_examined": [
+        "keel-core-api",
+        "keel-journal",
+        "keelrun-core",
+        "elizaos-plugin-google-genai",
+        "gemini-tokenizer",
+        "gemini-client-api",
+        "agentx-adk-gemini",
+        "api_gemini",
+        "miyabi-llm-google",
+        "genai-rs-macros",
+        "genai-rs",
+        "genai-agentprism"
+      ],
+      "dismissed": [],
+      "outcome": "community_crates",
+      "outcome_reason": "candidates exist; none could be tied to the organisation behind the Python library by evidence the tool can check",
+      "options": [
+        "Use the crate `google-genai` (community).",
+        "Use the crate `gemini-genai` (community).",
+        "Use the crate `gemini-rust` (community).",
+        "Use the crate `adk-gemini` (community).",
+        "Use the crate `gemini` (community).",
+        "Use the crate `genai` (community).",
+        "Keep it in Python and call across the boundary, or keep the part of the piece that uses it in Python. For numerical, scientific and ML libraries, whose work is already done in compiled code, this is usually the right choice.",
+        "Write the part the piece needs in Rust, if what it uses is small. The list of names used, above, is the size of that job."
+      ],
+      "declared_decision": null,
+      "flags": []
+    }
+  ],
+  "not_looked_up": [],
+  "requests": [
+    {
+      "url": "https://rustsec.org/packages/serde_yaml.html",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:24Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://pypi.org/pypi/google-adk/json",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:25Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=google-adk&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:25Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=google%20adk&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:25Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=agent%20development%20kit&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:28Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=google%20adk%20agent&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:30Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk-rust&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:32Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:34Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:35Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk/0.2.1/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk/0.2.1/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-rust",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:38Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-rust/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:39Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk-rust.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:41Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-rust/2.3.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:41Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-rust/2.3.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:41Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-core",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:42Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-core/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:43Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk-core.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:45Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-core/2.3.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:45Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-core/2.3.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:45Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk-core&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:46Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-agent",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:47Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-agent/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:49Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk-agent.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:51Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-agent/2.3.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:51Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-agent/2.3.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:51Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk-agent&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:52Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-model",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:53Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-model/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:56Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk-model.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:58Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-model/2.3.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:58Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-model/2.3.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:58Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk-model&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:59Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-runner",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:00Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-runner/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:02Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk-runner.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:04Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-runner/2.3.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:04Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-runner/2.3.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:04Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk-runner&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:05Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/google-adk",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:06Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://pypi.org/pypi/google-genai/json",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:08Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=google-genai&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=google%20genai&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:10Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=gemini&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:12Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=gemini%20api%20client&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:14Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=genai&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:16Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/google-genai",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:18Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/google-genai/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/google-genai.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:22Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/google-genai/0.0.2/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:22Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/google-genai/0.0.2/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:22Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/gemini-genai",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:23Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/gemini-genai/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:24Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/gemini-genai.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/gemini-genai/0.4.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/gemini-genai/0.4.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=gemini-genai&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:27Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/gemini-rust",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:28Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/gemini-rust/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:30Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/gemini-rust.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:31Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/gemini-rust/2.1.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:31Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/gemini-rust/2.1.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:31Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=gemini-rust&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:32Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-gemini",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:33Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/adk-gemini/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:35Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/adk-gemini.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-gemini/2.3.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/adk-gemini/2.3.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=adk-gemini&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:38Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/gemini",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:39Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/gemini/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:41Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/gemini.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:42Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/gemini/0.0.5/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:42Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/gemini/0.0.5/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:43Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/genai",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:44Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/genai/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:45Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/genai.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:11:47Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/genai/0.7.4/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:47Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/genai/0.7.4/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:11:47Z",
+      "from_cache": true
+    }
+  ],
+  "user_agent": null
+}

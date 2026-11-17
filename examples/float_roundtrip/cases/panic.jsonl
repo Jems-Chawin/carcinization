@@ -1,0 +1,2 @@
+{"id": "one-record", "fn": "first_amount", "encoding": "typed", "args": [{"t": "list", "v": [{"t": "map", "v": [[{"t": "str", "v": "id"}, {"t": "int", "v": "1"}], [{"t": "str", "v": "name"}, {"t": "str", "v": "freight"}], [{"t": "str", "v": "amount"}, {"t": "float", "bits": "4078c0a3d70a3d70"}]]}]}]}
+{"id": "no-records", "fn": "first_amount", "encoding": "typed", "args": [{"t": "list", "v": []}], "expect_raise": true}

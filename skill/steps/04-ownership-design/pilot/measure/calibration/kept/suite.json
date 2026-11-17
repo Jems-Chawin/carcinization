@@ -1,0 +1,19 @@
+{
+  "schema": "carcinify/diff/suite/1",
+  "original": {
+    "kind": "python",
+    "path": [
+      "../../../measure/original",
+      "../../../task"
+    ],
+    "module": "original"
+  },
+  "candidate": {
+    "kind": "pyo3",
+    "crate": "py",
+    "module": "depot_rs"
+  },
+  "cases": [
+    "../../../measure/cases.jsonl"
+  ]
+}

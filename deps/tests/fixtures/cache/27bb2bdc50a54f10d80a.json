@@ -1,0 +1,1 @@
+{"url": "https://crates.io/api/v1/crates/rattler_build_yaml_parser/owners", "status": 200, "fetched_at": 1794689245, "body": "{\"users\": [{\"login\": \"baszalmstra\", \"kind\": \"user\"}, {\"login\": \"wolfv\", \"kind\": \"user\"}, {\"login\": \"Hofer-Julian\", \"kind\": \"user\"}]}"}

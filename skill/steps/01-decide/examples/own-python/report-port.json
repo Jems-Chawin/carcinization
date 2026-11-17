@@ -1,0 +1,571 @@
+{
+  "candidate": {
+    "best_case": {
+      "holds_only_if": null,
+      "note": "the candidate's own Python taken away entirely; a real port saves less",
+      "seconds_saved_per_run": 0.7324130190937894,
+      "workload_seconds_if_the_candidate_cost_nothing": 0.006253355906210344,
+      "workload_seconds_now": 0.7386663749999998
+    },
+    "boundary": {
+      "bytes_in_per_call": {
+        "largest": 5423190,
+        "median": 5423190
+      },
+      "bytes_out_per_call": {
+        "largest": 1222424,
+        "median": 1222424
+      },
+      "calls_from_inside_itself": 0,
+      "calls_sampled": 1,
+      "compiled_packages_called_while_it_runs": {},
+      "compiled_packages_loaded": [],
+      "compiled_packages_of_the_locals_and_globals": [],
+      "compiled_packages_of_the_objects_crossing": [],
+      "entered_from_outside": 1,
+      "first_call": {
+        "arguments": {
+          "data": "bytes, length 5423093"
+        },
+        "call": 1,
+        "in_bytes": 5423190,
+        "in_objects": 1,
+        "out_bytes": 1222424,
+        "out_objects": 30447,
+        "returns": "list of tuple, length 10170"
+      },
+      "implementation": "cpython",
+      "inside_the_candidate": {
+        "cpu_seconds_of_all_threads": 8.272924,
+        "wall_seconds": 8.297972374999999
+      },
+      "largest_call": {
+        "arguments": {
+          "data": "bytes, length 5423093"
+        },
+        "call": 1,
+        "in_bytes": 5423190,
+        "in_objects": 1,
+        "out_bytes": 1222424,
+        "out_objects": 30447,
+        "returns": "list of tuple, length 10170"
+      },
+      "largest_object_of_each_compiled_package_bytes": {},
+      "machine": {
+        "calibration_after": 0.0024915567616937695,
+        "calibration_before": 0.002748507834189673,
+        "load_average_after": [
+          8.48046875,
+          7.28564453125,
+          10.63427734375
+        ],
+        "load_average_before": [
+          8.69677734375,
+          7.3076171875,
+          10.66162109375
+        ],
+        "logical_cpus": 8
+      },
+      "modules_of_the_types_crossing": [],
+      "object_limit_per_value": 200000,
+      "objects_in_per_call": {
+        "largest": 1,
+        "median": 1
+      },
+      "objects_looked_at_per_value": 20000,
+      "objects_out_per_call": {
+        "largest": 30447,
+        "median": 30447
+      },
+      "process": {
+        "cpu_seconds": 8.493576,
+        "wall_seconds": 8.519182792
+      },
+      "python": "3.9.6",
+      "samples_cut_at_the_limit": 0,
+      "total_bytes_of_each_compiled_package_seen": {},
+      "walks_cut_short": 2,
+      "watched_from_outside": {
+        "kept_off_the_cpu": 0.0032,
+        "seconds": 8.851
+      }
+    },
+    "caller_names": [
+      "run"
+    ],
+    "callers": 1,
+    "calls": 1,
+    "calls_into_compiled_code": {
+      "available": false,
+      "compiled_packages_loaded": [],
+      "implementation": "cpython",
+      "machine": {
+        "calibration_after": 0.0029971942482716063,
+        "calibration_before": 0.007818075404299019,
+        "load_average_after": [
+          8.48046875,
+          7.28564453125,
+          10.63427734375
+        ],
+        "load_average_before": [
+          8.48046875,
+          7.28564453125,
+          10.63427734375
+        ],
+        "logical_cpus": 8
+      },
+      "process": {
+        "cpu_seconds": 0.000026999999999999247,
+        "wall_seconds": 0.000027624999999975582
+      },
+      "python": "3.9.6",
+      "watched_from_outside": {
+        "kept_off_the_cpu": 0.0045,
+        "seconds": 0.323
+      },
+      "why": "sys.monitoring needs Python 3.12 or later"
+    },
+    "ceiling": {
+      "holds_only_if": null,
+      "meaning": "1 / (1 - p): the gain if the candidate's own Python cost nothing at all. A real port gains less.",
+      "note": "nearly all of the time is this piece, so the formula gives no useful bound",
+      "p": 0.9915,
+      "the_whole_workload_could_be_at_most_this_many_times_faster": null
+    },
+    "compiled_modules_imported_by_its_file": [],
+    "compiled_packages_loaded_and_not_seen_in_the_candidate": [],
+    "cumulative_share_of_the_profile": 0.9951,
+    "declared": {
+      "file": "dedupe.py",
+      "function": "find_duplicates_in_upload",
+      "line": null,
+      "uses_no_compiled_package": null,
+      "with_stand_ins": null
+    },
+    "declared_to_use_no_compiled_package": null,
+    "file_sha256": "6e89d6cd75d02601fe90c79c42d83de478d3f88243b368510e0bcabb43999539",
+    "largest_callees": [
+      {
+        "calls": 1,
+        "cumulative_seconds": 2.038963167,
+        "name": "find_duplicates_grouped",
+        "where": "own_python"
+      },
+      {
+        "calls": 200000,
+        "cumulative_seconds": 0.025035344,
+        "name": "<method 'split' of 'str' objects>",
+        "where": "compiled"
+      },
+      {
+        "calls": 200000,
+        "cumulative_seconds": 0.010727373,
+        "name": "<method 'append' of 'list' objects>",
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "cumulative_seconds": 0.007208334,
+        "name": "<method 'splitlines' of 'str' objects>",
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "cumulative_seconds": 0.00021725,
+        "name": "<method 'decode' of 'bytes' objects>",
+        "where": "compiled"
+      }
+    ],
+    "line": 51,
+    "made_of_seconds_in_the_profile": {
+      "compiled": 0.007733168,
+      "library_python": 0.0,
+      "own_python": 2.15026004
+    },
+    "own_python_share": 0.9915,
+    "own_python_share_bounds": null,
+    "own_python_share_holds_only_if": null,
+    "seconds_per_call_estimate": 0.7350426537227066,
+    "uses_compiled_packages": [],
+    "where_compiled_packages_were_seen": {
+      "built_in_functions_called_while_it_runs": {},
+      "calls_seen_by_sys_monitoring_while_it_runs": null,
+      "local_variables_and_named_globals": [],
+      "named_in_the_candidate_or_in_project_functions_it_calls": {},
+      "types_of_the_objects_going_in_and_out": []
+    },
+    "with_stand_ins": null
+  },
+  "contradictions": [],
+  "declaration": {
+    "file": "skill/steps/01-decide/examples/own-python/decide-port.json",
+    "sha256": "8e96a5522212888c9529559fa1de33defc561d04e2897301f08754dc8ff3e643"
+  },
+  "declared_decision": {
+    "choice": "port",
+    "goals": [
+      "speed"
+    ],
+    "need": {
+      "runs_per_day": null,
+      "statement": "The upload page waits for this request, which may take one second in all. The other steps take about 0.8 seconds for the largest file, so the duplicate check has to finish within 0.2 seconds.",
+      "workload_must_take_at_most_seconds": 0.2
+    },
+    "reason": "The check is one function with one caller, entered once per upload, and it is nearly all of the request's time for a large file. What crosses the boundary is cheap on the way in: one bytes object, handed over whole. On the way out it is about 10,000 pairs of ids, some 30,000 Python objects if built one by one; the port can give them back as one flat buffer of integers. Reading the file is inside the candidate and inside the measurement, because the port will do that too. The rest of the import parses the file again for its own needs, as it does today after this check."
+  },
+  "exit_status": 0,
+  "flag_kinds": [
+    {
+      "judged_by_time": true,
+      "kind": "slow_profile",
+      "text": "the instrumented run took 2.9 times as long as a plain one. The profiler's cost falls on every call, so the shares lean towards code that makes many small calls; the totals are from the plain runs and are not affected"
+    },
+    {
+      "judged_by_time": false,
+      "kind": "many_objects_crossing",
+      "text": "a typical call of the candidate takes in and gives back 30448 Python objects. Each has to be converted at the boundary unless the design avoids it; that cost is not in these measurements"
+    }
+  ],
+  "flags": [
+    "the instrumented run took 2.9 times as long as a plain one. The profiler's cost falls on every call, so the shares lean towards code that makes many small calls; the totals are from the plain runs and are not affected",
+    "a typical call of the candidate takes in and gives back 30448 Python objects. Each has to be converted at the boundary unless the design avoids it; that cost is not in these measurements"
+  ],
+  "git": {
+    "commit": "b8f160dc9b281bd87e7400a74a85e034b3cb3ed3",
+    "dirty": []
+  },
+  "language_or_algorithm": {
+    "alternative_measured": null,
+    "declared_by_the_author": {
+      "better_algorithm_in_python": "none_known",
+      "statement": "What is left is the language: one pass that splits each line, and one pass that builds each fingerprint a character at a time, both in the interpreter. No better algorithm is known; the grouping is already one pass.",
+      "tried": null
+    }
+  },
+  "limits_used": {
+    "algorithm_removed_most": 0.5,
+    "busy_calibration": 0.1,
+    "busy_while_running": 0.15,
+    "dominant": 0.5,
+    "many_calls": 1000,
+    "many_objects": 10000.0,
+    "min_share_to_port_for_speed": 0.2,
+    "min_wall_seconds": 0.2,
+    "not_watched_above_this_share_of_the_cpus": 0.5,
+    "small_call_seconds": 1e-6,
+    "small_saving_seconds_per_day": 60.0,
+    "stand_in_cpu_over_wall": 1.05,
+    "stand_in_object_bytes": 65536.0,
+    "stand_in_surplus_per_entry_seconds": 1.0,
+    "stand_in_total_bytes": 1048576.0,
+    "stand_ins_leave_calls": 0.01,
+    "stand_ins_remove_little": 0.05
+  },
+  "machine": {
+    "arch": "aarch64",
+    "interpreter": "Python 3.9.6",
+    "logical_cpus": 8,
+    "os": "macos",
+    "python": "3.9.6",
+    "python_implementation": "cpython"
+  },
+  "machine_was_busy": [],
+  "need_for_speed": {
+    "declared_by_the_author": {
+      "runs_per_day": null,
+      "statement": "The upload page waits for this request, which may take one second in all. The other steps take about 0.8 seconds for the largest file, so the duplicate check has to finish within 0.2 seconds.",
+      "workload_must_take_at_most_seconds": 0.2
+    },
+    "holds_only_if": null,
+    "seconds_saved_per_day_at_best": null,
+    "seconds_saved_per_run_at_best": 0.7324130190937894,
+    "workload_seconds_if_the_candidate_cost_nothing": 0.006253355906210344,
+    "workload_seconds_now": 0.7386663749999998
+  },
+  "not_measured": [
+    "Load that came and went inside a run. The machine is judged busy from a short loop of pure computation timed before and after every run, and on Linux from the time the main thread was ready and not running. On other systems a burst of load that began and ended inside one run is not seen. Slow disks and networks are not seen at all: only the CPU is tested. A workload whose own threads or child processes keep running after it returns makes the machine read as busy.",
+    "Whether the workload is representative. The tool ran what the declaration names; a small or unusual input gives a true profile of the wrong thing. The file, function, arguments and times are above so that a reader can judge.",
+    "Compiled work reached without a function call. Arithmetic on large integers, string building, and operators on objects of compiled packages (`a @ b`, `a + b` on arrays) run in compiled code and are counted as time of the Python function they are written in. No instrument used here sees them. Such a function looks like the best candidate and a port of it gains nothing.",
+    "Compiled work reached by calling an object that is not a built-in function: most of NumPy's functions (`np.dot`, `np.add`), a compiled type called to make an object, the standard library's JSON encoder. The profiler counts it as time of the Python function that makes the call. On Python 3.12 and later the tool times such calls made while the candidate runs with `sys.monitoring` and takes the long ones off the candidate's share; on older Pythons it does not see them.",
+    "Every use of a compiled package. The tool looks for one in five places: the names used by the candidate and by the project's functions it calls; the types of the objects that go in and come out of the candidate, as far as lists, dictionaries, instance attributes and slots lead; the local variables of those functions when they return and the globals they name; the built-in functions called while it runs; and on Python 3.12 and later every call made while it runs. An object of a compiled package that is never bound to a name, or sits deeper than the walk goes, and is used only through operators, is found by none of them. When such a package is loaded in the process and nothing was found, the report says so.",
+    "What the stand-ins do. Where the candidate uses a compiled package the author names the same workload with the package's work replaced; the tool times it. It refuses one that is the workload again, that does not call the candidate, that still passes large objects of the package to it, or (Python 3.12 and later) that still makes long calls into the package. It cannot check the rest: a stand-in that still does the work on data the checks do not see leaves the candidate's share too high, and one that skips Python work as well makes it too low.",
+    "Work in other threads, in child processes and on a GPU. The profile covers the main thread. To a comparison of wall time with this process's CPU time, a child process or a GPU at work looks the same as waiting; CPU time of child processes is given where the operating system reports it, GPU time is not seen at all.",
+    "Whether the cost is the language's or the algorithm's. That is the author's judgment, printed as declared; where an alternative in Python was named, the tool measured it.",
+    "What a port would cost to write, test and keep, and what the call across the boundary would cost. The number of calls and the data per call are measured; the cost of converting them is not.",
+    "Whether static types or errors caught at compile time are worth a port here. Time measurements neither support nor contradict those goals."
+  ],
+  "reasons": [],
+  "schema": "carcinify/decide/report/2",
+  "verdict": "consistent",
+  "verdict_means": "`consistent`: no measurement contradicts the declared decision. It does not mean the decision is right. `contradicted`: a measurement plainly does. `incomplete`: something needed is missing. `consistent_if_the_stand_ins_are_faithful`: nothing contradicts a port for speed, and only because of the stand-in workload the author wrote: the candidate uses a compiled package, and how little of its time may be its own Python is known from the stand-ins alone. `consistent_on_the_authors_word`: nothing contradicts a port for speed, a compiled package is loaded in the process, the tool saw the candidate use none and cannot be sure, and the author states that it uses none; the candidate's share holds only if that is true. `unreliable`: the machine was busy while the measurements were made, so none of the figures below should be used; measure again.",
+  "where_the_time_goes": {
+    "classification": "mostly_own_python",
+    "how": "Waiting is one minus CPU time over wall time in the fastest plain run. The rest is split in the proportions of one run under cProfile, with waiting first taken out of the compiled part, since a sleep or a read is a compiled call. A compiled call shorter than the limit below on average is counted with the Python code that makes it. Where the candidate uses a compiled package, the long calls into it that only `sys.monitoring` sees are moved from the project's own Python to compiled code; work reached through operators stays in the project's own Python, and the classification then says the two are not separated.",
+    "instrumented_run": {
+      "seconds_by_where": {
+        "compiled": 0.007733168,
+        "library_python": 0.0,
+        "own_python": 2.160885832
+      },
+      "times_slower_than_plain": 2.94,
+      "wall_seconds": 2.1686319999999997
+    },
+    "largest_outside_the_project": [
+      {
+        "calls": 3934187,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'isalnum' of 'str' objects>",
+        "self_seconds": 0.228359891,
+        "where": "compiled"
+      },
+      {
+        "calls": 3736954,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'append' of 'list' objects>",
+        "self_seconds": 0.216053694,
+        "where": "compiled"
+      },
+      {
+        "calls": 3514187,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'lower' of 'str' objects>",
+        "self_seconds": 0.208029428,
+        "where": "compiled"
+      },
+      {
+        "calls": 200000,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'setdefault' of 'dict' objects>",
+        "self_seconds": 0.055423985,
+        "where": "compiled"
+      },
+      {
+        "calls": 200000,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'join' of 'str' objects>",
+        "self_seconds": 0.029302436,
+        "where": "compiled"
+      },
+      {
+        "calls": 200000,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'split' of 'str' objects>",
+        "self_seconds": 0.025035344,
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "file": "~",
+        "long_calls": true,
+        "name": "<method 'splitlines' of 'str' objects>",
+        "self_seconds": 0.007208334,
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "file": "~",
+        "long_calls": true,
+        "name": "<method 'sort' of 'list' objects>",
+        "self_seconds": 0.000307584,
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "file": "~",
+        "long_calls": true,
+        "name": "<method 'decode' of 'bytes' objects>",
+        "self_seconds": 0.00021725,
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "file": "~",
+        "long_calls": false,
+        "name": "<built-in method builtins.len>",
+        "self_seconds": 1.625e-6,
+        "where": "compiled"
+      },
+      {
+        "calls": 1,
+        "file": "~",
+        "long_calls": false,
+        "name": "<method 'values' of 'dict' objects>",
+        "self_seconds": 2.5000000000000004e-7,
+        "where": "compiled"
+      }
+    ],
+    "moved_from_own_python_to_compiled_code": 0.0,
+    "own_python_functions": [
+      {
+        "callers": 0,
+        "calls": 1,
+        "cumulative_share": 1.0,
+        "file": "upload.py",
+        "line": 16,
+        "name": "run",
+        "own_python_share_with_what_it_calls": 0.9964,
+        "self_share": 0.0049
+      },
+      {
+        "callers": 1,
+        "calls": 1,
+        "cumulative_share": 0.9951,
+        "file": "dedupe.py",
+        "line": 51,
+        "name": "find_duplicates_in_upload",
+        "own_python_share_with_what_it_calls": 0.9915,
+        "self_share": 0.035
+      },
+      {
+        "callers": 1,
+        "calls": 1,
+        "cumulative_share": 0.9402,
+        "file": "dedupe.py",
+        "line": 37,
+        "name": "find_duplicates_grouped",
+        "own_python_share_with_what_it_calls": 0.9401,
+        "self_share": 0.0569
+      },
+      {
+        "callers": 1,
+        "calls": 200000,
+        "cumulative_share": 0.8503,
+        "file": "dedupe.py",
+        "line": 9,
+        "name": "fingerprint",
+        "own_python_share_with_what_it_calls": 0.8503,
+        "self_share": 0.5475
+      },
+      {
+        "callers": 1,
+        "calls": 1,
+        "cumulative_share": 0.0007,
+        "file": "dedupe.py",
+        "line": 48,
+        "name": "<listcomp>",
+        "own_python_share_with_what_it_calls": 0.0007,
+        "self_share": 0.0007
+      }
+    ],
+    "own_python_functions_seen": 5,
+    "own_python_includes_work_inside_compiled_packages": [],
+    "own_python_may_include_work_inside_loaded_packages": [],
+    "shares": {
+      "compiled_code": 0.002,
+      "library_python": 0.0,
+      "own_python": 0.9964,
+      "waiting": 0.0016
+    },
+    "short_compiled_call_seconds": 0.00002
+  },
+  "workload": {
+    "declared": {
+      "args": [],
+      "description": "One upload of the largest customer file seen so far, 200,000 records, 5.4 MB of text, checked for duplicates inside the upload request. The workload starts from the file's bytes, as the request does.",
+      "file": "upload.py",
+      "function": "run",
+      "repeat": 5
+    },
+    "file": "skill/steps/01-decide/examples/own-python/upload.py",
+    "file_sha256": "86ee1c9ed06b9568e67ad8dc0e5375b60c6c9011e072fef3a1776d236ee54900",
+    "measured_with_nothing_attached": {
+      "calibration": {
+        "calibration_after": 0.0013171812321611798,
+        "calibration_before": 0.0006160867691386018,
+        "load_average_after": [
+          8.8447265625,
+          7.31298828125,
+          10.68359375
+        ],
+        "load_average_before": [
+          8.5703125,
+          7.23388671875,
+          10.67626953125
+        ],
+        "logical_cpus": 8
+      },
+      "calibration_outside": {
+        "cpus_used_by_the_measured_process": 1.0,
+        "logical_cpus": 8,
+        "watched_from_outside": {
+          "kept_off_the_cpu": 0.0024,
+          "seconds": 4.822
+        }
+      },
+      "child_process_cpu_seconds_median": 0.0,
+      "cpu_seconds_median": 0.7419979999999997,
+      "fastest_run": {
+        "calibration_after": 0.00029203719492065794,
+        "calibration_before": 0.0015969545752372305,
+        "child_process_cpu_seconds": 0.0,
+        "cpu_seconds": 0.7374899999999998,
+        "main_thread_cpu_seconds": 0.7374916670000005,
+        "seconds_ready_and_not_running": null,
+        "wall_seconds": 0.7386663749999998
+      },
+      "main_thread_cpu_seconds_median": 0.7419994580000002,
+      "peak_memory_bytes": 190676992,
+      "quiet_runs": 5,
+      "runs": [
+        {
+          "calibration_after": 0.0006034942817649824,
+          "calibration_before": 0.0011044669432441756,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.746018,
+          "main_thread_cpu_seconds": 0.746019917,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.746421167
+        },
+        {
+          "calibration_after": 0.0001609246501264039,
+          "calibration_before": 0.0006034942817649824,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.7419979999999997,
+          "main_thread_cpu_seconds": 0.7419994580000002,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7432047909999999
+        },
+        {
+          "calibration_after": 0.0013459764862810977,
+          "calibration_before": 0.0001609246501264039,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.7422080000000002,
+          "main_thread_cpu_seconds": 0.7422096249999997,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7468464580000003
+        },
+        {
+          "calibration_after": 0.0015969545752372305,
+          "calibration_before": 0.0013459764862810977,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.7386020000000002,
+          "main_thread_cpu_seconds": 0.7386032089999999,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7393824580000001
+        },
+        {
+          "calibration_after": 0.00029203719492065794,
+          "calibration_before": 0.0015969545752372305,
+          "child_process_cpu_seconds": 0.0,
+          "cpu_seconds": 0.7374899999999998,
+          "main_thread_cpu_seconds": 0.7374916670000005,
+          "seconds_ready_and_not_running": null,
+          "wall_seconds": 0.7386663749999998
+        }
+      ],
+      "wall_seconds": {
+        "fastest": 0.7386663749999998,
+        "median": 0.7432047909999999,
+        "slowest": 0.7468464580000003,
+        "spread_of_median": 0.011
+      }
+    },
+    "project_root": "skill/steps/01-decide/examples/own-python"
+  }
+}

@@ -1,0 +1,2928 @@
+{
+  "schema": "carcinify/deps/report/2",
+  "verdict": "complete",
+  "exit_status": 0,
+  "reasons": [],
+  "not_judged": [
+    "Whether a crate covers the part of the library the piece uses. The report lists what the piece uses; someone has to read the crate's documentation against that list.",
+    "Whether a crate is correct, sound, or well written. Downloads, age and release dates say that people use it and that it is maintained, not that it is right.",
+    "Whether a crate is what it claims to be. Its repository link, description and name are typed by whoever published it, and are not evidence of anything. Download counts are a weak signal: they are dominated by being a dependency of something else, and a crate with 245 million downloads has been taken over. Only an owner that is a GitHub team of the organisation, or a release through trusted publishing from its repository, is checked by crates.io.",
+    "Whether \"none found by these queries\" means none exists. A crate's name often has nothing in common with the Python library's. It means these searches of crates.io, on this day, returned nothing that was kept; the queries are in the report so that they can be run again and added to.",
+    "Whether porting the dependency is worth it at all. Keeping it in Python is listed for every dependency because it is often the right choice, not as a fallback."
+  ],
+  "generated_at": "2026-11-14T21:10:24Z",
+  "source": {
+    "answers": 90,
+    "answers_fetched_on_this_run": 0,
+    "answers_from_the_cache": 90,
+    "mode": "replay",
+    "note": "An answer from the cache is a file in a directory the caller names. The tool cannot tell whether it was changed after it was fetched.",
+    "oldest_cached_answer": "2026-11-14T21:08:56Z"
+  },
+  "advisory_lookup": {
+    "checked": true,
+    "fetched_at": "2026-11-14T21:10:24Z",
+    "probe": "serde_yaml",
+    "status": 200,
+    "url": "https://rustsec.org/packages/serde_yaml.html",
+    "works": true
+  },
+  "unread_imports": [],
+  "flags": [],
+  "min_publish_age_days": 14,
+  "proposal": {
+    "file": "proposal.json",
+    "sha256": "efb7cd9a17d6b5dd4de26466e94d195a9358e2b8a36651b2e136784cc3afefd7"
+  },
+  "python": {
+    "files": [
+      "python/nightly_report.py"
+    ],
+    "interpreter": "3.9.6"
+  },
+  "dependencies": [
+    {
+      "import": "opentelemetry",
+      "used": [
+        {
+          "file": "python/nightly_report.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            13
+          ],
+          "module": "opentelemetry",
+          "uses": [
+            "trace.get_tracer"
+          ]
+        }
+      ],
+      "pypi": {
+        "exists": true,
+        "fetched_at": "2026-11-14T21:08:56Z",
+        "home_page": null,
+        "license": "Apache-2.0",
+        "name": "opentelemetry-api",
+        "name_declared_by": "the proposal",
+        "organisations": [
+          "github.com/open-telemetry"
+        ],
+        "organisations_from": "the project's source, repository and home links on PyPI",
+        "project_urls": {
+          "Homepage": "https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api",
+          "Repository": "https://github.com/open-telemetry/opentelemetry-python"
+        },
+        "provides_the_import": {
+          "agrees_with_the_proposal": null,
+          "projects": [],
+          "source": "the two names resemble each other; the library is not installed in the interpreter the tool ran"
+        },
+        "summary": "OpenTelemetry Python API",
+        "version": "1.45.2"
+      },
+      "searches": [
+        {
+          "query": "opentelemetry-api",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=opentelemetry-api&per_page=10",
+          "fetched_at": "2026-11-14T21:08:56Z",
+          "total": 6,
+          "top": [
+            {
+              "description": "OpenTelemetry is a metrics collection and distributed tracing framework",
+              "downloads": 36285887,
+              "name": "opentelemetry_api",
+              "newest_version": "0.20.0",
+              "recent_downloads": 3668718,
+              "updated_at": "2023-07-29T21:19:27.301558Z"
+            },
+            {
+              "description": "This is a fork of opentelemetry-rust",
+              "downloads": 19242,
+              "name": "ts_opentelemetry_api",
+              "newest_version": "0.20.0-beta.1",
+              "recent_downloads": 1169,
+              "updated_at": "2023-06-13T17:33:25.411771Z"
+            },
+            {
+              "description": "Macro for passing OpenTelemetry context from Python to Rust",
+              "downloads": 30666,
+              "name": "pyo3-opentelemetry-macros",
+              "newest_version": "0.11.2",
+              "recent_downloads": 3966,
+              "updated_at": "2026-11-03T19:52:33.604358Z"
+            },
+            {
+              "description": "Macro and utilities for passing OpenTelemetry context from Python to Rust",
+              "downloads": 30131,
+              "name": "pyo3-opentelemetry",
+              "newest_version": "0.11.2",
+              "recent_downloads": 3883,
+              "updated_at": "2026-11-03T19:53:11.442907Z"
+            },
+            {
+              "description": "Find unused dependencies in pyproject.toml",
+              "downloads": 256,
+              "name": "pyproject-udeps",
+              "newest_version": "0.4.0",
+              "recent_downloads": 106,
+              "updated_at": "2026-10-25T06:27:34.455199Z"
+            },
+            {
+              "description": "Python bindings to qcs-sdk-rust",
+              "downloads": 558,
+              "name": "qcs-sdk-python",
+              "newest_version": "0.21.23-rc.0",
+              "recent_downloads": 6,
+              "updated_at": "2025-12-31T16:58:07.253646Z"
+            }
+          ]
+        },
+        {
+          "query": "opentelemetry",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=opentelemetry&per_page=10",
+          "fetched_at": "2026-11-14T21:08:57Z",
+          "total": 2330,
+          "top": [
+            {
+              "description": "OpenTelemetry API for Rust",
+              "downloads": 331524422,
+              "name": "opentelemetry",
+              "newest_version": "0.33.1",
+              "recent_downloads": 90289171,
+              "updated_at": "2026-10-09T20:45:06.452460Z"
+            },
+            {
+              "description": "A Rust and CLI client for the Pact Broker. Publish and retrieve pacts and verification results.",
+              "downloads": 6279,
+              "name": "pact-broker-cli",
+              "newest_version": "0.9.2",
+              "recent_downloads": 1370,
+              "updated_at": "2026-11-13T19:06:15.112914Z"
+            },
+            {
+              "description": "A set of helpers to initialize (and more) tracing + opentelemetry (compose your own or use opinionated preset)",
+              "downloads": 2194291,
+              "name": "init-tracing-opentelemetry",
+              "newest_version": "0.44.0",
+              "recent_downloads": 566046,
+              "updated_at": "2026-10-28T15:56:10.564295Z"
+            },
+            {
+              "description": "A Datadog layer of compatibility for the opentelemetry SDK",
+              "downloads": 3387107,
+              "name": "datadog-opentelemetry",
+              "newest_version": "0.6.0",
+              "recent_downloads": 1667196,
+              "updated_at": "2026-10-30T13:58:17.536409Z"
+            },
+            {
+              "description": "A metrics collection and distributed tracing framework",
+              "downloads": 59209,
+              "name": "opentelemetry-spanprocessor-any",
+              "newest_version": "0.17.0",
+              "recent_downloads": 5492,
+              "updated_at": "2023-03-09T12:23:19.949160Z"
+            },
+            {
+              "description": "Structured logging middleware for actix-web.",
+              "downloads": 12164614,
+              "name": "tracing-actix-web",
+              "newest_version": "0.7.26",
+              "recent_downloads": 1950441,
+              "updated_at": "2026-11-08T07:06:23.455313Z"
+            },
+            {
+              "description": "OpenTelemetry components and utilities for Langfuse LLM observability",
+              "downloads": 19172,
+              "name": "opentelemetry-langfuse",
+              "newest_version": "0.7.3",
+              "recent_downloads": 6771,
+              "updated_at": "2026-11-08T09:12:54.853451Z"
+            },
+            {
+              "description": "Jaeger exporter for OpenTelemetry",
+              "downloads": 21495141,
+              "name": "opentelemetry-jaeger",
+              "newest_version": "0.22.0",
+              "recent_downloads": 1932099,
+              "updated_at": "2024-05-15T17:19:37.026720Z"
+            },
+            {
+              "description": "A set of helpers to build OpenTelemetry instrumentation based on `tracing` crate.",
+              "downloads": 22463409,
+              "name": "tracing-opentelemetry-instrumentation-sdk",
+              "newest_version": "0.42.1",
+              "recent_downloads": 5327510,
+              "updated_at": "2026-09-27T16:25:52.257924Z"
+            },
+            {
+              "description": "Provides support for exporting metrics to Google Cloud Monitoring.",
+              "downloads": 58996,
+              "name": "opentelemetry_gcloud_monitoring_exporter",
+              "newest_version": "0.23.0",
+              "recent_downloads": 18854,
+              "updated_at": "2026-05-06T20:32:36.305951Z"
+            }
+          ]
+        },
+        {
+          "query": "tracing spans",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=tracing%20spans&per_page=10",
+          "fetched_at": "2026-11-14T21:08:59Z",
+          "total": 3008,
+          "top": [
+            {
+              "description": "Tracing span support for the rootcause error reporting library",
+              "downloads": 154494,
+              "name": "rootcause-tracing",
+              "newest_version": "0.13.0",
+              "recent_downloads": 102649,
+              "updated_at": "2026-06-14T17:47:35.957349Z"
+            },
+            {
+              "description": "Ergonomic error handling with typed or untyped errors, context, and no enum boilerplate.",
+              "downloads": 25159,
+              "name": "eros",
+              "newest_version": "0.9.0-rc.0",
+              "recent_downloads": 7656,
+              "updated_at": "2026-11-02T17:50:31.954946Z"
+            },
+            {
+              "description": "Record parent `tracing::Span` fields from inside child `tracing::Span`'s context.",
+              "downloads": 209647,
+              "name": "tracing-record-hierarchical",
+              "newest_version": "0.2.0",
+              "recent_downloads": 3109,
+              "updated_at": "2026-04-23T12:19:31.769552Z"
+            },
+            {
+              "description": "The fork of tracing-actix-web with changes specific to Blockscout rust services.",
+              "downloads": 29354,
+              "name": "blockscout-tracing-actix-web",
+              "newest_version": "0.8.0",
+              "recent_downloads": 5683,
+              "updated_at": "2023-12-20T14:55:13.689662Z"
+            },
+            {
+              "description": "Structured logging middleware for actix-web.",
+              "downloads": 12164614,
+              "name": "tracing-actix-web",
+              "newest_version": "0.7.26",
+              "recent_downloads": 1950441,
+              "updated_at": "2026-11-08T07:06:23.455313Z"
+            },
+            {
+              "description": "Simple tracing subscriber for hierarchical profiling",
+              "downloads": 357918,
+              "name": "tracing-span-tree",
+              "newest_version": "0.1.1",
+              "recent_downloads": 42162,
+              "updated_at": "2022-03-22T12:51:02.307720Z"
+            },
+            {
+              "description": "An alternative, structured, compatibility layer for serializing trace data with `serde`",
+              "downloads": 134432,
+              "name": "tracing-serde-structured",
+              "newest_version": "0.4.0",
+              "recent_downloads": 70808,
+              "updated_at": "2024-11-27T18:44:20.737629Z"
+            },
+            {
+              "description": "Application-level tracing for Rust.",
+              "downloads": 1050071464,
+              "name": "tracing",
+              "newest_version": "0.1.44",
+              "recent_downloads": 275334425,
+              "updated_at": "2025-12-18T14:26:12.360139Z"
+            },
+            {
+              "description": "Span collection for the tracing ecosystem: one unit of work becomes a trace you can read back in process, keep in a ring and forward to an e",
+              "downloads": 656,
+              "name": "fibre_tracing",
+              "newest_version": "0.6.0",
+              "recent_downloads": 656,
+              "updated_at": "2026-11-04T16:54:08.697336Z"
+            },
+            {
+              "description": "macro and utilities to do snapshot tests on tracing spans",
+              "downloads": 99940,
+              "name": "test-span",
+              "newest_version": "0.8.0",
+              "recent_downloads": 14082,
+              "updated_at": "2024-05-04T12:20:00.655136Z"
+            }
+          ]
+        },
+        {
+          "query": "distributed tracing",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=distributed%20tracing&per_page=10",
+          "fetched_at": "2026-11-14T21:09:01Z",
+          "total": 3144,
+          "top": [
+            {
+              "description": "Tracing layer for multiprocess telemetry",
+              "downloads": 474069,
+              "name": "tracing-distributed",
+              "newest_version": "0.4.0",
+              "recent_downloads": 57146,
+              "updated_at": "2021-12-27T19:48:32.655101Z"
+            },
+            {
+              "description": "Pure Rust system call tracer with source-aware correlation for Rust binaries",
+              "downloads": 8288,
+              "name": "aprender-profile",
+              "newest_version": "0.72.6",
+              "recent_downloads": 3079,
+              "updated_at": "2026-11-13T02:01:55.138764Z"
+            },
+            {
+              "description": "A high-performance, database-driven job queue for Rust with PostgreSQL and MySQL support, featuring job prioritization, cron scheduling, eve",
+              "downloads": 17754,
+              "name": "hammerwork",
+              "newest_version": "3.0.0",
+              "recent_downloads": 326,
+              "updated_at": "2026-10-12T00:40:27.300476Z"
+            },
+            {
+              "description": "🦑 Async Rust RPC and IPC where calls can pass live channels and remote objects over a single multiplexed connection.",
+              "downloads": 302289,
+              "name": "remoc",
+              "newest_version": "0.20.6",
+              "recent_downloads": 88988,
+              "updated_at": "2026-11-05T12:54:31.316077Z"
+            },
+            {
+              "description": "Honeycomb.io tracing layer for multiprocess telemetry",
+              "downloads": 72021,
+              "name": "tracing-honeycomb",
+              "newest_version": "0.4.3",
+              "recent_downloads": 5425,
+              "updated_at": "2021-12-27T19:47:55.188016Z"
+            },
+            {
+              "description": "AWS X-Ray daemon client for Rust",
+              "downloads": 16514,
+              "name": "xray-tracing",
+              "newest_version": "0.0.1",
+              "recent_downloads": 2784,
+              "updated_at": "2023-07-17T16:29:25.193281Z"
+            },
+            {
+              "description": "Application-level tracing for Rust.",
+              "downloads": 1050071464,
+              "name": "tracing",
+              "newest_version": "0.1.44",
+              "recent_downloads": 275334425,
+              "updated_at": "2025-12-18T14:26:12.360139Z"
+            },
+            {
+              "description": "Distributed tracing (OpenTelemetry) for e-cat",
+              "downloads": 450,
+              "name": "ecat-tracing",
+              "newest_version": "10.0.0",
+              "recent_downloads": 450,
+              "updated_at": "2026-11-07T07:10:37.943718Z"
+            },
+            {
+              "description": "Distributed task-tree values: W3C trace-compatible task identities under an application-supplied URN scheme, validated lifecycle transitions",
+              "downloads": 441,
+              "name": "tasktree",
+              "newest_version": "1.2.5",
+              "recent_downloads": 441,
+              "updated_at": "2026-11-13T21:13:14.064396Z"
+            },
+            {
+              "description": "A library for AWS X‑Ray distributed tracing using OpenTelemetry.",
+              "downloads": 10202,
+              "name": "opentelemetry-xray",
+              "newest_version": "0.1.5",
+              "recent_downloads": 344,
+              "updated_at": "2025-05-31T06:37:18.386806Z"
+            }
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "name": "opentelemetry",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "official",
+          "evidence": [
+            "crates.io owner `github:open-telemetry:rust-publishers` is a GitHub team of `open-telemetry`, the organisation that hosts the Python project (checked by crates.io)"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 2563,
+            "description": "OpenTelemetry API for Rust",
+            "downloads_weak_signal": {
+              "all_time": 331524422,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 90289171
+            },
+            "fetched_at": "2026-11-14T21:09:03Z",
+            "first_published": "2019-11-08T20:41:11Z",
+            "latest_age_days": 36,
+            "latest_published": "2026-10-09T20:45:06Z",
+            "latest_version": "0.33.1",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "TommyCpp"
+              },
+              {
+                "kind": "user",
+                "login": "cijothomas"
+              },
+              {
+                "kind": "team",
+                "login": "github:open-telemetry:rust-publishers"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/open-telemetry/opentelemetry-rust/tree/main/opentelemetry",
+            "rust_version": "1.75.0",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:09:07Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/opentelemetry.html",
+            "trusted_publishing": null,
+            "versions": 44,
+            "versions_in_the_last_365_days": 3,
+            "yanked_versions": []
+          },
+          "flags": []
+        }
+      ],
+      "not_examined": [
+        "opentelemetry_api",
+        "ts_opentelemetry_api",
+        "pyo3-opentelemetry-macros",
+        "pyo3-opentelemetry",
+        "pyproject-udeps",
+        "pact-broker-cli",
+        "init-tracing-opentelemetry",
+        "datadog-opentelemetry",
+        "opentelemetry-spanprocessor-any",
+        "rootcause-tracing",
+        "eros",
+        "tracing-record-hierarchical",
+        "blockscout-tracing-actix-web",
+        "tracing-actix-web",
+        "tracing-distributed",
+        "aprender-profile",
+        "hammerwork",
+        "remoc",
+        "tracing-honeycomb"
+      ],
+      "dismissed": [],
+      "outcome": "official_crate",
+      "outcome_reason": "a candidate is published by the organisation behind the PyPI project \"opentelemetry-api\", on evidence its publisher could not have typed.",
+      "options": [
+        "Use the crate `opentelemetry` (official).",
+        "Keep it in Python and call across the boundary, or keep the part of the piece that uses it in Python. For numerical, scientific and ML libraries, whose work is already done in compiled code, this is usually the right choice.",
+        "Write the part the piece needs in Rust, if what it uses is small. The list of names used, above, is the size of that job."
+      ],
+      "declared_decision": {
+        "choice": "crate:opentelemetry",
+        "reason": "The piece uses get_tracer, start_as_current_span, set_attribute and record_exception; the crate is the same project's Rust API. Coverage of those four still has to be read against its documentation."
+      },
+      "flags": []
+    },
+    {
+      "import": "sklearn",
+      "used": [
+        {
+          "file": "python/nightly_report.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            14
+          ],
+          "module": "sklearn.ensemble",
+          "uses": [
+            "IsolationForest"
+          ]
+        }
+      ],
+      "pypi": {
+        "exists": true,
+        "fetched_at": "2026-11-14T21:09:09Z",
+        "home_page": null,
+        "license": "BSD-3-Clause",
+        "name": "scikit-learn",
+        "name_declared_by": "the proposal",
+        "organisations": [
+          "github.com/scikit-learn"
+        ],
+        "organisations_from": "the project's source, repository and home links on PyPI",
+        "project_urls": {
+          "download": "https://pypi.org/project/scikit-learn/#files",
+          "homepage": "https://scikit-learn.org",
+          "release notes": "https://scikit-learn.org/stable/whats_new",
+          "source": "https://github.com/scikit-learn/scikit-learn",
+          "tracker": "https://github.com/scikit-learn/scikit-learn/issues"
+        },
+        "provides_the_import": {
+          "agrees_with_the_proposal": null,
+          "projects": [],
+          "source": "not checked"
+        },
+        "summary": "A set of python modules for machine learning and data mining",
+        "version": "1.9.1"
+      },
+      "searches": [
+        {
+          "query": "scikit-learn",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=scikit-learn&per_page=10",
+          "fetched_at": "2026-11-14T21:09:09Z",
+          "total": 229,
+          "top": [
+            {
+              "description": "Scikit-learn-style preprocessing and classical ML in Rust",
+              "downloads": 1205,
+              "name": "datarust",
+              "newest_version": "0.7.0",
+              "recent_downloads": 942,
+              "updated_at": "2026-09-14T20:10:45.398489Z"
+            },
+            {
+              "description": "A command-line tool for exploring and implementing Machine Learning algorithms in Rust.",
+              "downloads": 144,
+              "name": "simian",
+              "newest_version": "0.2.1",
+              "recent_downloads": 13,
+              "updated_at": "2026-06-19T16:03:15.341376Z"
+            },
+            {
+              "description": "Python bindings for sklears machine learning library using PyO3",
+              "downloads": 387,
+              "name": "sklears-python",
+              "newest_version": "0.2.0",
+              "recent_downloads": 1,
+              "updated_at": "2026-07-14T14:38:20.031462Z"
+            },
+            {
+              "description": "Numerically stable, fast clustering on BETULA CF-trees (BIRCH family).",
+              "downloads": 343,
+              "name": "betula-cluster",
+              "newest_version": "1.5.0",
+              "recent_downloads": 244,
+              "updated_at": "2026-10-28T11:43:01.372720Z"
+            },
+            {
+              "description": "Core traits and types for the anofox-ml machine learning library",
+              "downloads": 3669,
+              "name": "anofox-ml-core",
+              "newest_version": "0.6.1",
+              "recent_downloads": 3270,
+              "updated_at": "2026-11-11T21:25:23.480729Z"
+            },
+            {
+              "description": "Conformal prediction intervals (split conformal, CV+, jackknife+) for anofox-ml regressors, matching MAPIE",
+              "downloads": 2419,
+              "name": "anofox-ml-conformal",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2419,
+              "updated_at": "2026-11-12T00:36:11.856365Z"
+            },
+            {
+              "description": "Name-based estimator registry for anofox-ml: create, fit, predict and persist any estimator from a kind string and JSON parameters (used by ",
+              "downloads": 2373,
+              "name": "anofox-ml-registry",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2373,
+              "updated_at": "2026-11-12T00:47:52.618365Z"
+            },
+            {
+              "description": "scikit-learn-style machine learning umbrella crate — re-exports every anofox-ml-* subcrate under a single API",
+              "downloads": 75,
+              "name": "anofox-ml",
+              "newest_version": "0.6.1",
+              "recent_downloads": 56,
+              "updated_at": "2026-11-12T00:59:24.642430Z"
+            },
+            {
+              "description": "A scikit-learn inspired machine learning library in Rust",
+              "downloads": 97,
+              "name": "sklearn-rs",
+              "newest_version": "0.1.0",
+              "recent_downloads": 41,
+              "updated_at": "2025-10-31T11:05:43.960701Z"
+            },
+            {
+              "description": "A scikit-learn equivalent for Rust — re-export crate",
+              "downloads": 208,
+              "name": "ferrolearn",
+              "newest_version": "0.5.0",
+              "recent_downloads": 13,
+              "updated_at": "2026-06-09T17:21:18.330904Z"
+            }
+          ]
+        },
+        {
+          "query": "sklearn",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=sklearn&per_page=10",
+          "fetched_at": "2026-11-14T21:09:09Z",
+          "total": 103,
+          "top": [
+            {
+              "description": "Scikit-learn-style preprocessing and classical ML in Rust",
+              "downloads": 1205,
+              "name": "datarust",
+              "newest_version": "0.7.0",
+              "recent_downloads": 942,
+              "updated_at": "2026-09-14T20:10:45.398489Z"
+            },
+            {
+              "description": "A scikit-learn inspired machine learning library in Rust",
+              "downloads": 97,
+              "name": "sklearn-rs",
+              "newest_version": "0.1.0",
+              "recent_downloads": 41,
+              "updated_at": "2025-10-31T11:05:43.960701Z"
+            },
+            {
+              "description": "Core traits and types for the anofox-ml machine learning library",
+              "downloads": 3669,
+              "name": "anofox-ml-core",
+              "newest_version": "0.6.1",
+              "recent_downloads": 3270,
+              "updated_at": "2026-11-11T21:25:23.480729Z"
+            },
+            {
+              "description": "Support Vector Machines (SVC, SVR, NuSVC, NuSVR, LinearSVC, LinearSVR, OneClassSVM) for anofox-ml",
+              "downloads": 2674,
+              "name": "anofox-ml-svm",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2596,
+              "updated_at": "2026-11-11T21:58:38.495668Z"
+            },
+            {
+              "description": "Classification and regression metrics for the anofox-ml machine learning library",
+              "downloads": 2672,
+              "name": "anofox-ml-metrics",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2592,
+              "updated_at": "2026-11-11T23:06:25.768334Z"
+            },
+            {
+              "description": "CART decision tree classifiers and regressors for the anofox-ml machine learning library",
+              "downloads": 2612,
+              "name": "anofox-ml-trees",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2535,
+              "updated_at": "2026-11-11T22:43:52.887462Z"
+            },
+            {
+              "description": "Classical regression models (OLS, Ridge, Lasso, Elastic Net, GLM, GP) for anofox-ml",
+              "downloads": 2580,
+              "name": "anofox-ml-regression",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2532,
+              "updated_at": "2026-11-11T23:28:49.984700Z"
+            },
+            {
+              "description": "K-nearest neighbors classifiers and regressors with KD-tree for the anofox-ml library",
+              "downloads": 2572,
+              "name": "anofox-ml-neighbors",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2521,
+              "updated_at": "2026-11-11T23:51:08.318480Z"
+            },
+            {
+              "description": "Feature preprocessing, scaling, and PCA for the anofox-ml machine learning library",
+              "downloads": 2554,
+              "name": "anofox-ml-preprocessing",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2503,
+              "updated_at": "2026-11-11T23:39:59.972618Z"
+            },
+            {
+              "description": "Linear and Quadratic Discriminant Analysis for the anofox-ml library",
+              "downloads": 2538,
+              "name": "anofox-ml-discriminant",
+              "newest_version": "0.6.1",
+              "recent_downloads": 2489,
+              "updated_at": "2026-11-11T22:55:23.456008Z"
+            }
+          ]
+        },
+        {
+          "query": "isolation forest",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=isolation%20forest&per_page=10",
+          "fetched_at": "2026-11-14T21:09:10Z",
+          "total": 85,
+          "top": [
+            {
+              "description": "An implementation of the Isolation Forest anomoly detection algorithm.",
+              "downloads": 3277,
+              "name": "isolation_forest",
+              "newest_version": "1.1.0",
+              "recent_downloads": 62,
+              "updated_at": "2021-05-05T19:56:57.412707Z"
+            },
+            {
+              "description": "Statistical analysis and data profiling engine with C FFI bindings.",
+              "downloads": 758,
+              "name": "u-insight",
+              "newest_version": "0.43.1",
+              "recent_downloads": 510,
+              "updated_at": "2026-11-13T17:01:22.890033Z"
+            },
+            {
+              "description": "rust port of the anomaly detection algorithm",
+              "downloads": 109326,
+              "name": "extended-isolation-forest",
+              "newest_version": "0.2.3",
+              "recent_downloads": 25985,
+              "updated_at": "2022-11-30T19:41:43.829617Z"
+            },
+            {
+              "description": "Decision tree algorithms for sklears: CART, ID3, C4.5",
+              "downloads": 1221,
+              "name": "sklears-tree",
+              "newest_version": "0.2.0",
+              "recent_downloads": 197,
+              "updated_at": "2026-07-14T13:57:05.235311Z"
+            },
+            {
+              "description": "A minimal, blazing-fast WASM-powered machine learning library with SIMD acceleration",
+              "downloads": 171,
+              "name": "miniml",
+              "newest_version": "26.10.11",
+              "recent_downloads": 60,
+              "updated_at": "2026-10-11T21:21:55.740236Z"
+            },
+            {
+              "description": "Comprehensive time-series analysis in Rust — decomposition, ARIMA, anomaly detection, spectral analysis",
+              "downloads": 26,
+              "name": "rusty-series",
+              "newest_version": "0.1.0",
+              "recent_downloads": 1,
+              "updated_at": "2026-06-02T18:08:33.898354Z"
+            },
+            {
+              "description": "Rust ensemble methods for machine learning: random forest classifier and regressor, extra trees classifier and regressor, gradient boosting ",
+              "downloads": 114,
+              "name": "solow-ensemble",
+              "newest_version": "0.7.4",
+              "recent_downloads": 114,
+              "updated_at": "2026-09-06T13:03:13.703210Z"
+            },
+            {
+              "description": "Time series analysis module for SciRS2 (scirs2-series)",
+              "downloads": 32984,
+              "name": "scirs2-series",
+              "newest_version": "0.6.5",
+              "recent_downloads": 8350,
+              "updated_at": "2026-07-31T12:38:00.394300Z"
+            },
+            {
+              "description": "The World's Reference Cookie Audit Software - Complete Security & Compliance Analysis",
+              "downloads": 39,
+              "name": "icookforms",
+              "newest_version": "0.1.0",
+              "recent_downloads": 1,
+              "updated_at": "2025-11-04T06:30:31.143204Z"
+            },
+            {
+              "description": "Time-series anomaly detection with no training data: detrended fluctuation analysis (DFA, Hurst exponent), a self-calibrating streaming moni",
+              "downloads": 560,
+              "name": "struktura",
+              "newest_version": "1.8.7",
+              "recent_downloads": 560,
+              "updated_at": "2026-09-25T22:33:52.436703Z"
+            }
+          ]
+        },
+        {
+          "query": "anomaly detection",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=anomaly%20detection&per_page=10",
+          "fetched_at": "2026-11-14T21:09:13Z",
+          "total": 688,
+          "top": [
+            {
+              "description": "Tiny LLM inference for ESP32 microcontrollers with INT8/INT4 quantization, multi-chip federation, RuVector semantic memory, and SNN-gated en",
+              "downloads": 132,
+              "name": "ruvllm-esp32",
+              "newest_version": "0.3.2",
+              "recent_downloads": 7,
+              "updated_at": "2025-12-26T21:54:08.027652Z"
+            },
+            {
+              "description": "Pure Rust system call tracer with source-aware correlation for Rust binaries",
+              "downloads": 8288,
+              "name": "aprender-profile",
+              "newest_version": "0.72.6",
+              "recent_downloads": 3079,
+              "updated_at": "2026-11-13T02:01:55.138764Z"
+            },
+            {
+              "description": "Time series anomaly detection for Rust",
+              "downloads": 18649,
+              "name": "anomaly_detection",
+              "newest_version": "0.4.0",
+              "recent_downloads": 3253,
+              "updated_at": "2026-04-07T20:08:11.332041Z"
+            },
+            {
+              "description": "Multi-algorithm anomaly detection engine (Z-Score, IQR, MAD, CUSUM) for LLM telemetry",
+              "downloads": 394,
+              "name": "llm-sentinel-detection",
+              "newest_version": "0.1.0",
+              "recent_downloads": 60,
+              "updated_at": "2025-11-06T07:49:02.466845Z"
+            },
+            {
+              "description": "Ultralight log anomaly detection — no API key, no Python, pipe-friendly CLI with local LLM explain",
+              "downloads": 46,
+              "name": "turbolog",
+              "newest_version": "0.2.1",
+              "recent_downloads": 0,
+              "updated_at": "2026-06-18T08:12:56.117391Z"
+            },
+            {
+              "description": "Behavioral anomaly detection and risk scoring for UVB authentication",
+              "downloads": 139,
+              "name": "uvb-anomaly-detection",
+              "newest_version": "0.2.1",
+              "recent_downloads": 63,
+              "updated_at": "2026-06-03T05:40:47.278184Z"
+            },
+            {
+              "description": "Streaming anomaly detection toolkit — Random Cut Forest, per-feature drift, streaming sketches, SOC triage, hot-path ingress. Facade re-expo",
+              "downloads": 503,
+              "name": "anomstream",
+              "newest_version": "0.0.0",
+              "recent_downloads": 65,
+              "updated_at": "2026-04-26T16:13:36.693892Z"
+            },
+            {
+              "description": "A sophisticated real-time anomaly detection system for ADS-B aircraft data with multi-tier detection algorithms, real-time web dashboard, an",
+              "downloads": 471,
+              "name": "adsb-anomaly",
+              "newest_version": "0.2.2",
+              "recent_downloads": 3,
+              "updated_at": "2025-08-11T05:18:22.778635Z"
+            },
+            {
+              "description": "Core streaming anomaly detectors + companion primitives (Random Cut Forest, per-feature EWMA / CUSUM, drift detectors, streaming stats) — pa",
+              "downloads": 636,
+              "name": "anomstream-core",
+              "newest_version": "0.0.0",
+              "recent_downloads": 71,
+              "updated_at": "2026-04-26T16:13:27.275461Z"
+            },
+            {
+              "description": "SOC-opinionated triage layer (Platt calibration, SAGE attribution, alert clustering, feedback, audit) on top of anomstream-core",
+              "downloads": 546,
+              "name": "anomstream-triage",
+              "newest_version": "0.0.0",
+              "recent_downloads": 67,
+              "updated_at": "2026-04-26T16:13:31.153399Z"
+            }
+          ]
+        },
+        {
+          "query": "machine learning",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=machine%20learning&per_page=10",
+          "fetched_at": "2026-11-14T21:09:15Z",
+          "total": 5522,
+          "top": [
+            {
+              "description": "A machine learning library.",
+              "downloads": 175513,
+              "name": "rusty-machine",
+              "newest_version": "0.5.4",
+              "recent_downloads": 6123,
+              "updated_at": "2017-01-06T12:38:58.620571Z"
+            },
+            {
+              "description": "Unofficial rust wrapper for Apple's mlx machine learning library.",
+              "downloads": 290425,
+              "name": "mlx-rs",
+              "newest_version": "0.34.0",
+              "recent_downloads": 105620,
+              "updated_at": "2026-11-04T13:20:31.785639Z"
+            },
+            {
+              "description": "A machine learning package for Rust.",
+              "downloads": 48824,
+              "name": "rustlearn",
+              "newest_version": "0.5.0",
+              "recent_downloads": 1617,
+              "updated_at": "2018-07-29T21:01:46.514975Z"
+            },
+            {
+              "description": "Unofficial rust wrapper for Apple's mlx machine learning library (fork with slice, scatter, flip operations for burn-mlx)",
+              "downloads": 2625,
+              "name": "mlx-rs-burn",
+              "newest_version": "0.25.5",
+              "recent_downloads": 912,
+              "updated_at": "2025-12-31T09:10:09.189936Z"
+            },
+            {
+              "description": "Machine Learning in Rust.",
+              "downloads": 610466,
+              "name": "smartcore",
+              "newest_version": "0.7.0",
+              "recent_downloads": 132735,
+              "updated_at": "2026-10-26T15:40:26.116496Z"
+            },
+            {
+              "description": "A Machine Learning framework for Rust",
+              "downloads": 2163073,
+              "name": "linfa",
+              "newest_version": "0.8.1",
+              "recent_downloads": 577131,
+              "updated_at": "2025-12-23T14:12:39.046301Z"
+            },
+            {
+              "description": "Evaluation metrics for machine learning",
+              "downloads": 23890,
+              "name": "eval-metrics",
+              "newest_version": "1.0.2",
+              "recent_downloads": 1713,
+              "updated_at": "2022-06-06T16:39:17.657057Z"
+            },
+            {
+              "description": "Double / debiased machine learning for causal inference in Rust",
+              "downloads": 936,
+              "name": "dml-core",
+              "newest_version": "1.5.0",
+              "recent_downloads": 936,
+              "updated_at": "2026-11-04T06:51:59.860617Z"
+            },
+            {
+              "description": "Statistics, Information Measures, Data Analysis, Linear Algebra, Clifford Algebra, Machine Learning, Geometric Median, Matrix Decompositions",
+              "downloads": 309108,
+              "name": "rstats",
+              "newest_version": "2.1.15",
+              "recent_downloads": 7398,
+              "updated_at": "2026-08-22T07:16:07.751050Z"
+            },
+            {
+              "description": "MNIST data set parser.",
+              "downloads": 244398,
+              "name": "mnist",
+              "newest_version": "0.6.0",
+              "recent_downloads": 19399,
+              "updated_at": "2023-10-30T03:03:08.338481Z"
+            }
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "name": "linfa",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"scikit-learn\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": true,
+            "crate_age_days": 3145,
+            "description": "A Machine Learning framework for Rust",
+            "downloads_weak_signal": {
+              "all_time": 2163073,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 577131
+            },
+            "fetched_at": "2026-11-14T21:09:16Z",
+            "first_published": "2018-04-05T07:23:01Z",
+            "latest_age_days": 326,
+            "latest_published": "2025-12-23T14:12:39Z",
+            "latest_version": "0.8.1",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "LukeMathWalker"
+              },
+              {
+                "kind": "team",
+                "login": "github:rust-ml:wg"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/rust-ml/linfa",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:09:20Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/linfa.html",
+            "trusted_publishing": null,
+            "versions": 15,
+            "versions_in_the_last_365_days": 1,
+            "yanked_versions": []
+          },
+          "flags": [
+            "has a build script, which runs on your machine at build time: name it in the review"
+          ]
+        },
+        {
+          "name": "smartcore",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"scikit-learn\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 2240,
+            "description": "Machine Learning in Rust.",
+            "downloads_weak_signal": {
+              "all_time": 610466,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 132735
+            },
+            "fetched_at": "2026-11-14T21:09:22Z",
+            "first_published": "2020-09-26T01:07:20Z",
+            "latest_age_days": 19,
+            "latest_published": "2026-10-26T15:40:26Z",
+            "latest_version": "0.7.0",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "Mec-iS"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/smartcorelib/smartcore",
+            "rust_version": "1.85",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:09:26Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/smartcore.html",
+            "trusted_publishing": null,
+            "versions": 38,
+            "versions_in_the_last_365_days": 26,
+            "yanked_versions": [
+              "0.6.9",
+              "0.6.7",
+              "0.6.5",
+              "0.6.4",
+              "0.6.3",
+              "0.6.2",
+              "0.5.4",
+              "0.4.7",
+              "0.1.0"
+            ]
+          },
+          "flags": [
+            "9 version(s) were yanked: 0.6.9, 0.6.7, 0.6.5, 0.6.4, 0.6.3, 0.6.2"
+          ]
+        },
+        {
+          "name": "extended-isolation-forest",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"scikit-learn\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 2012,
+            "description": "rust port of the anomaly detection algorithm",
+            "downloads_weak_signal": {
+              "all_time": 109326,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 25985
+            },
+            "fetched_at": "2026-11-14T21:09:27Z",
+            "first_published": "2021-05-12T06:43:07Z",
+            "latest_age_days": 1445,
+            "latest_published": "2022-11-30T19:41:43Z",
+            "latest_version": "0.2.3",
+            "license": "MIT",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "nmandery"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/nmandery/extended-isolation-forest",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:09:30Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/extended-isolation-forest.html",
+            "trusted_publishing": null,
+            "versions": 4,
+            "versions_in_the_last_365_days": 0,
+            "yanked_versions": []
+          },
+          "flags": [
+            "no release for 1445 days"
+          ]
+        }
+      ],
+      "not_examined": [
+        "datarust",
+        "simian",
+        "sklears-python",
+        "betula-cluster",
+        "anofox-ml-core",
+        "sklearn-rs",
+        "anofox-ml-svm",
+        "anofox-ml-metrics",
+        "isolation_forest",
+        "u-insight",
+        "sklears-tree",
+        "miniml",
+        "ruvllm-esp32",
+        "aprender-profile",
+        "anomaly_detection",
+        "llm-sentinel-detection",
+        "turbolog",
+        "rusty-machine",
+        "mlx-rs",
+        "rustlearn",
+        "mlx-rs-burn"
+      ],
+      "dismissed": [],
+      "outcome": "community_crates",
+      "outcome_reason": "candidates exist; none could be tied to the organisation behind the Python library by evidence the tool can check",
+      "options": [
+        "Use the crate `linfa` (community).",
+        "Use the crate `smartcore` (community).",
+        "Use the crate `extended-isolation-forest` (community).",
+        "Keep it in Python and call across the boundary, or keep the part of the piece that uses it in Python. For numerical, scientific and ML libraries, whose work is already done in compiled code, this is usually the right choice.",
+        "Write the part the piece needs in Rust, if what it uses is small. The list of names used, above, is the size of that job."
+      ],
+      "declared_decision": {
+        "choice": "keep_in_python",
+        "reason": "The work is already done in compiled code inside scikit-learn, and the results of an isolation forest depend on its exact random-number use, which no other implementation reproduces. Port the code around it and call fit_predict across the boundary."
+      },
+      "flags": [
+        "the proposal says `sklearn` comes from the PyPI project \"scikit-learn\". The tool could not check that: `sklearn` is not installed in the interpreter it ran, PyPI does not publish which modules a project provides, and neither name contains the other. Everything said about an \"official\" crate here is about that project"
+      ]
+    },
+    {
+      "import": "yaml",
+      "used": [
+        {
+          "file": "python/nightly_report.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            11
+          ],
+          "module": "yaml",
+          "uses": [
+            "safe_load"
+          ]
+        }
+      ],
+      "pypi": {
+        "exists": true,
+        "fetched_at": "2026-11-14T21:09:32Z",
+        "home_page": "https://pyyaml.org/",
+        "license": "MIT",
+        "name": "PyYAML",
+        "name_declared_by": "the proposal",
+        "organisations": [
+          "github.com/yaml"
+        ],
+        "organisations_from": "the project's source, repository and home links on PyPI",
+        "project_urls": {
+          "Bug Tracker": "https://github.com/yaml/pyyaml/issues",
+          "CI": "https://github.com/yaml/pyyaml/actions",
+          "Documentation": "https://pyyaml.org/wiki/PyYAMLDocumentation",
+          "Download": "https://pypi.org/project/PyYAML/",
+          "Homepage": "https://pyyaml.org/",
+          "Mailing lists": "http://lists.sourceforge.net/lists/listinfo/yaml-core",
+          "Source Code": "https://github.com/yaml/pyyaml"
+        },
+        "provides_the_import": {
+          "agrees_with_the_proposal": null,
+          "projects": [],
+          "source": "the two names resemble each other; the library is not installed in the interpreter the tool ran"
+        },
+        "summary": "YAML parser and emitter for Python",
+        "version": "6.0.3"
+      },
+      "searches": [
+        {
+          "query": "PyYAML",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=PyYAML&per_page=10",
+          "fetched_at": "2026-11-14T21:09:32Z",
+          "total": 62,
+          "top": [
+            {
+              "description": "Validate configuration and produce human readable error messages; a byte-for-byte compatible port of Python cfgv",
+              "downloads": 121,
+              "name": "cfgv",
+              "newest_version": "0.3.0",
+              "recent_downloads": 63,
+              "updated_at": "2026-11-01T18:44:55.123389Z"
+            },
+            {
+              "description": "A fast, drop-in Rust companion to openapi-spec-validator.",
+              "downloads": 131,
+              "name": "openapi-spec-validator-rs",
+              "newest_version": "0.2.4",
+              "recent_downloads": 131,
+              "updated_at": "2026-10-27T19:39:20.238622Z"
+            },
+            {
+              "description": "Command-line interface for openapi-spec-validator-rs.",
+              "downloads": 77,
+              "name": "openapi-spec-validator-rs-cli",
+              "newest_version": "0.2.4",
+              "recent_downloads": 77,
+              "updated_at": "2026-10-27T19:39:41.747419Z"
+            },
+            {
+              "description": "Raw FFI bindings to Oyl, a fast YAML 1.2 parser and emitter in C11, built from vendored sources",
+              "downloads": 77,
+              "name": "oyl-sys",
+              "newest_version": "0.4.0+1.4.0",
+              "recent_downloads": 77,
+              "updated_at": "2026-10-31T07:55:53.150998Z"
+            },
+            {
+              "description": "Safe Rust bindings to Oyl, a fast YAML 1.2 parser and emitter (C11, SIMD, zero-copy)",
+              "downloads": 48,
+              "name": "oyl",
+              "newest_version": "0.4.0",
+              "recent_downloads": 48,
+              "updated_at": "2026-10-31T08:03:15.328614Z"
+            },
+            {
+              "description": "Command-line YAML processor - get values, set values, and transform YAML documents",
+              "downloads": 129,
+              "name": "shyaml-rs",
+              "newest_version": "0.3.4",
+              "recent_downloads": 10,
+              "updated_at": "2026-07-02T15:14:29.630678Z"
+            },
+            {
+              "description": "An epistemic record for work that gets revisited: what is known, how each piece is grounded, and what would make each judgment wrong. Instal",
+              "downloads": 170,
+              "name": "kpopper",
+              "newest_version": "0.18.0",
+              "recent_downloads": 170,
+              "updated_at": "2026-10-28T13:13:01.435432Z"
+            },
+            {
+              "description": "Zero-day security scanner for Python codebases, in Rust",
+              "downloads": 166,
+              "name": "fenceline",
+              "newest_version": "1.9.0",
+              "recent_downloads": 59,
+              "updated_at": "2026-11-14T17:05:24.475382Z"
+            },
+            {
+              "description": "Pure-Rust xacro processor: expand ROS xacro to URDF with no ROS or Python installation",
+              "downloads": 67,
+              "name": "xacro-pure",
+              "newest_version": "0.1.1",
+              "recent_downloads": 26,
+              "updated_at": "2026-07-13T06:11:46.075180Z"
+            },
+            {
+              "description": "Pure-Rust block-device framework — BlockRead/BlockDevice traits + FileDevice + CallbackDevice + LRU cache. Foundation crate for the rust-fs-",
+              "downloads": 55694,
+              "name": "rust-fs-core",
+              "newest_version": "0.4.6",
+              "recent_downloads": 55694,
+              "updated_at": "2026-11-14T03:07:20.330448Z"
+            }
+          ]
+        },
+        {
+          "query": "yaml",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=yaml&per_page=10",
+          "fetched_at": "2026-11-14T21:09:34Z",
+          "total": 11107,
+          "top": [
+            {
+              "description": "LibYAML binding for Rust",
+              "downloads": 45112,
+              "name": "yaml",
+              "newest_version": "0.3.0",
+              "recent_downloads": 2769,
+              "updated_at": "2018-08-28T17:20:52.165587Z"
+            },
+            {
+              "description": "YAML (de)serializer for Serde, emphasizing panic-free parsing, fast builds and good error reporting. Supports properties, include, tag and c",
+              "downloads": 19352573,
+              "name": "serde-saphyr",
+              "newest_version": "2.1.1",
+              "recent_downloads": 14912086,
+              "updated_at": "2026-11-05T16:51:48.184678Z"
+            },
+            {
+              "description": "A fork of serde-saphyr with downstream patches, imported as serde_saphyr. YAML (de)serializer for Serde, emphasizing panic-free parsing, fas",
+              "downloads": 2344,
+              "name": "vsh-serde-saphyr",
+              "newest_version": "0.0.4",
+              "recent_downloads": 2344,
+              "updated_at": "2026-11-13T17:47:42.087766Z"
+            },
+            {
+              "description": "A fast, safe YAML 1.2 library for Rust",
+              "downloads": 62866,
+              "name": "rust-yaml",
+              "newest_version": "1.1.0",
+              "recent_downloads": 34526,
+              "updated_at": "2026-06-02T06:04:10.056907Z"
+            },
+            {
+              "description": "Temp copy for serde_yaml_bw until version 2.5.3 is on crates. YAML support for Serde with an emphasis on panic-free parsing (including malfo",
+              "downloads": 86484,
+              "name": "serde_yaml_gtc",
+              "newest_version": "2.6.37436772465",
+              "recent_downloads": 36696,
+              "updated_at": "2026-10-06T08:35:24.070931Z"
+            },
+            {
+              "description": "YAML support for Serde with an emphasis on panic-free parsing (including malformed YAML).",
+              "downloads": 423378,
+              "name": "serde_yaml_bw",
+              "newest_version": "2.5.8",
+              "recent_downloads": 196891,
+              "updated_at": "2026-09-07T16:47:48.408005Z"
+            },
+            {
+              "description": "DEPRECATED — `libyml` is unmaintained. This release is a thin compatibility shim that forwards every call to `unsafe-libyaml` (the upstream ",
+              "downloads": 25030584,
+              "name": "libyml",
+              "newest_version": "0.0.6",
+              "recent_downloads": 3736120,
+              "updated_at": "2026-05-29T19:54:08.134460Z"
+            },
+            {
+              "description": "serde_yaml maintained by The YAML Organization",
+              "downloads": 6811990,
+              "name": "yaml_serde",
+              "newest_version": "0.10.7",
+              "recent_downloads": 5411726,
+              "updated_at": "2026-08-18T16:56:51.839798Z"
+            },
+            {
+              "description": "A pure Rust YAML library with zero unsafe code and full serde integration",
+              "downloads": 1309221,
+              "name": "noyalib",
+              "newest_version": "0.0.60",
+              "recent_downloads": 1087793,
+              "updated_at": "2026-11-10T09:24:35.861993Z"
+            },
+            {
+              "description": "Parser for Sigma detection rules, correlations, and filters",
+              "downloads": 38714,
+              "name": "rsigma-parser",
+              "newest_version": "0.27.0",
+              "recent_downloads": 31462,
+              "updated_at": "2026-11-12T14:01:25.356180Z"
+            }
+          ]
+        },
+        {
+          "query": "yaml parser",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=yaml%20parser&per_page=10",
+          "fetched_at": "2026-11-14T21:09:35Z",
+          "total": 2271,
+          "top": [
+            {
+              "description": "Spec-faithful streaming YAML 1.2 parser",
+              "downloads": 49944,
+              "name": "rlsp-yaml-parser",
+              "newest_version": "0.11.3",
+              "recent_downloads": 30660,
+              "updated_at": "2026-10-29T15:41:57.631013Z"
+            },
+            {
+              "description": "DEPRECATED — `libyml` is unmaintained. This release is a thin compatibility shim that forwards every call to `unsafe-libyaml` (the upstream ",
+              "downloads": 25030584,
+              "name": "libyml",
+              "newest_version": "0.0.6",
+              "recent_downloads": 3736120,
+              "updated_at": "2026-05-29T19:54:08.134460Z"
+            },
+            {
+              "description": "Semi-tolerant YAML concrete syntax tree parser.",
+              "downloads": 1410765,
+              "name": "yaml_parser",
+              "newest_version": "0.3.0",
+              "recent_downloads": 361370,
+              "updated_at": "2026-01-09T06:53:13.316520Z"
+            },
+            {
+              "description": "A YAML 1.2 parser that produces a comment-preserving typed AST.",
+              "downloads": 63388,
+              "name": "oxc-yaml-parser",
+              "newest_version": "0.0.8",
+              "recent_downloads": 47512,
+              "updated_at": "2026-11-02T05:03:09.795522Z"
+            },
+            {
+              "description": "YAML parser with Jinja2 template support for rattler-build, providing shared parsing infrastructure for conditional structures and template ",
+              "downloads": 32980,
+              "name": "rattler_build_yaml_parser",
+              "newest_version": "0.1.25",
+              "recent_downloads": 19390,
+              "updated_at": "2026-11-11T14:54:52.224743Z"
+            },
+            {
+              "description": "Core YAML 1.2.2 parser and emitter",
+              "downloads": 2507,
+              "name": "fast-yaml-core",
+              "newest_version": "0.7.0",
+              "recent_downloads": 722,
+              "updated_at": "2026-10-02T15:27:57.887021Z"
+            },
+            {
+              "description": "YAML parser that captures detailed span information.",
+              "downloads": 50252,
+              "name": "yaml-spanned",
+              "newest_version": "0.0.3",
+              "recent_downloads": 7494,
+              "updated_at": "2025-12-27T21:12:05.020090Z"
+            },
+            {
+              "description": "A YAML parser with comment, tag and style support, written in pure Rust",
+              "downloads": 16119533,
+              "name": "granit-parser",
+              "newest_version": "2.1.0",
+              "recent_downloads": 14135399,
+              "updated_at": "2026-11-02T11:29:50.478332Z"
+            },
+            {
+              "description": "High-performance incremental YAML parser for the oak ecosystem with flexible configuration, optimized for configuration files and data seria",
+              "downloads": 1923,
+              "name": "oak-yaml",
+              "newest_version": "0.0.11",
+              "recent_downloads": 548,
+              "updated_at": "2026-03-30T04:11:32.139249Z"
+            },
+            {
+              "description": "A YAML 1.2 parser using a greedy parsing algorithm with PEG atoms.",
+              "downloads": 85279,
+              "name": "yaml-peg",
+              "newest_version": "1.0.9",
+              "recent_downloads": 6753,
+              "updated_at": "2025-08-28T13:00:12.023188Z"
+            }
+          ]
+        },
+        {
+          "query": "serde yaml",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=serde%20yaml&per_page=10",
+          "fetched_at": "2026-11-14T21:09:37Z",
+          "total": 2243,
+          "top": [
+            {
+              "description": "Drop-in serde_yaml replacement backed by noyalib — rename the package in Cargo.toml, change zero source lines",
+              "downloads": 45025,
+              "name": "noyalib-serde-yaml",
+              "newest_version": "0.0.60",
+              "recent_downloads": 45025,
+              "updated_at": "2026-11-10T09:43:02.503155Z"
+            },
+            {
+              "description": "serde_yaml maintained by The YAML Organization",
+              "downloads": 6811990,
+              "name": "yaml_serde",
+              "newest_version": "0.10.7",
+              "recent_downloads": 5411726,
+              "updated_at": "2026-08-18T16:56:51.839798Z"
+            },
+            {
+              "description": "YAML data format for Serde",
+              "downloads": 17840,
+              "name": "serde_yaml_neo",
+              "newest_version": "0.11.0",
+              "recent_downloads": 8877,
+              "updated_at": "2026-01-20T13:28:50.901003Z"
+            },
+            {
+              "description": "Temp copy for serde_yaml_bw until version 2.5.3 is on crates. YAML support for Serde with an emphasis on panic-free parsing (including malfo",
+              "downloads": 86484,
+              "name": "serde_yaml_gtc",
+              "newest_version": "2.6.37436772465",
+              "recent_downloads": 36696,
+              "updated_at": "2026-10-06T08:35:24.070931Z"
+            },
+            {
+              "description": "YAML data format for Serde",
+              "downloads": 3812,
+              "name": "mk_ext_serde_yaml",
+              "newest_version": "0.10.0",
+              "recent_downloads": 185,
+              "updated_at": "2025-01-06T06:07:01.059626Z"
+            },
+            {
+              "description": "YAML data format for Serde",
+              "downloads": 24714905,
+              "name": "serde_yaml_ng",
+              "newest_version": "0.10.0",
+              "recent_downloads": 16027089,
+              "updated_at": "2024-05-26T19:57:45.710414Z"
+            },
+            {
+              "description": "YAML data format for Serde. It's OK.",
+              "downloads": 37222,
+              "name": "serde_yaml_ok",
+              "newest_version": "0.9.36",
+              "recent_downloads": 2817,
+              "updated_at": "2024-06-07T12:08:16.424987Z"
+            },
+            {
+              "description": "YAML data format for Serde",
+              "downloads": 471783667,
+              "name": "serde_yaml",
+              "newest_version": "0.9.34+deprecated",
+              "recent_downloads": 101356317,
+              "updated_at": "2024-03-25T00:50:19.759577Z"
+            },
+            {
+              "description": "YAML support for Serde with an emphasis on panic-free parsing (including malformed YAML).",
+              "downloads": 423378,
+              "name": "serde_yaml_bw",
+              "newest_version": "2.5.8",
+              "recent_downloads": 196891,
+              "updated_at": "2026-09-07T16:47:48.408005Z"
+            },
+            {
+              "description": "YAML data format for Serde, fork with quirks support",
+              "downloads": 491262,
+              "name": "serde_yaml_with_quirks",
+              "newest_version": "0.9.34",
+              "recent_downloads": 53687,
+              "updated_at": "2025-05-10T10:12:53.566145Z"
+            }
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "name": "serde_yaml",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"yaml\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 3913,
+            "description": "YAML data format for Serde",
+            "downloads_weak_signal": {
+              "all_time": 471783667,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 101356317
+            },
+            "fetched_at": "2026-11-14T21:09:39Z",
+            "first_published": "2016-02-27T06:46:34Z",
+            "latest_age_days": 964,
+            "latest_published": "2024-03-25T00:50:19Z",
+            "latest_version": "0.9.34+deprecated",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "dtolnay"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/dtolnay/serde-yaml",
+            "rust_version": "1.64",
+            "rustsec_advisories": [
+              "RUSTSEC-2018-0005"
+            ],
+            "rustsec_checked_at": "2026-11-14T21:10:24Z",
+            "rustsec_status": 200,
+            "rustsec_url": "https://rustsec.org/packages/serde_yaml.html",
+            "trusted_publishing": null,
+            "versions": 86,
+            "versions_in_the_last_365_days": 0,
+            "yanked_versions": []
+          },
+          "flags": [
+            "no release for 964 days",
+            "RustSec has advisories for this crate: RUSTSEC-2018-0005. Read them; they may concern old versions only"
+          ]
+        },
+        {
+          "name": "serde_yml",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"yaml\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 960,
+            "description": "DEPRECATED — `serde_yml` is unmaintained. This release is a thin compatibility shim that forwards every call to `noyalib` (a pure-Rust, `#![forbid(unsafe_code)]` YAML library). Please migrate to `noyalib`.",
+            "downloads_weak_signal": {
+              "all_time": 25868748,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 4380410
+            },
+            "fetched_at": "2026-11-14T21:09:44Z",
+            "first_published": "2024-03-29T13:47:41Z",
+            "latest_age_days": 170,
+            "latest_published": "2026-05-27T22:51:08Z",
+            "latest_version": "0.0.13",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "sebastienrousseau"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/sebastienrousseau/serde_yml",
+            "rust_version": "1.85.0",
+            "rustsec_advisories": [
+              "RUSTSEC-2025-0068"
+            ],
+            "rustsec_checked_at": "2026-11-14T21:09:48Z",
+            "rustsec_status": 200,
+            "rustsec_url": "https://rustsec.org/packages/serde_yml.html",
+            "trusted_publishing": null,
+            "versions": 13,
+            "versions_in_the_last_365_days": 1,
+            "yanked_versions": []
+          },
+          "flags": [
+            "RustSec has advisories for this crate: RUSTSEC-2025-0068. Read them; they may concern old versions only"
+          ]
+        },
+        {
+          "name": "serde-saphyr",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"yaml\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 413,
+            "description": "YAML (de)serializer for Serde, emphasizing panic-free parsing, fast builds and good error reporting. Supports properties, include, tag and comment capture",
+            "downloads_weak_signal": {
+              "all_time": 19352573,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 14912086
+            },
+            "fetched_at": "2026-11-14T21:09:49Z",
+            "first_published": "2025-09-27T20:32:53Z",
+            "latest_age_days": 9,
+            "latest_published": "2026-11-05T16:51:48Z",
+            "latest_version": "2.1.1",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "bourumir-wyngs"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/bourumir-wyngs/serde-saphyr",
+            "rust_version": "1.89",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:09:53Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/serde-saphyr.html",
+            "trusted_publishing": {
+              "provider": "github",
+              "repository": "bourumir-wyngs/serde-saphyr",
+              "run_id": "42035529553",
+              "sha": "07bfc26a3733c29deb735b88cd18f87074bdf267"
+            },
+            "versions": 40,
+            "versions_in_the_last_365_days": 32,
+            "yanked_versions": [
+              "2.1.0",
+              "0.0.9",
+              "0.0.8-alpha-pre"
+            ]
+          },
+          "flags": [
+            "the latest version is 9 day(s) old, younger than the minimum publish age of 14: do not take it yet",
+            "3 version(s) were yanked: 2.1.0, 0.0.9, 0.0.8-alpha-pre"
+          ]
+        },
+        {
+          "name": "saphyr",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"yaml\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 956,
+            "description": "A fully YAML 1.2 compliant YAML library",
+            "downloads_weak_signal": {
+              "all_time": 3123632,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 1323551
+            },
+            "fetched_at": "2026-11-14T21:09:55Z",
+            "first_published": "2024-04-02T15:39:39Z",
+            "latest_age_days": 2,
+            "latest_published": "2026-11-11T21:50:08Z",
+            "latest_version": "0.3.4",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "davvid"
+              },
+              {
+                "kind": "user",
+                "login": "Ethiraric"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/saphyr-rs/saphyr",
+            "rust_version": "1.85.0",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:09:59Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/saphyr.html",
+            "trusted_publishing": null,
+            "versions": 23,
+            "versions_in_the_last_365_days": 17,
+            "yanked_versions": []
+          },
+          "flags": [
+            "the latest version is 2 day(s) old, younger than the minimum publish age of 14: do not take it yet"
+          ]
+        }
+      ],
+      "not_examined": [
+        "cfgv",
+        "openapi-spec-validator-rs",
+        "openapi-spec-validator-rs-cli",
+        "oyl-sys",
+        "oyl",
+        "yaml",
+        "vsh-serde-saphyr",
+        "rust-yaml",
+        "serde_yaml_gtc",
+        "rlsp-yaml-parser",
+        "libyml",
+        "yaml_parser",
+        "oxc-yaml-parser",
+        "rattler_build_yaml_parser",
+        "noyalib-serde-yaml",
+        "yaml_serde",
+        "serde_yaml_neo",
+        "mk_ext_serde_yaml"
+      ],
+      "dismissed": [],
+      "outcome": "community_crates",
+      "outcome_reason": "candidates exist; none could be tied to the organisation behind the Python library by evidence the tool can check",
+      "options": [
+        "Use the crate `serde_yaml` (community).",
+        "Use the crate `serde_yml` (community).",
+        "Use the crate `serde-saphyr` (community).",
+        "Use the crate `saphyr` (community).",
+        "Keep it in Python and call across the boundary, or keep the part of the piece that uses it in Python. For numerical, scientific and ML libraries, whose work is already done in compiled code, this is usually the right choice.",
+        "Write the part the piece needs in Rust, if what it uses is small. The list of names used, above, is the size of that job."
+      ],
+      "declared_decision": {
+        "choice": "crate:serde-saphyr",
+        "reason": "The piece only calls safe_load on a small config file. serde_yaml is marked deprecated by its author and serde_yml has an advisory; serde-saphyr is the maintained one. Its latest version is younger than the minimum publish age, so pin the one before it until that has passed."
+      },
+      "flags": [
+        "the chosen crate `serde-saphyr`: the latest version is 9 day(s) old, younger than the minimum publish age of 14: do not take it yet",
+        "the chosen crate `serde-saphyr`: 3 version(s) were yanked: 2.1.0, 0.0.9, 0.0.8-alpha-pre"
+      ]
+    },
+    {
+      "import": "zeep",
+      "used": [
+        {
+          "file": "python/nightly_report.py",
+          "imported_at_run_time": false,
+          "kind": "third_party",
+          "lines": [
+            12
+          ],
+          "module": "zeep",
+          "uses": [
+            "Client",
+            "exceptions.Error"
+          ]
+        }
+      ],
+      "pypi": {
+        "exists": true,
+        "fetched_at": "2026-11-14T21:10:01Z",
+        "home_page": null,
+        "license": "MIT",
+        "name": "zeep",
+        "name_declared_by": "the proposal",
+        "organisations": [
+          "github.com/mvantellingen"
+        ],
+        "organisations_from": "the project's source, repository and home links on PyPI",
+        "project_urls": {
+          "Changelog": "https://github.com/mvantellingen/python-zeep/blob/main/CHANGES",
+          "Documentation": "https://docs.python-zeep.org",
+          "Repository": "https://github.com/mvantellingen/python-zeep"
+        },
+        "provides_the_import": {
+          "agrees_with_the_proposal": null,
+          "projects": [],
+          "source": "the two names resemble each other; the library is not installed in the interpreter the tool ran"
+        },
+        "summary": "A Python SOAP client",
+        "version": "4.3.3"
+      },
+      "searches": [
+        {
+          "query": "zeep",
+          "from": "tool",
+          "url": "https://crates.io/api/v1/crates?q=zeep&per_page=10",
+          "fetched_at": "2026-11-14T21:10:02Z",
+          "total": 10,
+          "top": [
+            {
+              "description": "Rust client for Zeep Orbit — auto-generated REST APIs for your apps",
+              "downloads": 49,
+              "name": "zeep-orbit-client",
+              "newest_version": "0.1.1",
+              "recent_downloads": 2,
+              "updated_at": "2026-06-29T19:17:11.988095Z"
+            },
+            {
+              "description": "Core Rust commands for zeep-native-kit: PrefsStore, Keychain, ShellRunner",
+              "downloads": 91,
+              "name": "zeep-core",
+              "newest_version": "1.0.0",
+              "recent_downloads": 73,
+              "updated_at": "2026-08-08T14:25:23.385663Z"
+            },
+            {
+              "description": "Local AI CLI integration for zeep-native-kit Tauri apps",
+              "downloads": 62,
+              "name": "zeep-ai",
+              "newest_version": "1.0.0",
+              "recent_downloads": 45,
+              "updated_at": "2026-08-08T14:27:00.939335Z"
+            },
+            {
+              "description": "Structured logging for zeep-native-kit Tauri apps",
+              "downloads": 62,
+              "name": "zeep-logger",
+              "newest_version": "1.0.0",
+              "recent_downloads": 45,
+              "updated_at": "2026-08-08T14:25:44.906052Z"
+            },
+            {
+              "description": "Auto-update integration for zeep-native-kit Tauri apps — wraps tauri-plugin-updater with a semver gate",
+              "downloads": 62,
+              "name": "zeep-updater",
+              "newest_version": "1.0.0",
+              "recent_downloads": 45,
+              "updated_at": "2026-08-08T14:26:57.375713Z"
+            },
+            {
+              "description": "Umbrella crate for zeep-native-kit — Builder API for Tauri apps",
+              "downloads": 39,
+              "name": "zeep-kit",
+              "newest_version": "1.0.0",
+              "recent_downloads": 25,
+              "updated_at": "2026-08-08T14:27:53.200792Z"
+            },
+            {
+              "description": "WS-Security headers: UsernameToken, timestamp, and password digests, for SOAP services that require them.",
+              "downloads": 80,
+              "name": "wssec",
+              "newest_version": "0.1.9",
+              "recent_downloads": 80,
+              "updated_at": "2026-10-28T05:31:26.537291Z"
+            },
+            {
+              "description": "XML Schema (XSD 1.0/1.1) validator with PSVI and a built-in XPath 2.0 engine",
+              "downloads": 5001,
+              "name": "xsd-schema",
+              "newest_version": "0.3.1",
+              "recent_downloads": 4827,
+              "updated_at": "2026-11-08T12:25:23.264521Z"
+            },
+            {
+              "description": "An ONVIF Profile S streaming-core device server library for Rust — build a camera/encoder that standard ONVIF clients can discover and strea",
+              "downloads": 208,
+              "name": "onvif-server",
+              "newest_version": "0.1.1",
+              "recent_downloads": 145,
+              "updated_at": "2026-06-03T10:35:14.615682Z"
+            },
+            {
+              "description": "manage mods and playlists for zeepkist",
+              "downloads": 26763,
+              "name": "zeeper",
+              "newest_version": "1.7.2",
+              "recent_downloads": 27,
+              "updated_at": "2025-01-27T07:52:33.326132Z"
+            }
+          ]
+        },
+        {
+          "query": "soap client",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=soap%20client&per_page=10",
+          "fetched_at": "2026-11-14T21:10:03Z",
+          "total": 126,
+          "top": [
+            {
+              "description": "Internal SOAP client for sonos-sdk UPnP device communication",
+              "downloads": 2254,
+              "name": "sonos-sdk-soap-client",
+              "newest_version": "0.9.0",
+              "recent_downloads": 641,
+              "updated_at": "2026-09-18T00:40:33.505260Z"
+            },
+            {
+              "description": "SOAP 1.1 and 1.2 envelopes, plus WSDL reading, for calling legacy web services.",
+              "downloads": 81,
+              "name": "soap-client",
+              "newest_version": "0.1.9",
+              "recent_downloads": 81,
+              "updated_at": "2026-10-28T05:31:18.628822Z"
+            },
+            {
+              "description": "Typed async client for the Nmbrs Accounting (formerly Yuki) SOAP API",
+              "downloads": 170,
+              "name": "yuki-client",
+              "newest_version": "0.2.2",
+              "recent_downloads": 70,
+              "updated_at": "2026-10-08T10:24:37.098483Z"
+            },
+            {
+              "description": "Async client for the Siemens Polarion ALM SOAP web services, generated from the WSDLs",
+              "downloads": 123,
+              "name": "polarion-soap",
+              "newest_version": "0.2.0",
+              "recent_downloads": 123,
+              "updated_at": "2026-10-21T13:47:52.671953Z"
+            },
+            {
+              "description": "Convenient, read-focused access to Siemens Polarion ALM, built on the SOAP web services",
+              "downloads": 71,
+              "name": "polarion",
+              "newest_version": "0.2.0",
+              "recent_downloads": 71,
+              "updated_at": "2026-10-21T13:48:02.987676Z"
+            },
+            {
+              "description": "Markdown to Polarion rich text (HTML) and back: work item links, formulas, tables, syntax highlighting, mermaid diagrams as SVG",
+              "downloads": 76,
+              "name": "polarion-markdown",
+              "newest_version": "0.2.0",
+              "recent_downloads": 76,
+              "updated_at": "2026-10-21T13:47:08.832961Z"
+            },
+            {
+              "description": "Every operation of the polarion library as a typed command DTO, shared by the CLI and the MCP server",
+              "downloads": 51,
+              "name": "polarion-commands",
+              "newest_version": "0.2.0",
+              "recent_downloads": 51,
+              "updated_at": "2026-10-21T13:48:51.989241Z"
+            },
+            {
+              "description": "Command-line interface for Siemens Polarion ALM, with JSON output for automation",
+              "downloads": 23,
+              "name": "polarion-cli",
+              "newest_version": "0.2.0",
+              "recent_downloads": 23,
+              "updated_at": "2026-10-21T13:49:35.084008Z"
+            },
+            {
+              "description": "MCP server (stdio or Streamable HTTP) giving AI agents access to Siemens Polarion ALM (read-only unless writes are enabled)",
+              "downloads": 20,
+              "name": "polarion-mcp",
+              "newest_version": "0.2.0",
+              "recent_downloads": 20,
+              "updated_at": "2026-10-21T13:50:47.550973Z"
+            },
+            {
+              "description": "Procedural macros for rsoap — SOAP client code generation from WSDL files",
+              "downloads": 235,
+              "name": "rsoap-macros",
+              "newest_version": "0.4.1",
+              "recent_downloads": 88,
+              "updated_at": "2026-10-15T11:27:58.798229Z"
+            }
+          ]
+        },
+        {
+          "query": "wsdl",
+          "from": "proposal",
+          "url": "https://crates.io/api/v1/crates?q=wsdl&per_page=10",
+          "fetched_at": "2026-11-14T21:10:04Z",
+          "total": 35,
+          "top": [
+            {
+              "description": "Idiomatic Rust wrapper for WSDL",
+              "downloads": 5550,
+              "name": "wsdl",
+              "newest_version": "0.1.3",
+              "recent_downloads": 10,
+              "updated_at": "2023-07-29T19:32:02.801332Z"
+            },
+            {
+              "description": "A WSDL-driven SOAP 1.1/1.2 server library for Rust — document/RPC dispatch, WS-Security UsernameToken, axum-based (the transport under onvif",
+              "downloads": 312,
+              "name": "soap-server",
+              "newest_version": "0.1.1",
+              "recent_downloads": 209,
+              "updated_at": "2026-06-03T10:17:45.923703Z"
+            },
+            {
+              "description": "Procedural macros for rsoap — SOAP client code generation from WSDL files",
+              "downloads": 235,
+              "name": "rsoap-macros",
+              "newest_version": "0.4.1",
+              "recent_downloads": 88,
+              "updated_at": "2026-10-15T11:27:58.798229Z"
+            },
+            {
+              "description": "A SOAP client library for Rust with compile-time code generation from WSDL files",
+              "downloads": 144,
+              "name": "rsoap",
+              "newest_version": "0.4.1",
+              "recent_downloads": 63,
+              "updated_at": "2026-10-15T11:28:22.091780Z"
+            },
+            {
+              "description": "SOAP 1.1 and 1.2 envelopes, plus WSDL reading, for calling legacy web services.",
+              "downloads": 81,
+              "name": "soap-client",
+              "newest_version": "0.1.9",
+              "recent_downloads": 81,
+              "updated_at": "2026-10-28T05:31:18.628822Z"
+            },
+            {
+              "description": "CXF/SOAP component for rust-camel via Java bridge",
+              "downloads": 1937,
+              "name": "camel-component-cxf",
+              "newest_version": "0.68.0",
+              "recent_downloads": 1195,
+              "updated_at": "2026-11-13T12:31:18.993846Z"
+            },
+            {
+              "description": "HL7® v2 over SOAP: the envelope, faults, payload carriage, WSDL, and response evaluation that carry Health Level Seven (HL7) version 2 (v2) ",
+              "downloads": 154,
+              "name": "hl7-2-soap",
+              "newest_version": "0.2.1",
+              "recent_downloads": 154,
+              "updated_at": "2026-10-16T11:26:05.305755Z"
+            },
+            {
+              "description": "HL7® v3 over SOAP: the envelope, faults, message carriage, WSDL, and acknowledgement evaluation that carry Health Level Seven (HL7) version ",
+              "downloads": 117,
+              "name": "hl7-3-soap",
+              "newest_version": "0.2.1",
+              "recent_downloads": 117,
+              "updated_at": "2026-10-16T11:25:58.104127Z"
+            },
+            {
+              "description": "OMG DDS-WEB 1.0 gateway daemon: REST-PSM (zerodds-web) + SOAP-PSM (zerodds-soap), one process, backed by zerodds-dcps.",
+              "downloads": 21,
+              "name": "zerodds-webdds-bridge",
+              "newest_version": "1.0.0-rc.7.1",
+              "recent_downloads": 21,
+              "updated_at": "2026-10-31T00:16:38.403587Z"
+            },
+            {
+              "description": "Async client for the Siemens Polarion ALM SOAP web services, generated from the WSDLs",
+              "downloads": 123,
+              "name": "polarion-soap",
+              "newest_version": "0.2.0",
+              "recent_downloads": 123,
+              "updated_at": "2026-10-21T13:47:52.671953Z"
+            }
+          ]
+        }
+      ],
+      "candidates": [
+        {
+          "name": "soap-client",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"mvantellingen\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 23,
+            "description": "SOAP 1.1 and 1.2 envelopes, plus WSDL reading, for calling legacy web services.",
+            "downloads_weak_signal": {
+              "all_time": 81,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 81
+            },
+            "fetched_at": "2026-11-14T21:10:06Z",
+            "first_published": "2026-10-22T03:22:52Z",
+            "latest_age_days": 17,
+            "latest_published": "2026-10-28T05:31:18Z",
+            "latest_version": "0.1.9",
+            "license": "Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "adminypc"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/cipansor/crateworks",
+            "rust_version": "1.88",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:09Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/soap-client.html",
+            "trusted_publishing": null,
+            "versions": 8,
+            "versions_in_the_last_365_days": 8,
+            "yanked_versions": []
+          },
+          "flags": [
+            "the crate itself is 23 day(s) old"
+          ]
+        },
+        {
+          "name": "rsoap",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"mvantellingen\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 162,
+            "description": "A SOAP client library for Rust with compile-time code generation from WSDL files",
+            "downloads_weak_signal": {
+              "all_time": 144,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 63
+            },
+            "fetched_at": "2026-11-14T21:10:12Z",
+            "first_published": "2026-06-05T14:14:44Z",
+            "latest_age_days": 30,
+            "latest_published": "2026-10-15T11:28:22Z",
+            "latest_version": "0.4.1",
+            "license": "MIT",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "ouertani"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/ouertani/rsoap",
+            "rust_version": "1.75",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:15Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/rsoap.html",
+            "trusted_publishing": {
+              "provider": "github",
+              "repository": "ouertani/rsoap",
+              "run_id": "38726561289",
+              "sha": "84dc44cda247dd84f6c0651c76994414c5518173"
+            },
+            "versions": 5,
+            "versions_in_the_last_365_days": 5,
+            "yanked_versions": []
+          },
+          "flags": []
+        },
+        {
+          "name": "wsdl",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"mvantellingen\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 1874,
+            "description": "Idiomatic Rust wrapper for WSDL",
+            "downloads_weak_signal": {
+              "all_time": 5550,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 10
+            },
+            "fetched_at": "2026-11-14T21:10:17Z",
+            "first_published": "2021-09-26T22:51:36Z",
+            "latest_age_days": 1204,
+            "latest_published": "2023-07-29T19:32:02Z",
+            "latest_version": "0.1.3",
+            "license": "Apache-2.0/MIT",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "DrChat"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/DrChat/wsdl-rs",
+            "rust_version": null,
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:20Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/wsdl.html",
+            "trusted_publishing": null,
+            "versions": 4,
+            "versions_in_the_last_365_days": 0,
+            "yanked_versions": []
+          },
+          "flags": [
+            "no release for 1204 days"
+          ]
+        },
+        {
+          "name": "zeep-core",
+          "proposed_as": null,
+          "exists": true,
+          "classification": "community",
+          "evidence": [
+            "no crates.io owner is a team of [\"mvantellingen\"] (where the Python project lives), the crate was not released by trusted publishing from there, and the project's PyPI description does not name it"
+          ],
+          "facts": {
+            "build_facts_from": "docs.rs source view, best effort; null means it could not be learned",
+            "build_script": false,
+            "crate_age_days": 98,
+            "description": "Core Rust commands for zeep-native-kit: PrefsStore, Keychain, ShellRunner",
+            "downloads_weak_signal": {
+              "all_time": 91,
+              "note": "dominated by being a dependency of other crates; says little about quality or safety",
+              "recent_90_days": 73
+            },
+            "fetched_at": "2026-11-14T21:10:21Z",
+            "first_published": "2026-08-08T14:25:23Z",
+            "latest_age_days": 98,
+            "latest_published": "2026-08-08T14:25:23Z",
+            "latest_version": "1.0.0",
+            "license": "MIT OR Apache-2.0",
+            "links_native_library": null,
+            "owners": [
+              {
+                "kind": "user",
+                "login": "JulioAugustoS"
+              }
+            ],
+            "proc_macro": false,
+            "repository": "https://github.com/zeeplabs/zeep-native-kit",
+            "rust_version": "1.80",
+            "rustsec_advisories": [],
+            "rustsec_checked_at": "2026-11-14T21:10:23Z",
+            "rustsec_status": 404,
+            "rustsec_url": "https://rustsec.org/packages/zeep-core.html",
+            "trusted_publishing": null,
+            "versions": 1,
+            "versions_in_the_last_365_days": 1,
+            "yanked_versions": []
+          },
+          "flags": []
+        }
+      ],
+      "not_examined": [
+        "zeep-orbit-client",
+        "zeep-ai",
+        "zeep-logger",
+        "zeep-updater",
+        "sonos-sdk-soap-client",
+        "yuki-client",
+        "polarion-soap",
+        "polarion",
+        "soap-server",
+        "rsoap-macros"
+      ],
+      "dismissed": [],
+      "outcome": "community_crates",
+      "outcome_reason": "candidates exist; none could be tied to the organisation behind the Python library by evidence the tool can check",
+      "options": [
+        "Use the crate `soap-client` (community).",
+        "Use the crate `rsoap` (community).",
+        "Use the crate `wsdl` (community).",
+        "Use the crate `zeep-core` (community).",
+        "Keep it in Python and call across the boundary, or keep the part of the piece that uses it in Python. For numerical, scientific and ML libraries, whose work is already done in compiled code, this is usually the right choice.",
+        "Write the part the piece needs in Rust, if what it uses is small. The list of names used, above, is the size of that job."
+      ],
+      "declared_decision": {
+        "choice": "keep_part_in_python",
+        "reason": "Crates with SOAP in the name exist; the figures in the report (age, releases, owners, use) do not describe anything to build a nightly job on. fetch_prices stays in Python and hands plain rows to the ported part."
+      },
+      "flags": []
+    }
+  ],
+  "not_looked_up": [
+    {
+      "file": "python/nightly_report.py",
+      "module": "json",
+      "why": "standard_library"
+    },
+    {
+      "file": "python/nightly_report.py",
+      "module": "logging",
+      "why": "standard_library"
+    },
+    {
+      "file": "python/nightly_report.py",
+      "module": "pathlib",
+      "why": "standard_library"
+    }
+  ],
+  "requests": [
+    {
+      "url": "https://rustsec.org/packages/serde_yaml.html",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:24Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://pypi.org/pypi/opentelemetry-api/json",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:08:56Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=opentelemetry-api&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:08:56Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=opentelemetry&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:08:57Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=tracing%20spans&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:08:59Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=distributed%20tracing&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:01Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/opentelemetry",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:03Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/opentelemetry/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:06Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/opentelemetry.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:09:07Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/opentelemetry/0.33.1/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:08Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/opentelemetry/0.33.1/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:08Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://pypi.org/pypi/scikit-learn/json",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=scikit-learn&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=sklearn&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=isolation%20forest&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:10Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=anomaly%20detection&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:13Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=machine%20learning&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:15Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/linfa",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:16Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/linfa/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:18Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/linfa.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:09:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/linfa/0.8.1/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/linfa/0.8.1/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=linfa&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:21Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/smartcore",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:22Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/smartcore/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:24Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/smartcore.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:09:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/smartcore/0.7.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/smartcore/0.7.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:26Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=smartcore&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:27Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/extended-isolation-forest",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:27Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/extended-isolation-forest/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:29Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/extended-isolation-forest.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:09:30Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/extended-isolation-forest/0.2.3/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:30Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/extended-isolation-forest/0.2.3/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:30Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=extended-isolation-forest&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:31Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://pypi.org/pypi/PyYAML/json",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:32Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=PyYAML&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:32Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=yaml&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:34Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=yaml%20parser&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:35Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=serde%20yaml&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:37Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/serde_yaml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:39Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/serde_yaml/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:41Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/serde_yaml/0.9.34%2Bdeprecated/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:42Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/serde_yaml/0.9.34%2Bdeprecated/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:42Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=serde_yaml&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:43Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/serde_yml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:44Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/serde_yml/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:47Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/serde_yml.html",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:48Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/serde_yml/0.0.13/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:48Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/serde_yml/0.0.13/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:48Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=serde_yml&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:49Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/serde-saphyr",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:49Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/serde-saphyr/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:51Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/serde-saphyr.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:09:53Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/serde-saphyr/2.1.1/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:53Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/serde-saphyr/2.1.1/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:53Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=serde-saphyr&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:54Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/saphyr",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:55Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/saphyr/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:57Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/saphyr.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:09:59Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/saphyr/0.3.4/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:59Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/saphyr/0.3.4/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:09:59Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=saphyr&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:00Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://pypi.org/pypi/zeep/json",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:01Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=zeep&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:02Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=soap%20client&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:03Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=wsdl&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:04Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/soap-client",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:06Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/soap-client/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:08Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/soap-client.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/soap-client/0.1.9/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/soap-client/0.1.9/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:09Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=soap-client&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:11Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/rsoap",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:12Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/rsoap/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:13Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/rsoap.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:15Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/rsoap/0.4.1/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:15Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/rsoap/0.4.1/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:15Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=rsoap&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:16Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/wsdl",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:17Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/wsdl/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:18Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/wsdl.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/wsdl/0.1.3/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/wsdl/0.1.3/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:20Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/zeep-core",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:21Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates/zeep-core/owners",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:21Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://rustsec.org/packages/zeep-core.html",
+      "status": 404,
+      "fetched_at": "2026-11-14T21:10:23Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/zeep-core/1.0.0/source/",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:23Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://docs.rs/crate/zeep-core/1.0.0/source/Cargo.toml",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:23Z",
+      "from_cache": true
+    },
+    {
+      "url": "https://crates.io/api/v1/crates?q=zeep-core&per_page=10",
+      "status": 200,
+      "fetched_at": "2026-11-14T21:10:24Z",
+      "from_cache": true
+    }
+  ],
+  "user_agent": null
+}

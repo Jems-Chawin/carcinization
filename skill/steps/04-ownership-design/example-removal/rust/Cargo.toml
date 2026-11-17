@@ -1,0 +1,13 @@
+# The second example of the ownership design step: what an index costs when
+# elements are removed. One Python original (../python/board.py), two ports
+# of it in `core`, and a PyO3 crate for the port that is right.
+[workspace]
+members = ["core", "py"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+license = "MIT OR Apache-2.0"

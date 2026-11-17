@@ -1,0 +1,1 @@
+{"url": "https://crates.io/api/v1/crates/serde_yaml_gtc/owners", "status": 200, "fetched_at": 1794689262, "body": "{\"users\": [{\"login\": \"greentic-ai\", \"kind\": \"user\"}, {\"login\": \"BimaPangestu28\", \"kind\": \"user\"}]}"}

@@ -1,0 +1,16 @@
+{
+  "schema": "carcinify/deps/proposal/1",
+  "python_files": ["python/assistant.py"],
+  "dependencies": {
+    "google.adk": {
+      "pypi": "google-adk",
+      "search_terms": ["adk", "agent development kit", "google adk agent", "adk-rust"],
+      "candidates": ["adk", "adk-rust", "adk-core", "adk-agent", "adk-model", "adk-runner", "google-adk"]
+    },
+    "google.genai": {
+      "pypi": "google-genai",
+      "search_terms": ["gemini", "gemini api client", "genai"],
+      "candidates": ["google-genai", "gemini-genai", "gemini-rust", "adk-gemini", "gemini", "genai"]
+    }
+  }
+}

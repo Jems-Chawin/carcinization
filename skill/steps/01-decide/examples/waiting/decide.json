@@ -1,0 +1,20 @@
+{
+  "schema": "carcinify/decide/declaration/2",
+  "project_root": ".",
+  "workload": {
+    "description": "One day's invoices, 400 of them in twenty currencies, converted to EUR. The size of an ordinary day.",
+    "file": "workload.py",
+    "function": "run",
+    "args": [400],
+    "repeat": 5
+  },
+  "candidate": {"file": "exchange_rates.py", "function": "convert"},
+  "language_or_algorithm": {
+    "statement": "Neither: the code asks the rates service once per currency and waits for each answer. Asking for all twenty rates in one request, or at the same time, would shorten the wait in any language.",
+    "better_algorithm_in_python": "exists_untried"
+  },
+  "decision": {
+    "choice": "do_not_port",
+    "reason": "Almost all of the time is spent waiting for the rates service. A port would wait just as long."
+  }
+}

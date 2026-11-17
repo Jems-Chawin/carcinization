@@ -1,0 +1,18 @@
+{
+  "schema": "rustify-diff/suite/1",
+  "original": {
+    "kind": "python",
+    "path": [
+      "../../task"
+    ],
+    "module": "relay"
+  },
+  "candidate": {
+    "kind": "pyo3",
+    "crate": "py",
+    "module": "relay_rs"
+  },
+  "cases": [
+    "../../measure/cases.jsonl"
+  ]
+}

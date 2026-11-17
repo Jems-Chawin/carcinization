@@ -1,0 +1,6 @@
+{"id": 1001, "name": "freight", "amount": 1250.0}
+{"id": 1002, "name": "caf\u00e9 supplies", "amount": 87.15}
+{"id": 1003, "name": "port fees", "amount": 396.03999999999996}
+{"id": 1004, "name": "refund", "amount": -0.0}
+{"id": 1005, "name": "insurance", "amount": 0.30000000000000004}
+{"id": 9223372036854775807, "name": "carry-over", "amount": 1e+22}

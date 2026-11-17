@@ -1,0 +1,170 @@
+<p align="center"><img src="assets/roads.svg" width="560" alt="Five roads run together and end at a crab"></p>
+
+<h1 align="center">carcinization</h1>
+
+<p align="center"><em>“All roads eventually lead to crab.”</em></p>
+
+<p align="center">Move a Python codebase to Rust one piece at a time, and measure every step: <code>carcinify</code>.</p>
+
+An agent skill, in progress, for moving parts of a Python codebase to Rust
+one piece at a time behind [PyO3](https://pyo3.rs). Each step comes with a
+tool that measures the result, so that the numbers in a report come from a
+run and are not typed by the agent. The workload, the test cases and the
+driver that the tools run are still written by the agent: the tools record
+what ran, with hashes and the commit, and each tool's README lists what it
+cannot stop. "Do not port this" is a normal outcome of the first step.
+
+**State: work in progress. It has not been used on a real port yet.** The
+steps are meant to be read and followed by a coding agent; there is no
+top-level `SKILL.md` yet that ties them together.
+
+## What exists
+
+One command, `carcinify`, with four subcommands. Each is a library crate in
+this workspace behind the one binary in [`carcinify/`](carcinify/):
+
+| tool | what it does | step |
+|---|---|---|
+| [`carcinify decide`](decide/README.md) | Measures where a Python workload spends its time and checks a declared decision to port, to fix the algorithm first, or not to port, against it | [1 decide](skill/steps/01-decide/STEP.md) |
+| [`carcinify deps`](deps/README.md) | Reads the imports of the code to be ported and looks up on crates.io what the proposal names for each | [2 dependency check](skill/steps/02-dependency-check/STEP.md) |
+| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only, no step text yet) |
+| [`carcinify structure`](structure/README.md) | Counts allocations on the port's hot path at two input sizes and lists the copies made in the code reachable from it | [6 structure report](skill/steps/06-structure-report/STEP.md) |
+
+One step has no tool: [4 ownership design](skill/steps/04-ownership-design/STEP.md),
+a design note written before the port. Whether ports made without it show
+the pattern it is meant to prevent was tried once, in a
+[pilot](skill/steps/04-ownership-design/pilot/README.md): the pattern was
+observed in 1 of 4 runs on one task written to invite it, with one model.
+By the rule fixed before the runs that is inconclusive.
+
+Each step directory has an `EVIDENCE.md` saying how far each of its claims
+is supported; steps 1, 2 and 4 have worked examples. [`skill/README.md`](skill/README.md)
+describes the layout.
+
+## What is not written yet
+
+- Step 3 as a step: the comparison tool exists, its instructions do not.
+- Step 5, the port of one piece through PyO3.
+- Step 7, the period when the old and the new code run side by side.
+- The top-level `SKILL.md`.
+
+## Tested on
+
+Results and how to repeat them are in [`ci/RESULTS.md`](ci/RESULTS.md).
+
+- macOS arm64, Python 3.12: all test suites and worked examples pass.
+- Debian 13 on arm64 (glibc, Python 3.13), in a container on a Mac: all
+  test suites pass, and every worked example ends with the same verdict,
+  exit status, and case and allocation counts as on macOS. What is judged
+  by time differs: `carcinify decide` raises a flag more or a flag fewer on
+  some examples, and the times are other times. That is one distribution,
+  one Python and one kernel, the container host's.
+- Linux x86-64: **not tested**, and most CI runs there. One attempt under
+  emulation hung in the build before any test ran.
+- Not tested: Windows, musl, a Python without the GIL.
+
+No CI service is set up.
+
+## Known open findings
+
+- `carcinify decide`: in a project that loads a compiled package such as
+  NumPy, this tool cannot show that a candidate's time is its own Python.
+  A port for speed that passes there rests on stand-ins the author wrote
+  or on a sentence the author typed. The verdict says which; read that
+  before the number.
+- `carcinify decide` on a busy machine: pure computation reads as waiting.
+  The tool tests for this around and during every run and answers
+  `unreliable`. With fewer than four CPUs, or for a workload that itself
+  uses half the CPUs or more, it does not see load that begins and ends
+  inside one run.
+- `carcinify decide` and threads. A stand-in whose candidate still does
+  threaded work, on data the tool cannot find, passes with a flag as the
+  only sign, and with no sign when the library runs on one thread (worst
+  measured: bounds of 50 to 52% for a candidate whose own Python was
+  1.4%). The flag's wording goes by the CPU time over wall time for each
+  entry of the candidate, so such work spread over many entries is worded
+  as idle threads (measured: 42 to 64 s over 400 entries); read the total.
+  And on
+  Linux, other programs that use part of the CPUs can slow a threaded
+  workload with nothing said: its time came out about 30% long and a
+  Python candidate's share two to three points low, never high.
+- `carcinify diff` compares the values two implementations return for the
+  cases it is given. It is not a benchmark, it says nothing about inputs
+  nobody wrote a case for, and it has not been run on a real project.
+- `carcinify structure`: an entry point defined twice, under `cfg(feature)`
+  and `cfg(not(feature))`, cannot be declared.
+- `carcinify structure` misses three things the step-four pilot ran into.
+  A field of `self` that is taken out and put back is not seen when it is
+  reached through a `RefCell` borrow. Shared ownership is counted where
+  `Rc<RefCell<..>>` is written, and not where an `Rc` holds a type whose
+  fields are cells. A helper that copies is counted once, however many
+  times the hot path calls it.
+- The limits each tool states for itself are in its README.
+
+## Build and test
+
+Needs the Rust toolchain named in `rust-toolchain.toml`, git and Python
+3.12 or later. Some tests and the examples also need
+[maturin](https://www.maturin.rs) 1.16.
+
+```sh
+cargo build --release --locked        # target/release/carcinify
+cargo fmt --check
+cargo clippy --all-targets --locked -- -D warnings
+cargo test --locked
+```
+
+`cargo test` takes about a quarter of an hour, most of it the tests of
+`carcinify decide` (8 to 13 minutes in most of the recorded runs). Those tests
+measure time, and on a busy machine they give up with "the machine is too
+busy to run this test".
+
+A first report, from one of the worked examples of step one:
+
+```sh
+target/release/carcinify decide skill/steps/01-decide/examples/own-python/decide-original.json \
+    --report target/carcinify-decide/report.json --markdown target/carcinify-decide/report.md
+```
+
+It measures the example's workload with the `python3` on the path and
+writes the report to `target/carcinify-decide/report.md`; one to two minutes
+(50 s and 93 s in two runs on macOS). The verdict is at the
+top. The other examples are listed in
+[`skill/steps/01-decide/examples/README.md`](skill/steps/01-decide/examples/README.md).
+
+Everything, with the tests that build Python extension modules and all the
+worked examples:
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install maturin==1.16.0
+CARCINIFY_PYTHON=$PWD/.venv/bin/python CARCINIFY_MATURIN=$PWD/.venv/bin/maturin \
+    ci/run-all.sh . target/ci/local
+```
+
+[`ci/README.md`](ci/README.md) has the options and the Linux container.
+
+## How this was written
+
+The code and the step texts were written by AI coding agents. Every piece
+was then reviewed by a separate agent acting as auditor, which reran the
+work and tried to break it, and a human decided what to build and what to
+accept. The audit reports and the history of findings and fixes are not
+part of this repository.
+
+This repository was published as a single commit. Commit ids in the text
+refer to the development history, which is not published; that the pilot's
+rule was committed before its runs is the author's statement.
+
+## Licence
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally
+submitted for inclusion in this work by you, as defined in the Apache-2.0
+licence, shall be dual licensed as above, without any additional terms or
+conditions.

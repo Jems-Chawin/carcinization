@@ -1,0 +1,6 @@
+{
+ "url": "https://pypi.org/pypi/google-genai/json",
+ "status": 200,
+ "fetched_at": 1794687362,
+ "body": "{\"info\": {\"name\": \"google-genai\", \"version\": \"3.3.0\", \"summary\": \"GenAI Python SDK\", \"license\": \"\", \"license_expression\": \"Apache-2.0\", \"project_urls\": {\"Homepage\": \"https://github.com/googleapis/python-genai\"}, \"home_page\": null, \"description\": \"\"}}"
+}

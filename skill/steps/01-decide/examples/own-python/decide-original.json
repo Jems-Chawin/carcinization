@@ -1,0 +1,25 @@
+{
+  "schema": "carcinify/decide/declaration/2",
+  "project_root": ".",
+  "workload": {
+    "description": "One import of 900 customer records, about one in twenty a respelling of another, as the import runs today.",
+    "file": "workload.py",
+    "function": "run",
+    "args": [900],
+    "repeat": 5
+  },
+  "candidate": {"file": "dedupe.py", "function": "find_duplicates"},
+  "language_or_algorithm": {
+    "statement": "Mostly the algorithm: every record is compared with every other, and the fingerprint of each is worked out again for every comparison. Grouping the records by fingerprint needs one fingerprint per record.",
+    "better_algorithm_in_python": "tried",
+    "tried": {
+      "description": "The same import with the records grouped by fingerprint first; it returns the same pairs in the same order.",
+      "function": "run_grouped",
+      "args": [900]
+    }
+  },
+  "decision": {
+    "choice": "fix_algorithm_first",
+    "reason": "Grouping by fingerprint removes nearly all of the cost in Python. Whether anything is left to port is a question for the improved code."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "carcinify/deps/proposal/1",
+  "python_files": ["python/nightly_report.py"],
+  "dependencies": {
+    "opentelemetry": {
+      "pypi": "opentelemetry-api",
+      "search_terms": ["tracing spans", "distributed tracing"],
+      "candidates": ["opentelemetry"],
+      "decision": {"choice": "crate:opentelemetry", "reason": "The piece uses get_tracer, start_as_current_span, set_attribute and record_exception; the crate is the same project's Rust API. Coverage of those four still has to be read against its documentation."}
+    },
+    "yaml": {
+      "pypi": "PyYAML",
+      "search_terms": ["yaml parser", "serde yaml"],
+      "candidates": ["serde_yaml", "serde_yml", "serde-saphyr", "saphyr"],
+      "decision": {"choice": "crate:serde-saphyr", "reason": "The piece only calls safe_load on a small config file. serde_yaml is marked deprecated by its author and serde_yml has an advisory; serde-saphyr is the maintained one. Its latest version is younger than the minimum publish age, so pin the one before it until that has passed."}
+    },
+    "sklearn": {
+      "pypi": "scikit-learn",
+      "search_terms": ["isolation forest", "anomaly detection", "machine learning"],
+      "candidates": ["linfa", "smartcore", "extended-isolation-forest"],
+      "decision": {"choice": "keep_in_python", "reason": "The work is already done in compiled code inside scikit-learn, and the results of an isolation forest depend on its exact random-number use, which no other implementation reproduces. Port the code around it and call fit_predict across the boundary."}
+    },
+    "zeep": {
+      "pypi": "zeep",
+      "search_terms": ["soap client", "wsdl"],
+      "candidates": ["soap-client", "rsoap", "wsdl", "zeep-core"],
+      "decision": {"choice": "keep_part_in_python", "reason": "Crates with SOAP in the name exist; the figures in the report (age, releases, owners, use) do not describe anything to build a nightly job on. fetch_prices stays in Python and hands plain rows to the ported part."}
+    }
+  }
+}

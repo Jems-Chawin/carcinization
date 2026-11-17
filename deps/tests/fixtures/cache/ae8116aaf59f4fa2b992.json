@@ -1,0 +1,1 @@
+{"url": "https://crates.io/api/v1/crates/maturin/owners", "status": 200, "fetched_at": 1794689148, "body": "{\"users\": [{\"login\": \"messense\", \"kind\": \"user\"}, {\"login\": \"konstin\", \"kind\": \"user\"}, {\"login\": \"github:pyo3:admins\", \"kind\": \"team\"}]}"}

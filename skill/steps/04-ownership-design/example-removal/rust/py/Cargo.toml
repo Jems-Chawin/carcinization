@@ -1,0 +1,19 @@
+[package]
+name = "board_rs"
+description = "The checked port of board.py as a Python module, for carcinify diff"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+# Nothing here can be tested without an interpreter; the logic and its tests
+# are in board-core, and carcinify diff tests this crate from Python.
+test = false
+doctest = false
+
+[dependencies]
+board-core = { path = "../core" }
+pyo3 = "0.30.1"

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 170" role="img" aria-label="Five roads from the left run together and end at a crab">
+  <title>All roads eventually lead to crab</title>
+  <!-- Original drawing for this project. Five roads, one destination. -->
+  <g fill="none" stroke="#8B93A1" stroke-width="3" stroke-linecap="round">
+    <path d="M10 18C190 18 300 86 452 86"/>
+    <path d="M10 52C170 52 300 86 452 86"/>
+    <path d="M10 86H452"/>
+    <path d="M10 120C170 120 300 86 452 86"/>
+    <path d="M10 154C190 154 300 86 452 86"/>
+  </g>
+  <!-- travellers, each some way along -->
+  <g fill="#8B93A1">
+    <circle cx="96" cy="21" r="6"/>
+    <circle cx="214" cy="60" r="6"/>
+    <circle cx="150" cy="86" r="6"/>
+    <circle cx="300" cy="100" r="6"/>
+    <circle cx="60" cy="153" r="6"/>
+  </g>
+  <circle cx="404" cy="86" r="6" fill="#E0672B"/>
+  <!-- the crab -->
+  <g transform="translate(418 -6) scale(0.92)">
+    <g fill="none" stroke="#E0672B" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M58 108 34 114 22 134"/>
+      <path d="M67 122 44 134 36 156"/>
+      <path d="M82 132 64 150 62 170"/>
+      <path d="M182 108 206 114 218 134"/>
+      <path d="M173 122 196 134 204 156"/>
+      <path d="M158 132 176 150 178 170"/>
+      <path d="M62 85 44 70"/>
+      <path d="M178 85 196 70"/>
+      <path d="M104 62 99 40"/>
+      <path d="M136 62 141 40"/>
+    </g>
+    <g fill="#E0672B">
+      <ellipse cx="120" cy="100" rx="64" ry="40"/>
+      <path d="M32 56 46 43A18 18 0 1 0 50 62Z"/>
+      <path d="M208 56 194 43A18 18 0 1 1 190 62Z"/>
+      <circle cx="97" cy="33" r="8"/>
+      <circle cx="143" cy="33" r="8"/>
+    </g>
+  </g>
+</svg>

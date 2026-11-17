@@ -1,0 +1,23 @@
+[package]
+name = "carcinify-diff"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+# The files in tests/ run the binary: they are built as the test targets
+# diff, diff-example and diff-mixed of the carcinify crate (carcinify/Cargo.toml).
+autotests = false
+license.workspace = true
+description = "Runs a Python original and its Rust port on the same cases and reports whether the outputs are identical"
+
+[dependencies]
+# Typed parsing of suite and case files that rejects unknown fields (a
+# misspelt option must not silently weaken a check), and a report whose
+# fields come out in a fixed order.
+serde = { version = "1.0.229", features = ["derive"] }
+# The side protocol and the report are JSON. `raw_value` lets plain-JSON
+# inputs pass through byte for byte, so the harness never parses an input
+# number.
+serde_json = { version = "1.0.154", features = ["raw_value"] }
+# SHA-256 of inputs, implementations, the built wheel and the harness itself.
+sha2 = "0.11.1"

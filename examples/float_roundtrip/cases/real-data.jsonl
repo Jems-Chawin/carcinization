@@ -1,0 +1,1 @@
+{"id": "data-file-ledger", "fn": "load", "encoding": "typed", "args": [{"t": "file_path", "path": "../data/ledger.jsonl"}]}

@@ -1,0 +1,27 @@
+[package]
+name = "carcinify-structure"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+# The files in tests/ run the binary: they are built as the test targets
+# structure of the carcinify crate (carcinify/Cargo.toml).
+autotests = false
+license.workspace = true
+description = "Measures and counts how a Rust port is built: allocations on the hot path against a stated budget, and the constructs that hide an undesigned ownership"
+
+[dependencies]
+# Parses the port's source into functions, calls and types. Counting by
+# text search cannot tell a call in a function from one in a comment, a
+# string or a test, or say which function a line belongs to.
+syn = { version = "3.0.10", features = ["full", "visit"] }
+# `span-locations` gives the line of every hit, which is what a reader of the
+# report needs to find it.
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+# Typed reading of the declaration file with unknown fields rejected, and a
+# report with fields in a fixed order.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# The harness's own code for the commit, the dirty check and hashes: one
+# implementation of those, not two.
+carcinify-diff = { path = "../harness" }

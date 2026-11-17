@@ -1,0 +1,20 @@
+{
+  "schema": "carcinify/decide/declaration/2",
+  "project_root": ".",
+  "workload": {
+    "description": "The improved import at the size of the largest customer file seen so far, 200,000 records.",
+    "file": "workload.py",
+    "function": "run_grouped",
+    "args": [200000],
+    "repeat": 5
+  },
+  "candidate": {"file": "dedupe.py", "function": "find_duplicates_grouped"},
+  "language_or_algorithm": {
+    "statement": "What is left is the language: one pass over the records, building each fingerprint a character at a time in the interpreter. No better algorithm is known; the work is already one pass.",
+    "better_algorithm_in_python": "none_known"
+  },
+  "decision": {
+    "choice": "do_not_port",
+    "reason": "The largest file seen takes under a second after the fix, and an upload is answered in the background: nobody waits for it. At best a port would save most of that second per upload, before the cost of converting the 200,000 records the function takes in. That is not worth a boundary between two languages. To be looked at again if files grow tenfold."
+  }
+}

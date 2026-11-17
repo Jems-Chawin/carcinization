@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/google-adk",
+ "status": 404,
+ "fetched_at": 1794687494,
+ "body": "{\"errors\":[{\"detail\":\"crate `google-adk` does not exist\"}]}"
+}

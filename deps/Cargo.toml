@@ -1,0 +1,22 @@
+[package]
+name = "carcinify-deps"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+# The files in tests/ run the binary: they are built as the test targets
+# deps of the carcinify crate (carcinify/Cargo.toml).
+autotests = false
+license.workspace = true
+description = "Looks up, for each third-party library a piece of Python uses, what Rust crates exist and what is known about each, from crates.io, RustSec, docs.rs and PyPI"
+
+[dependencies]
+# The HTTP client. Blocking, no async runtime, TLS by rustls with no system
+# library to install; the tool makes a few dozen GET requests one after
+# another, which is all it needs a client for.
+ureq = "3.5.2"
+# The registry answers in JSON; the proposal and the report are JSON.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+# The harness's code for hashes and git state: one implementation, not two.
+carcinify-diff = { path = "../harness" }

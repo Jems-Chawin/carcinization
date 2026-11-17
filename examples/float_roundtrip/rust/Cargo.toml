@@ -1,0 +1,12 @@
+# A workspace of its own, as a user's port would be: its Cargo.lock and its
+# serde_json features are not shared with the harness.
+[workspace]
+members = ["core", "py"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+license = "MIT OR Apache-2.0"

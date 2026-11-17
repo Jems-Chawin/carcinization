@@ -1,0 +1,6 @@
+{"schema": "carcinify/deps/proposal/1", "python_files": ["piece.py"], "dependencies": {
+  "opentelemetry": {"pypi": "opentelemetry-api", "search_terms": ["tracing spans"], "candidates": ["opentelemetry"]},
+  "yaml": {"pypi": "PyYAML", "search_terms": ["yaml parser"], "candidates": ["serde_yaml", "serde-saphyr"]},
+  "zeep": {"pypi": "zeep", "search_terms": ["soap client", "wsdl"], "candidates": ["soap-client"]},
+  "google.genai": {"pypi": "google-genai", "search_terms": ["gemini"], "candidates": ["google-genai", "google-adk"]}
+}}

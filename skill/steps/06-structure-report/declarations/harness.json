@@ -1,0 +1,8 @@
+{
+  "schema": "carcinify/structure/declaration/2",
+  "crate": "../../../../harness",
+  "hot_paths": [],
+  "no_hot_path": {
+    "reason": "The harness starts two processes and compares what they return, once per case. Its time is spent waiting for those processes; no function of it is called in a loop by anything else."
+  }
+}

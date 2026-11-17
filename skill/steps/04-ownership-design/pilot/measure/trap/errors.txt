@@ -1,0 +1,96 @@
+error[E0502]: cannot borrow `self.waiting` as mutable because it is also borrowed as immutable
+  --> literal.rs:50:28
+   |
+45 |           for parcel in &self.waiting {
+   |           -             -------------
+   |           |             |
+   |           |             immutable borrow occurs here
+   |  _________|             immutable borrow later used here
+   | |
+46 | |             if parcel.weight <= room {
+47 | |                 room -= parcel.weight;
+...  |
+50 | |                 taken.push(self.waiting.remove(at));
+   | |                            ^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+51 | |             }
+52 | |         }
+   | |_________- this for loop borrows `self.waiting` immutably, preventing mutation within its body
+   |
+   = help: consider using an index-based loop instead, or collecting modifications into a separate collection
+
+error[E0502]: cannot borrow `self.bag` as mutable because it is also borrowed as immutable
+  --> literal.rs:68:30
+   |
+65 |           for parcel in &self.bag {
+   |           -             ---------
+   |           |             |
+   |           |             immutable borrow occurs here
+   |  _________|             immutable borrow later used here
+   | |
+66 | |             if parcel.dest == zone.id {
+67 | |                 let at = self.bag.iter().position(|p| p.id == parcel.id).unwrap();
+68 | |                 let parcel = self.bag.remove(at);
+   | |                              ^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+...  |
+73 | |         }
+   | |_________- this for loop borrows `self.bag` immutably, preventing mutation within its body
+   |
+   = help: consider using an index-based loop instead, or collecting modifications into a separate collection
+
+error[E0502]: cannot borrow `self.bag` as mutable because it is also borrowed as immutable
+  --> literal.rs:79:35
+   |
+76 |               for parcel in &self.bag {
+   |               -             ---------
+   |               |             |
+   |               |             immutable borrow occurs here
+   |  _____________|             immutable borrow later used here
+   | |
+77 | |                 if peer.load() + parcel.weight <= peer.capacity {
+78 | |                     let at = self.bag.iter().position(|p| p.id == parcel.id).unwrap();
+79 | |                     peer.bag.push(self.bag.remove(at));
+   | |                                   ^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+...  |
+82 | |             }
+   | |_____________- this for loop borrows `self.bag` immutably, preventing mutation within its body
+   |
+   = help: consider using an index-based loop instead, or collecting modifications into a separate collection
+
+error[E0499]: cannot borrow `*zone` as mutable more than once at a time
+   --> literal.rs:117:29
+    |
+116 |               for courier in &mut zone.couriers {
+    |               -              ------------------
+    |               |              |
+    |               |              first mutable borrow occurs here
+    |  _____________|              first borrow later used here
+    | |
+117 | |                 courier.act(zone, self);
+    | |                             ^^^^ second mutable borrow occurs here
+118 | |             }
+    | |_____________- this for loop borrows `*zone` mutably, preventing mutation within its body
+    |
+    = help: consider using an index-based loop instead, or collecting modifications into a separate collection
+
+error[E0499]: cannot borrow `*self` as mutable more than once at a time
+   --> literal.rs:117:35
+    |
+115 |           for zone in &mut self.zones {
+    |           -           ---------------
+    |           |           |
+    |           |           first mutable borrow occurs here
+    |  _________|           first borrow later used here
+    | |
+116 | |             for courier in &mut zone.couriers {
+117 | |                 courier.act(zone, self);
+    | |                                   ^^^^ second mutable borrow occurs here
+118 | |             }
+119 | |         }
+    | |_________- this for loop borrows `*self` mutably, preventing mutation within its body
+    |
+    = help: consider using an index-based loop instead, or collecting modifications into a separate collection
+
+error: aborting due to 5 previous errors
+
+Some errors have detailed explanations: E0499, E0502.
+For more information about an error, try `rustc --explain E0499`.

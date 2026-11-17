@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/soap-client",
+ "status": 200,
+ "fetched_at": 1794687432,
+ "body": "{\"crate\": {\"name\": \"soap-client\", \"description\": \"SOAP 1.1 and 1.2 envelopes, plus WSDL reading, for calling legacy web services.\", \"downloads\": 81, \"recent_downloads\": 81, \"repository\": \"https://github.com/cipansor/crateworks\", \"created_at\": \"2026-10-22T03:22:52.537468Z\"}, \"versions\": [{\"num\": \"0.1.9\", \"created_at\": \"2026-10-28T05:31:18.628822Z\", \"yanked\": false, \"license\": \"Apache-2.0\", \"rust_version\": \"1.88\", \"lib_links\": null, \"trustpub_data\": null}, {\"num\": \"0.1.8\", \"created_at\": \"2026-10-28T03:44:13.109961Z\", \"yanked\": false, \"license\": \"Apache-2.0\", \"rust_version\": \"1.88\", \"lib_links\": null, \"trustpub_data\": null}, {\"num\": \"0.1.0\", \"created_at\": \"2026-10-22T03:22:52.537468Z\", \"yanked\": false, \"license\": \"Apache-2.0\", \"rust_version\": \"1.88\", \"lib_links\": null, \"trustpub_data\": null}]}"
+}

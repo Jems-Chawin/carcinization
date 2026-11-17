@@ -1,0 +1,6 @@
+{
+ "url": "https://crates.io/api/v1/crates/opentelemetry/owners",
+ "status": 200,
+ "fetched_at": 1794687253,
+ "body": "{\"users\": [{\"login\": \"TommyCpp\", \"kind\": \"user\"}, {\"login\": \"cijothomas\", \"kind\": \"user\"}, {\"login\": \"github:open-telemetry:rust-publishers\", \"kind\": \"team\"}]}"
+}
