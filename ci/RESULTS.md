@@ -27,9 +27,9 @@ takes and nothing more.
 | result | exit 0: as `expected.tsv`, which had 34 rows then and has 36 now | exit 0: as `expected.tsv`, 34 rows then, 36 now | **not completed**: see below |
 
 The last commit at which a run was as expected in every row, of those
-recorded below: 4d088b3, on both. Commit ids in this file up to 97994d3
-are those of the development history, which is not published; 4d088b3 is a
-commit of this repository.
+recorded below: cebca8f, on both. Commit ids in this file up to 97994d3
+are those of the development history, which is not published; the later
+ones are commits of this repository.
 
 The image is `rust:1.100.0-trixie` at
 `sha256:e19840879045c951c905d0eaa9887f3439c62000e429963371b376bac8d38c31`,
@@ -296,6 +296,21 @@ minutes. Both are as expected: exit 0, 36 rows, no run repeated.
   structure suites 50.
 
 Both runs included the two tests that ask crates.io (`RUN_LIVE=1`).
+
+At cebca8f, on 2026-11-18 (the structure tool no longer takes a type the
+crate declares, or one inside `PhantomData`, for a cell; `compare.py` lets
+a suite off as too busy only with exit status 101; the decide tests remove
+the report before each attempt), one attempt on each system as before,
+with the crates.io tests. Both are as expected: exit 0, 36 rows.
+
+- macOS, 25 minutes, load average 4.9 at the start and 6.3 at the end,
+  above 12 for three of those minutes and up to 20.5. The decide suite: 29
+  passed and 1 ignored in 775 s, 1 run repeated; the NumPy test passed in
+  82 s; both structure suites 52.
+- Linux arm64, 34 minutes, load average on the host 4.7 at the start and
+  6.0 at the end, above 20 for 19 minutes and up to 86. The decide suite:
+  29 and 1 ignored in 619 s; the NumPy test passed in 803 s; 2 runs
+  repeated between them; both structure suites 52.
 
 ## Differences found, and what was done
 
