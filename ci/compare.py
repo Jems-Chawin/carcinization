@@ -35,8 +35,9 @@ On a machine shared with other programs, carcinify decide answers
 `unreliable`, and a test that gets that answer six times in a row gives up.
 With CARCINIFY_TOO_BUSY_IS_NOT_A_FAILURE=1 two things are listed as not
 judged and do not fail the run: a decide suite in which every failed test
-gave up that way, the same number of tests ran as expected and at least one
-passed (a suite of one test is let off that); and a decide example that answered `unreliable`. Everything else is
+gave up that way, the same number of tests ran as expected, at least one
+passed (a suite of one test is let off that) and cargo's exit status is 101,
+the one a failed test gives; and a decide example that answered `unreliable`. Everything else is
 compared as before. Without the variable nothing changes.
 """
 
@@ -115,7 +116,7 @@ def main():
             if kind == "suite" and row[1].startswith("decide"):
                 log = os.path.join(os.path.dirname(results_path), "suite-%s.log" % row[1])
                 gave_up = gave_up_as_too_busy(log, facts, want["facts"])
-                if gave_up:
+                if gave_up and status == "exit 101":
                     compared += 1
                     not_judged.append("%s: %s" % (name, ", ".join(gave_up)))
                     continue

@@ -107,8 +107,9 @@ things as "not judged, the machine was too busy", with a warning on the
 run, where it would otherwise fail:
 
 - a decide suite in which every failed test gave up after six `unreliable`
-  answers in a row, the number of tests that ran is the expected one, and
-  at least one test passed (the NumPy suite, one test, is let off that);
+  answers in a row, the number of tests that ran is the expected one, at
+  least one test passed (the NumPy suite, one test, is let off that), and
+  cargo's exit status is 101, the one a failed test gives;
 - a decide example that answered `unreliable` three times.
 
 No assertion is changed by it: a test that fails with any other message,
@@ -117,7 +118,9 @@ variable does nothing to the other tools. What it gives up: a run with
 warnings has not tested what the warnings name, and a change that made the
 tool call every machine busy would show as warnings (and as the count of
 repeats in the `note` row), not as a failure, unless no decide test passes
-at all. `ci/test_compare.py` tests the rule.
+at all. The tests that check the tool does not call a quiet machine busy
+are among those let off, so a hosted run cannot catch that kind of
+regression; a local run does. `ci/test_compare.py` tests the rule.
 
 A local run does not set the variable.
 

@@ -57,6 +57,11 @@ class TooBusy(unittest.TestCase):
         code, out = compare(ONE_FAILED, LOG + WRONG, busy_allowed=True)
         self.assertEqual(code, 1, out)
 
+    def test_a_suite_that_ended_with_another_exit_status_still_fails(self):
+        # RUST-109: counts as expected and one busy test, but cargo was killed.
+        code, out = compare(results("2 passed, 1 failed, 1 ignored", "exit 137"), LOG + BUSY, busy_allowed=True)
+        self.assertEqual(code, 1, out)
+
     def test_a_different_number_of_tests_still_fails(self):
         code, out = compare(results("1 passed, 1 failed, 1 ignored", "exit 101"), LOG + BUSY, busy_allowed=True)
         self.assertEqual(code, 1, out)

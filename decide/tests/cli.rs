@@ -230,6 +230,9 @@ const MARKDOWN_FOLLOWS: &str = "\n==== report.md ====\n";
 
 fn run_once(repo: &Repo, python: Option<&str>) -> (i32, J, String) {
     let report = repo.0.join("out/report.json");
+    // A tool that dies before it writes must not be read as the attempt before.
+    let _ = std::fs::remove_file(&report);
+    let _ = std::fs::remove_file(repo.0.join("out/report.md"));
     let mut command = Command::new(env!("CARGO_BIN_EXE_carcinify"));
     command.arg("decide");
     if let Some(python) = python {
