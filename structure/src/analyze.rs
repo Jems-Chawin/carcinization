@@ -133,8 +133,8 @@ pub struct Crate {
     /// ownership if `T` turns out to be in `cell_structs`.
     shared_by_type: Vec<(String, Shared)>,
     /// Structs of the crate with a field whose type names `Cell`,
-    /// `RefCell`, `Mutex`, `RwLock` or an atomic.
-    cell_structs: BTreeSet<String>,
+    /// `RefCell`, `Mutex`, `RwLock` or an atomic, each with those names.
+    cell_structs: BTreeMap<String, BTreeSet<String>>,
     pub unsafe_uses: Vec<Hit>,
     /// `forbid` or `deny` when the crate root says so for `unsafe_code`.
     pub unsafe_lint: Option<String>,
@@ -586,13 +586,21 @@ fn wraps(path: &syn::Path, outer: &str, inner: &[&str]) -> bool {
 
 /// Whether a type names something its holder can be changed through from
 /// behind a shared reference.
-struct MentionsCell(bool);
+#[derive(Default)]
+struct MentionsCell(BTreeSet<String>);
 
 impl<'ast> Visit<'ast> for MentionsCell {
     fn visit_type_path(&mut self, t: &'ast syn::TypePath) {
         let name = last_ident(&t.path);
-        self.0 |= ["Cell", "RefCell", "Mutex", "RwLock"].contains(&name.as_str())
-            || name.starts_with("Atomic");
+        if name == "PhantomData" {
+            // A marker: no value of the type inside is held.
+            return;
+        }
+        if ["Cell", "RefCell", "Mutex", "RwLock"].contains(&name.as_str())
+            || name.starts_with("Atomic")
+        {
+            self.0.insert(name);
+        }
         visit::visit_type_path(self, t);
     }
 }
@@ -773,10 +781,10 @@ impl<'ast> Visit<'ast> for File<'_> {
         self.out
             .items
             .push((self.module.clone(), s.ident.to_string()));
-        let mut cells = MentionsCell(false);
+        let mut cells = MentionsCell::default();
         cells.visit_fields(&s.fields);
-        if cells.0 {
-            self.out.cell_structs.insert(s.ident.to_string());
+        if !cells.0.is_empty() {
+            self.out.cell_structs.insert(s.ident.to_string(), cells.0);
         }
         let previous = std::mem::replace(&mut self.item, format!("struct {}", s.ident));
         visit::visit_item_struct(self, s);
@@ -858,12 +866,19 @@ impl Crate {
     /// Everything counted as shared ownership (check S7): what is shared
     /// by its spelling, then each `Rc<T>` or `Arc<T>` where `T` is a struct
     /// of the crate with cell or lock fields. Call it when every file has
-    /// been added. Types are matched by name alone.
+    /// been added. Types are matched by name alone, and a name the crate
+    /// declares itself (a spreadsheet's `Cell`) is not taken for a cell.
     pub fn shared_ownership(&self) -> Vec<Shared> {
         let by_type = self
             .shared_by_type
             .iter()
-            .filter(|(inner, _)| self.cell_structs.contains(inner))
+            .filter(|(inner, _)| {
+                self.cell_structs.get(inner).is_some_and(|cells| {
+                    cells
+                        .iter()
+                        .any(|cell| !self.items.iter().any(|(_, own)| own == cell))
+                })
+            })
             .map(|(inner, s)| Shared {
                 construct: format!("{}<{inner}> ({inner} has cell or lock fields)", s.construct),
                 ..s.clone()
@@ -1651,6 +1666,51 @@ mod tests {
                 ),
             ],
             "`Rc<Names>` shares data nobody can change through it: not counted"
+        );
+    }
+
+    fn shared_in(source: &str) -> Vec<String> {
+        let c = parse(source);
+        c.shared_ownership()
+            .into_iter()
+            .map(|s| s.construct)
+            .collect()
+    }
+
+    #[test]
+    fn a_type_of_the_crate_named_like_a_cell_is_not_a_cell() {
+        // RUST-110: a spreadsheet's `Cell` is plain data.
+        assert_eq!(
+            shared_in(
+                "use std::sync::Arc;
+                 pub struct Cell { value: u64 }
+                 pub struct Sheet { cells: Vec<Cell> }
+                 pub struct View { sheet: Arc<Sheet> }"
+            ),
+            Vec::<String>::new()
+        );
+        // Another field of the same struct that is a lock still counts.
+        assert_eq!(
+            shared_in(
+                "use std::sync::{Arc, Mutex};
+                 pub struct Cell { value: u64 }
+                 pub struct Sheet { cells: Vec<Cell>, dirty: Mutex<bool> }
+                 pub struct View { sheet: Arc<Sheet> }"
+            ),
+            ["Arc<Sheet> (Sheet has cell or lock fields)"]
+        );
+    }
+
+    #[test]
+    fn a_cell_inside_phantom_data_is_not_a_field_that_can_change() {
+        // RUST-110: a marker that makes the type `!Sync` holds no value.
+        assert_eq!(
+            shared_in(
+                "use std::{cell::Cell, marker::PhantomData, rc::Rc};
+                 pub struct Table { rows: Vec<u64>, _not_sync: PhantomData<Cell<()>> }
+                 pub struct View { table: Rc<Table> }"
+            ),
+            Vec::<String>::new()
         );
     }
 

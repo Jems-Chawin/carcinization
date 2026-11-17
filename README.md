@@ -63,7 +63,8 @@ Results and how to repeat them are in [`ci/RESULTS.md`](ci/RESULTS.md).
   emulation hung in the build before any test ran.
 - Not tested: Windows, musl, a Python without the GIL.
 
-No CI service is set up.
+A workflow runs `ci/run-all.sh` on GitHub's runners (see
+[`ci/README.md`](ci/README.md)); no hosted result is recorded here yet.
 
 ## Known open findings
 
@@ -96,12 +97,16 @@ No CI service is set up.
 - `carcinify structure` now sees three things the step-four pilot ran
   into, each within limits. A field of `self` taken out and put back
   through a `RefCell` borrow or a lock is seen when the borrow is written
-  in the same expression, not when it is held in a variable first. An `Rc`
+  in the same expression, directly on a field of `self` with only `unwrap`
+  or `expect` after, not when it is held in a variable first. An `Rc`
   or `Arc` of a type whose own fields are cells is counted as shared
-  ownership, by the type's name. A helper that returns a new collection is
-  still one copying construct, with the number of calls to it written on
-  the hot path printed beside it, which is not how often they run. The
-  pilot's numbers were measured before this.
+  ownership, by the type's name, for structs, not enums. A helper that
+  returns a new collection is still one copying construct, with the number
+  of calls to it written on the hot path printed beside it, which is not
+  how often they run. It is recognised by the return type itself, not one
+  wrapped in `Option` or `Result`, and a call on a field is counted for
+  every type with a method of that name. The pilot's numbers were measured
+  before this.
 - The limits each tool states for itself are in its README.
 
 ## Build and test

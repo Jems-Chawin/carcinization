@@ -183,16 +183,28 @@ What the construct counts are and are not:
   `calls_on_the_hot_path` is printed beside it, and the sum for a hot path
   is `calls_to_functions_that_return_a_new_collection`. That is the number
   of calls written, not how often they run: a call in a loop is one. Which
-  function a call reaches is decided by name, as everywhere in this tool.
+  function a call reaches is decided by name, as everywhere in this tool:
+  a call on a field is counted for every type with a method of that name,
+  so a helper can read more calls than it has. The helper is recognised by
+  the return type itself, not one wrapped in `Option` or `Result`, boxed,
+  in a tuple or behind an alias.
 - S4 sees a field reached through a borrow or a lock only when it is
   written in one expression. `let mut this = self.0.borrow_mut();` followed
-  by `mem::take(&mut this.queue)` is not seen.
+  by `mem::take(&mut this.queue)` is not seen. The borrow has to be
+  directly on a field of `self`, with only `unwrap` or `expect` after:
+  `try_borrow_mut`, `.lock().unwrap_or_else(..)` and a field two levels
+  down (`self.a.b.borrow_mut()`) are not seen. The report names the field
+  as `self.queue` although it is inside the cell.
 - S7 counts every `Weak<..>`, shared or not, so a port with one owner and
   back-references has a count from those alone. It finds the types named
   in struct fields and inside function bodies, not those in a function's
   signature. `Rc<T>` is matched to `T` by the name of the type, and only a
   struct's own fields are read: cells one level further in, in a field's
   own type, are not followed, and neither is a type alias for the handle.
+  Structs, not enums: an enum's fields are not read. A name the crate
+  declares itself is not taken for a cell (a spreadsheet's `Cell`), so a
+  crate that has its own `Cell` and also uses the standard one is not
+  counted for either; and nothing inside `PhantomData` counts.
 
 Verdict: `fail` if any check failed, `pass_with_flags` if there is
 something for a reader to look at, else `pass`.
