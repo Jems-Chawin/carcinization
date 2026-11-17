@@ -63,6 +63,31 @@ For someone deciding how far to trust `STEP.md` and the tool behind it.
   `pass_with_flags`.
 - **That agents produce the pattern this looks for: not observed here.**
   See `../04-ownership-design/EVIDENCE.md`.
+- **Sharing written inside the shared type: measured on nine ports of
+  one task, after the fact.** The step-four pilot's ports (five written by
+  hand, four by agents) were measured with the tool as it was for the
+  pilot and again after three changes: a field taken out through a borrow
+  (S4), `Rc<T>` of a type with cell fields (S7), and calls to helpers that
+  return a new collection (beside S3). S3 and the allocations did not
+  move.
+
+  | port | S3 | calls to such helpers | S4 before, after | S7 before, after |
+  |---|---|---|---|---|
+  | reference | 2 | 0 | 0, 0 | 5, 5 |
+  | calibration, pattern | 34 | 1 | 0, 1 | 11, 11 |
+  | calibration, pattern with an alias | 34 | 1 | 0, 1 | 6, 6 |
+  | calibration, none | 2 | 0 | 0, 0 | 5, 5 |
+  | calibration, the Python's own copies kept | 6 | 0 | 0, 0 | 5, 5 |
+  | depot-1 | 9 | 12 | 0, 0 | 1, 11 |
+  | depot-2 | 7 | 12 | 0, 0 | 0, 16 |
+  | depot-3 | 24 | 8 | 0, 0 | 8, 15 |
+  | depot-4 | 6 | 12 | 0, 0 | 5, 15 |
+
+  The pilot's own tables give the numbers before, and its result (1 of 4)
+  was judged by them and stands. The changes were written after those
+  ports had been read, so that they fit these nine shows nothing about
+  other code. The alias port still reads 6: a type alias for the handle is
+  not followed.
 - **The thresholds** (1,000 lines, 150 lines, which constructs need a
   justification) are the lead's first choice and have not met a real port.
 - **The S9 guidance** is reasoned, plus one measurement by the auditor of

@@ -27,7 +27,11 @@ does not need this file.
   a borrow error and worked around it: each wrote the port in one go and
   it compiled, so none shows a port that gets past the borrow checker with
   copies. The runs were made without this step. See
-  [`pilot/README.md`](pilot/README.md).
+  [`pilot/README.md`](pilot/README.md). Its
+  numbers are those of the structure tool at the time; the tool has since
+  been changed to count three things those ports showed, and gives higher
+  S7 counts for the four runs now (see step six's `EVIDENCE.md`). The
+  result was judged by the rule and the tool fixed before the runs.
 - **What the step was observed to change:** all four runs given it wrote an
   allocation test with a budget stated beforehand, and no run without it
   did. In two of those four the test found a queue that still allocated
