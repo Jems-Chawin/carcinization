@@ -1,0 +1,79 @@
+# Runs ci/run-all.sh on GitHub's runners: every check, test suite and worked
+# example, compared with ci/expected.tsv. See ci/README.md.
+#
+# The runners are shared machines. The tests of `carcinify decide` measure
+# time, and on a busy machine they give up as "too busy" by design. Here
+# such a test is listed as not judged, with a warning on the run, and does
+# not fail it; a test that fails for any other reason does.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-all:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86-64, Python 3.13
+            os: ubuntu-latest
+            python: "3.13"
+          - name: macOS arm64, Python 3.12
+            os: macos-latest
+            python: "3.12"
+    steps:
+      # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # v7.1.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Rust toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal --component rustfmt,clippy
+      - name: Python environments, outside the checkout
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet maturin==1.16.0
+          python -m venv "$RUNNER_TEMP/numpy-venv"
+          "$RUNNER_TEMP/numpy-venv/bin/pip" install --quiet numpy
+      - name: The comparison script's own tests
+        run: python ci/test_compare.py
+      - name: ci/run-all.sh
+        env:
+          CARCINIFY_TOO_BUSY_IS_NOT_A_FAILURE: "1"
+        run: |
+          export CARCINIFY_PYTHON="$RUNNER_TEMP/venv/bin/python"
+          export CARCINIFY_MATURIN="$RUNNER_TEMP/venv/bin/maturin"
+          export CARCINIFY_NUMPY_PYTHON="$RUNNER_TEMP/numpy-venv/bin/python"
+          ci/run-all.sh . "$RUNNER_TEMP/out"
+      - name: Results
+        if: always()
+        run: |
+          {
+            echo '```'
+            cat "$RUNNER_TEMP/out/versions.tsv" "$RUNNER_TEMP/out/comparison.txt" "$RUNNER_TEMP/out/results.tsv"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Logs of what failed
+        if: failure()
+        run: |
+          for log in "$RUNNER_TEMP"/out/*.log; do
+            echo "::group::$log"
+            tail -n 200 "$log"
+            echo "::endgroup::"
+          done

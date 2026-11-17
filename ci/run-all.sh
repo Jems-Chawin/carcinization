@@ -53,7 +53,7 @@ cat "$out/versions.tsv"
 suite() {
   local name=$1; shift
   local start; start=$(now)
-  (cd "${SUITE_DIR:-$checkout}" && cargo test --locked "$@") > "$out/suite-$name.log" 2>&1
+  (cd "${SUITE_DIR:-$checkout}" && cargo test --locked --no-fail-fast "$@") > "$out/suite-$name.log" 2>&1
   local status=$?
   local counts
   counts=$(grep '^test result:' "$out/suite-$name.log" | awk '{p+=$4; f+=$6; i+=$8} END {printf "%d passed, %d failed, %d ignored", p, f, i}')

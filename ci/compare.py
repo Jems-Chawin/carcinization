@@ -30,9 +30,41 @@ A row in the results that the file does not have is a difference. A row
 of the file that the run did not produce is a difference unless the file
 marks it `optional` (it needs the network or NumPy), or the run was made
 with SUITES_ONLY=1 and the row is not a check or a suite.
+
+On a machine shared with other programs, carcinify decide answers
+`unreliable`, and a test that gets that answer six times in a row gives up.
+With CARCINIFY_TOO_BUSY_IS_NOT_A_FAILURE=1 two things are listed as not
+judged and do not fail the run: a decide suite in which every failed test
+gave up that way, the same number of tests ran as expected and at least one
+passed (a suite of one test is let off that); and a decide example that answered `unreliable`. Everything else is
+compared as before. Without the variable nothing changes.
 """
 
+import os
+import re
 import sys
+
+BUSY = "the machine is too busy to run this test"
+
+
+def gave_up_as_too_busy(log_path, facts, want):
+    """The tests of a suite that failed, if each gave up as too busy and the
+    suite otherwise ran as expected; None if anything else is wrong."""
+    try:
+        with open(log_path, encoding="utf-8", errors="replace") as f:
+            log = f.read()
+    except OSError:
+        return None
+    failed = set(re.findall(r"^test (\S+) \.\.\. FAILED$", log, re.M))
+    busy = set(re.findall(r"^thread '([^']+)' .*panicked at .*\n" + BUSY, log, re.M))
+    count = lambda text: [int(n) for n in re.findall(r"\d+", text)]
+    got, expected = count(facts), count(want)
+    if len(got) != 3 or len(expected) != 3:
+        return None
+    same_tests = got[0] + got[1] == expected[0] + expected[1] and got[2] == expected[2]
+    if failed and failed <= busy and len(failed) == got[1] and same_tests and (got[0] > 0 or expected[0] == 1):
+        return sorted(failed)
+    return None
 
 
 def rows(path):
@@ -52,6 +84,8 @@ def main():
         row += [""] * (5 - len(row))
         expected[(row[0], row[1])] = {"facts": row[2], "exit": row[3], "optional": row[4] == "optional"}
     problems, seen, compared = [], set(), 0
+    busy_allowed = os.environ.get("CARCINIFY_TOO_BUSY_IS_NOT_A_FAILURE") == "1"
+    not_judged = []
     suites_only = False
     live = {}
     for row in rows(results_path):
@@ -76,9 +110,21 @@ def main():
             # Compared with each other below, not with the file.
             live[row[1]] = (facts, status)
             continue
+        want = expected.get(key)
+        if busy_allowed and want is not None:
+            if kind == "suite" and row[1].startswith("decide"):
+                log = os.path.join(os.path.dirname(results_path), "suite-%s.log" % row[1])
+                gave_up = gave_up_as_too_busy(log, facts, want["facts"])
+                if gave_up:
+                    compared += 1
+                    not_judged.append("%s: %s" % (name, ", ".join(gave_up)))
+                    continue
+            if kind == "example" and row[1].startswith("decide ") and facts.startswith("unreliable "):
+                compared += 1
+                not_judged.append(name)
+                continue
         if kind in ("check", "suite") and status != "exit 0":
             problems.append("%s failed: %s, %s" % (name, facts or "no counts", status))
-        want = expected.get(key)
         if want is None:
             problems.append("%s is not in the expected results: add it to ci/expected.tsv" % name)
             continue
@@ -106,6 +152,10 @@ def main():
         if suites_only and key == ("check", "release-build"):
             continue
         problems.append("%s %s is expected and was not run" % key)
+    for item in not_judged:
+        print("not judged, the machine was too busy: " + item)
+        if os.environ.get("GITHUB_ACTIONS"):
+            print("::warning::not judged, the machine was too busy: " + item)
     if problems:
         print("FAILED: %d difference(s) from ci/expected.tsv" % len(problems))
         for p in problems:

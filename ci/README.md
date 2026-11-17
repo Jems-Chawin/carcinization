@@ -3,8 +3,7 @@
 `run-all.sh` runs every test suite and every worked example of the four
 tools in a checkout, writes one line per result, compares the results with
 `expected.tsv` and exits 1 on any difference. `linux/` runs it in a
-Linux container. No CI service is set up; these are the pieces one would be
-built from.
+Linux container, and `.github/workflows/ci.yml` runs it on GitHub's runners.
 
 ## On this machine
 
@@ -92,6 +91,35 @@ the NumPy test and `sizes_that_measure_the_same_are_flagged` in
 `structure/tests/cli.rs` now assert the flag exactly when the report's own
 figures call for it. The harness tests of a hang give the case after the
 hang 20 s to answer where they gave it 2 s.
+
+## On GitHub's runners
+
+`.github/workflows/ci.yml` runs `run-all.sh` on `ubuntu-latest` (x86-64)
+and `macos-latest` (arm64) for every push to `main` and every pull request,
+with the NumPy test and without the network tests. It has read access to
+the repository and nothing else, uses no secrets, and names the two actions
+it uses by commit.
+
+Those runners are shared machines, and the list above says what that does
+to the tests of `carcinify decide`. So the workflow sets
+`CARCINIFY_TOO_BUSY_IS_NOT_A_FAILURE=1`, and `compare.py` then lists two
+things as "not judged, the machine was too busy", with a warning on the
+run, where it would otherwise fail:
+
+- a decide suite in which every failed test gave up after six `unreliable`
+  answers in a row, the number of tests that ran is the expected one, and
+  at least one test passed (the NumPy suite, one test, is let off that);
+- a decide example that answered `unreliable` three times.
+
+No assertion is changed by it: a test that fails with any other message,
+a missing test, another verdict, all fail the run as before, and the
+variable does nothing to the other tools. What it gives up: a run with
+warnings has not tested what the warnings name, and a change that made the
+tool call every machine busy would show as warnings (and as the count of
+repeats in the `note` row), not as a failure, unless no decide test passes
+at all. `ci/test_compare.py` tests the rule.
+
+A local run does not set the variable.
 
 ## In a Linux container
 
