@@ -376,15 +376,19 @@ report carries a flag: "the workload itself used N CPUs of M, so load
 inside the run could not be watched". The line is at half because the
 figure is the CPU time the process got, not what it asked for: eight
 threads on eight CPUs were measured at 5.9 CPUs while other programs took
-the rest, which a line at "all but two" would have missed by a hair.
+the rest, which a line at "all but two" would have missed by a hair. The
+CPUs counted are those the process may use, which in a container with a
+CPU limit is fewer than the machine has.
 
 What this does not do: only the CPU is tested, so a slow disk or network is
 not noticed. A workload that leaves threads or child processes running
 after it returns makes the machine read as busy. With fewer than
 four CPUs on macOS, and on Windows, load inside a run is not seen. On
 Linux the time the process spent ready and not running does not need the
-second process, and with three CPUs such load was still seen; that rests
-on three runs of one test in a container limited to three CPUs. A first version
+second process, and with three CPUs such load was still seen for a
+workload on one thread; one that uses half the CPUs or more is not watched
+there at all. That rests on three runs of one test in a container limited
+to three CPUs. A first version
 of the second check, a thread that computed in short pieces with pauses,
 read the same under heavy load as under none, because a thread that mostly
 sleeps is served first; that is why the process computes without pause.

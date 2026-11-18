@@ -37,7 +37,7 @@ For the port itself, see
 the PyO3 bridge and recorded cases, and times a finished port. It was tried
 here at v1.4.0, on Python only, in a Linux arm64 container. In those runs
 its profile advised a port in the four cases where `carcinify decide`
-answers `contradicted`, so the two are used together: `carcinify decide`
+answers `contradicted`, so the two can be used together: `carcinify decide`
 first.
 
 ## What exists
@@ -99,9 +99,9 @@ not seen there.
   `unreliable`. With fewer than four CPUs on macOS, on Windows, or for a
   workload that itself uses half the CPUs or more, it does not see load
   that begins and ends inside one run, and the report carries a flag
-  saying so. On Linux with three CPUs it was still seen, by the time the
-  process spent ready and not running: that rests on three runs of one
-  test in a container.
+  saying so. On Linux with three CPUs it was still seen for a workload on
+  one thread, by the time the process spent ready and not running: that
+  rests on three runs of one test in a container.
 - `carcinify decide` and threads. A stand-in whose candidate still does
   threaded work, on data the tool cannot find, passes with a flag as the
   only sign, and with no sign when the library runs on one thread (worst
