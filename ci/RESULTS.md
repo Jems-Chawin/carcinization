@@ -28,7 +28,7 @@ takes and nothing more.
 | result | exit 0: as `expected.tsv`, which had 34 rows then and has 36 now | exit 0: as `expected.tsv`, 34 rows then, 36 now | **not completed**: see below |
 
 The last commit at which a run was as expected in every row, of those
-recorded below: a2ee1ff, on both, on that machine; 7675eec, on both, on
+recorded below: a2ee1ff, on both, on that machine; 28955a7, on both, on
 GitHub's runners. Commit ids in this file up to 97994d3
 are those of the development history, which is not published; the later
 ones are commits of this repository.
@@ -380,12 +380,47 @@ The second hosted run, on 2026-11-18 at 7675eec, started by the push; run
 The macOS runner had 5 CPUs this time, not 3. So
 `load_that_falls_inside_the_runs_is_seen` ran and passed, no line with
 "SKIPPED," was printed, and the flag for fewer than four CPUs does not
-apply on such a machine. This run shows that the suite passes on a hosted Mac with 5 CPUs.
-It does not show the skip or the flag at work. The flag has run only in a
-Linux container limited to three CPUs; the skip has not run anywhere. The
-failure they answer was repeated on an 8-CPU Mac with the second process
-switched off, before either was written. The two hosted runs are all that is known here about how
-many CPUs GitHub's macOS runners have: 3 once, 5 once.
+apply on such a machine. This run shows that the suite passes on a hosted
+Mac with 5 CPUs. It does not show the skip or the flag at work. Up to this
+run the flag had run only in a Linux container limited to three CPUs, and
+the skip had not run anywhere. The failure they answer was repeated on an
+8-CPU Mac with the second process switched off, before either was
+written.
+
+The third hosted run, on 2026-11-18 at 28955a7, started by the push; run
+44259801453 of the workflow, 07:33 to 08:03 UTC, set up as the first. Rust
+1.100.0 and maturin 1.16.0 on both. Both systems passed.
+
+- Linux x86-64, image `ubuntu-26.04` version 20261111.196.1, kernel
+  7.0.0-1019-azure, 4 CPUs, Python 3.13.18: exit 0, 33 rows as expected.
+  The decide suite: 30 passed and 1 ignored in 826 s, no run repeated; the
+  NumPy test passed in 303 s; both structure suites 52.
+- macOS arm64, image `macos-26-arm64` version 20261102.0473.1, Darwin
+  25.6.0, 3 CPUs, Python 3.12.10: exit 0, 33 rows as expected. The decide
+  suite: 30 passed and 1 ignored in 1005 s, 2 runs repeated; the NumPy
+  test passed in 130 s; both structure suites 52.
+
+The macOS runner had 3 CPUs, as in the first run. What the log shows:
+
+- The skip ran. The summary has the row
+  "load_that_falls_inside_the_runs_is_seen: SKIPPED, 3 CPUs: under 4 the
+  tool keeps no watch beside a run and on macOS nothing else sees this
+  load", and the decide suite counts that
+  test among the 30 passed.
+- The flag was raised. Each of the five decide example rows lists
+  `load_inside_the_run_not_watched_few_cpus` among its flags judged by
+  time; no row of the Linux job does. `compare.py` does not compare that
+  column, so "33 rows as expected" says nothing about the flag either way:
+  it is known from the printed rows. The reports themselves are not in
+  the log, so the flag's text was not read there.
+- The compared part of every example row (verdict, counts, flags not
+  judged by time, exit status) is as in `expected.tsv`.
+
+What it does not show: that load inside a run is seen on such a Mac. It
+is not, and the skipped test is the one that would look for it. This is
+one run on one Mac with three CPUs. The macOS runners of the three hosted
+runs had 3, 5 and 3 CPUs; that is all that is known here about how many
+they have.
 
 ## Differences found, and what was done
 
@@ -456,8 +491,9 @@ and removed, the line was written, exit status 137.
 
 ## Not tested
 
-- Linux x86-64 beyond the two hosted runs above.
-- macOS with fewer than four CPUs, since the test was made to skip there.
+- Linux x86-64 beyond the three hosted runs above.
+- macOS with fewer than four CPUs beyond the one hosted run above, in
+  which one test is skipped.
 - A Python built without the GIL.
 - musl (Alpine), other distributions, other glibc versions.
 - Python 3.12 on Linux and Python 3.13 on macOS: each platform was run with

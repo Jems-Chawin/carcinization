@@ -68,18 +68,18 @@ describes the layout.
 Results and how to repeat them are in [`ci/RESULTS.md`](ci/RESULTS.md).
 
 - macOS arm64, Python 3.12: all test suites and worked examples pass. On
-  a GitHub runner: one pass, on 2026-11-18 at commit 7675eec, on a runner
-  with 5 CPUs, 33 rows.
+  GitHub runners: two passes, on 2026-11-18, at commit 7675eec on a runner
+  with 5 CPUs and at 28955a7 on one with 3 CPUs, 33 rows each.
 - Debian 13 on arm64 (glibc, Python 3.13), in a container on a Mac: all
   test suites pass, and every worked example ends with the same verdict,
   exit status, and case and allocation counts as on macOS. What is judged
   by time differs: `carcinify decide` raises a flag more or a flag fewer on
   some examples, and the times are other times. That is one distribution,
   one Python and one kernel, the container host's.
-- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): two passes, on GitHub
-  runners on 2026-11-18 at commits 6e209ff and 7675eec: all test suites,
-  and the worked examples as expected, 33 rows, without the three that ask
-  crates.io. Not run anywhere else on x86-64; an earlier attempt under
+- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): three passes, on
+  GitHub runners on 2026-11-18 at commits 6e209ff, 7675eec and 28955a7:
+  all test suites, and the worked examples as expected, 33 rows, without
+  the three that ask crates.io. Not run anywhere else on x86-64; an earlier attempt under
   emulation hung in the build.
 - Not tested: Windows, musl, a Python without the GIL.
 
@@ -90,9 +90,12 @@ open findings: the runner had 3 CPUs, and with fewer than four load inside
 a run is not seen there. Since then that test is skipped on macOS with
 fewer than four CPUs, and the report carries a flag. The second run, at
 7675eec, passed on both systems, but its macOS runner had 5 CPUs, so the
-test ran and neither the skip nor the flag came into play. They have still
-never run on a real Mac with three CPUs. GitHub's macOS runners had 3 CPUs
-in one of these runs and 5 in the other; no more than that was seen.
+test ran and neither the skip nor the flag came into play. The third run,
+at 28955a7, passed on both systems on a macOS runner with 3 CPUs: the
+test was skipped and said so, and the five example reports of `carcinify
+decide` carried the flag. That is one run on one Mac with three CPUs. The
+macOS runners of these three runs had 3, 5 and 3 CPUs; no more than that
+was seen.
 
 ## Known open findings
 
