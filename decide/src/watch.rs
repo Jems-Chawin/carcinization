@@ -34,6 +34,12 @@ print(time.process_time() - cpu, time.perf_counter() - wall)
 /// large part of the machine from the workload.
 pub const MIN_CPUS_TO_WATCH: usize = 4;
 
+/// The CPUs this process may use: fewer than the machine has under a CPU
+/// set or a quota, as in a container. 0 when not known.
+pub fn cpus() -> usize {
+    std::thread::available_parallelism().map_or(0, |n| n.get())
+}
+
 pub struct Watch(Option<Child>);
 
 pub struct Reading {
@@ -44,8 +50,7 @@ pub struct Reading {
 
 impl Watch {
     pub fn start(python: &Path) -> Watch {
-        let cpus = std::thread::available_parallelism().map_or(1, |n| n.get());
-        if cpus < MIN_CPUS_TO_WATCH || cfg!(windows) {
+        if cpus() < MIN_CPUS_TO_WATCH || cfg!(windows) {
             return Watch(None);
         }
         Watch(

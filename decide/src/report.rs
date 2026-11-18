@@ -519,6 +519,11 @@ impl Runner<'_> {
                     }
                     None => J::Null,
                 };
+                // The count the watch above went by, not the machine's:
+                // Python's `os.cpu_count()` ignores a CPU set or a quota.
+                if result["machine"].is_object() {
+                    result["machine"]["logical_cpus"] = json!(crate::watch::cpus());
+                }
                 Ok(result)
             }
             other => Err(format!(
@@ -1309,7 +1314,7 @@ pub fn run(opts: &Options) -> Result<J, String> {
         "declaration": {"file": shown(&path), "sha256": sha256_file(&path)?},
         "machine": {
             "os": std::env::consts::OS, "arch": std::env::consts::ARCH,
-            "logical_cpus": std::thread::available_parallelism().map_or(0, |n| n.get()),
+            "logical_cpus": crate::watch::cpus(),
             "python": plain["python"], "python_implementation": plain["implementation"],
             "interpreter": tool_version(&opts.python, &["--version"], here),
         },
