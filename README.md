@@ -59,12 +59,18 @@ Results and how to repeat them are in [`ci/RESULTS.md`](ci/RESULTS.md).
   by time differs: `carcinify decide` raises a flag more or a flag fewer on
   some examples, and the times are other times. That is one distribution,
   one Python and one kernel, the container host's.
-- Linux x86-64: **not tested**, and most CI runs there. One attempt under
-  emulation hung in the build before any test ran.
+- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): one pass, on a GitHub
+  runner on 2026-11-18 at commit 6e209ff: all test suites, and the worked
+  examples as expected, 33 rows, without the three that ask crates.io. Not
+  run anywhere else on x86-64; an earlier attempt under emulation hung in
+  the build.
 - Not tested: Windows, musl, a Python without the GIL.
 
-A workflow runs `ci/run-all.sh` on GitHub's runners (see
-[`ci/README.md`](ci/README.md)); no hosted result is recorded here yet.
+A workflow runs `ci/run-all.sh` on GitHub's runners for every push (see
+[`ci/README.md`](ci/README.md)). Its first run, the one above, failed on
+macOS (3 CPUs) in one test of `carcinify decide`, for the reason given
+under the open findings: with fewer than four CPUs load inside a run is
+not seen there.
 
 ## Known open findings
 
@@ -75,9 +81,12 @@ A workflow runs `ci/run-all.sh` on GitHub's runners (see
   before the number.
 - `carcinify decide` on a busy machine: pure computation reads as waiting.
   The tool tests for this around and during every run and answers
-  `unreliable`. With fewer than four CPUs, or for a workload that itself
-  uses half the CPUs or more, it does not see load that begins and ends
-  inside one run.
+  `unreliable`. With fewer than four CPUs on macOS, on Windows, or for a
+  workload that itself uses half the CPUs or more, it does not see load
+  that begins and ends inside one run, and the report carries a flag
+  saying so. On Linux with three CPUs it was still seen, by the time the
+  process spent ready and not running: that rests on three runs of one
+  test in a container.
 - `carcinify decide` and threads. A stand-in whose candidate still does
   threaded work, on data the tool cannot find, passes with a flag as the
   only sign, and with no sign when the library runs on one thread (worst

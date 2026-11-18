@@ -354,7 +354,10 @@ end reports its CPU time against its wall time. It never waits, so what it
 did not get, other programs took, and the workload beside it fared the
 same. Over 15% the run counts as disturbed. This sees load that begins and
 ends inside a run, which the loops around it miss. It costs one CPU for the
-length of the measurement, and with fewer than four CPUs it is not started.
+length of the measurement, and with fewer than four CPUs it is not started;
+the report then carries a flag: "this machine has N CPUs, and with fewer
+than 4 no process is run beside the workload, so load inside a run was not
+watched".
 
 - Plain runs that were disturbed are left out, and a flag says how many.
 - **If every plain run was disturbed, or an instrumented run was, or the
@@ -378,7 +381,10 @@ the rest, which a line at "all but two" would have missed by a hair.
 What this does not do: only the CPU is tested, so a slow disk or network is
 not noticed. A workload that leaves threads or child processes running
 after it returns makes the machine read as busy. With fewer than
-four CPUs, and on Windows, load inside a run is not seen. A first version
+four CPUs on macOS, and on Windows, load inside a run is not seen. On
+Linux the time the process spent ready and not running does not need the
+second process, and with three CPUs such load was still seen; that rests
+on three runs of one test in a container limited to three CPUs. A first version
 of the second check, a thread that computed in short pieces with pauses,
 read the same under heavy load as under none, because a thread that mostly
 sleeps is served first; that is why the process computes without pause.
@@ -433,14 +439,18 @@ more CPU time than wall time while the candidate runs in a stand-in
 workload;
 a statement that the candidate uses no compiled package; a port
 that by the declared runs would save under a minute a day; plain runs left
-out because the machine was busy; a fifth of the time or more in library
+out because the machine was busy; a machine with fewer than four CPUs, or
+a workload that used half of them or more, so that load inside a run was
+not watched; a fifth of the time or more in library
 Python; an instrumented run at least
 twice as slow as a plain one; more CPU time than wall time; child processes
 at work; a port whose goals do not include speed.
 
 Every flag has a kind and says whether it was judged by a time measured in
 this run (`flag_kinds` in the report). Those may be present on one machine
-and absent on another; the others come from counts and declarations.
+and absent on another, and the flag for a machine with too few CPUs is
+booked with them for that reason; the others come from counts and
+declarations.
 
 ## What the report does not measure
 
@@ -525,10 +535,11 @@ In none of the three does it mean the decision is right.
   away than the limit.
 - **Other threads, child processes, a GPU.** A candidate that runs only in
   another thread gets no share and the report is `incomplete`.
-- **Load inside a run**, with fewer than four CPUs, on Windows, or when
-  the workload itself uses half the CPUs or more: other programs that take
-  the CPU only while such a workload runs are not noticed, and the report
-  says that it could not watch. Nor are other programs that leave one CPU
+- **Load inside a run**, with fewer than four CPUs on macOS, on Windows, or
+  when the workload itself uses half the CPUs or more: other programs that
+  take the CPU only while such a workload runs are not noticed. With fewer
+  than four CPUs, and for such a workload, the report says that it could
+  not watch; on Windows it says nothing. Nor are other programs that leave one CPU
   free the whole time: the loops are one thread, so a workload that wants
   every CPU can lose a third of them unnoticed (measured: eight threads
   beside four busy programs on eight CPUs). With such programs on part of

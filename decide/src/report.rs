@@ -374,6 +374,23 @@ fn watched(what: &str, phase: &J, busy: &mut Vec<String>, flags: &mut Flags) {
         }
         return;
     }
+    let cpus = phase["logical_cpus"].as_u64().unwrap_or(0);
+    if phase["watched_from_outside"].is_null()
+        && (1..crate::watch::MIN_CPUS_TO_WATCH as u64).contains(&cpus)
+        && !flags.has("load_inside_the_run_not_watched_few_cpus")
+    {
+        // Booked with the flags judged by time: like them it depends on the
+        // machine, and must not differ between two machines' reports.
+        flags.push("load_inside_the_run_not_watched_few_cpus", true, format!(
+            "this machine has {cpus} CPUs, and with fewer than {} no process is run beside the workload, so load inside a run was not watched{}",
+            crate::watch::MIN_CPUS_TO_WATCH,
+            if cfg!(target_os = "linux") {
+                ". The loops timed before and after each run are used, and for the plain runs the time the process spent ready and not running is still used"
+            } else {
+                ". The machine is judged by the loops timed before and after each run alone, which do not see load that begins and ends inside one"
+            }
+        ));
+    }
     if let Some(lost) = phase["watched_from_outside"]["kept_off_the_cpu"]
         .as_f64()
         .filter(|lost| *lost > BUSY_WHILE_RUNNING)
@@ -1700,5 +1717,39 @@ mod tests {
             &mut flags,
         );
         assert!(busy.is_empty() && flags.texts.is_empty());
+    }
+
+    #[test]
+    fn a_machine_with_too_few_cpus_to_watch_a_run_says_so() {
+        // Under four CPUs no process is started beside a run.
+        let phase = |cpus: u64| json!({"watched_from_outside": null, "cpus_used_by_the_measured_process": 1.0, "logical_cpus": cpus});
+        let (mut busy, mut flags) = (Vec::new(), Flags::default());
+        watched("the plain runs", &phase(3), &mut busy, &mut flags);
+        watched(
+            "the run under the profiler",
+            &phase(3),
+            &mut busy,
+            &mut flags,
+        );
+        assert!(busy.is_empty());
+        // Said once.
+        assert_eq!(flags.texts.len(), 1, "{:?}", flags.texts);
+        assert!(flags.has("load_inside_the_run_not_watched_few_cpus"));
+        assert!(
+            flags.texts[0].starts_with("this machine has 3 CPUs, and with fewer than 4 no process is run beside the workload, so load inside a run was not watched"),
+            "{}",
+            flags.texts[0]
+        );
+        let on_linux = "the time the process spent ready and not running is still used";
+        assert_eq!(
+            flags.texts[0].contains(on_linux),
+            cfg!(target_os = "linux"),
+            "{}",
+            flags.texts[0]
+        );
+        // With four it is started, and there is nothing to say.
+        let mut flags = Flags::default();
+        watched("the plain runs", &phase(4), &mut busy, &mut flags);
+        assert!(flags.texts.is_empty());
     }
 }
