@@ -28,7 +28,7 @@ takes and nothing more.
 | result | exit 0: as `expected.tsv`, which had 34 rows then and has 36 now | exit 0: as `expected.tsv`, 34 rows then, 36 now | **not completed**: see below |
 
 The last commit at which a run was as expected in every row, of those
-recorded below: cebca8f, on both. Commit ids in this file up to 97994d3
+recorded below: a2ee1ff, on both. Commit ids in this file up to 97994d3
 are those of the development history, which is not published; the later
 ones are commits of this repository.
 
@@ -312,6 +312,24 @@ with the crates.io tests. Both are as expected: exit 0, 36 rows.
   6.0 at the end, above 20 for 19 minutes and up to 86. The decide suite:
   29 and 1 ignored in 619 s; the NumPy test passed in 803 s; 2 runs
   repeated between them; both structure suites 52.
+
+At a2ee1ff, on 2026-11-18 (`carcinify decide` says so when a machine has
+fewer than four CPUs and load inside a run was not watched, and its report
+counts the CPUs the process may use; one decide test is skipped on macOS
+with fewer than four CPUs; the README says where the project stands), one
+attempt on each system as before, with the crates.io tests, each built
+from an empty target directory. Both are as expected: exit 0, 36 rows, no
+run repeated. The machine has 8 CPUs, so the new message and the skip did
+not come into play in these runs.
+
+- macOS, 25 minutes, load average 1.3 at the start and 2.8 at the end,
+  above 12 for one of those minutes and up to 14.2. The decide suite: 30
+  passed and 1 ignored in 753 s; the NumPy test passed in 74 s; both
+  structure suites 52.
+- Linux arm64, 46 minutes, load average on the host 2.7 at the start and
+  2.4 at the end, above 12 for six minutes, above 20 for one and up to
+  23.3. The decide suite: 30 and 1 ignored in 571 s; the NumPy test passed
+  in 526 s; both structure suites 52.
 
 ### On GitHub's runners
 
