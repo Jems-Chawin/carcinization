@@ -1434,6 +1434,19 @@ fn with_no_candidate_a_loaded_package_is_named_beside_the_split() {
 fn load_that_falls_inside_the_runs_is_seen() {
     // Other programs take the CPU only while the workload's function runs:
     // the loops timed before and after each run see a quiet machine.
+    let cpus = std::thread::available_parallelism().map_or(1, |n| n.get());
+    if cfg!(target_os = "macos") && cpus < 4 {
+        // Under four CPUs the tool runs no process beside the workload, and
+        // on macOS nothing else sees this load: the tool answers
+        // `consistent`, as its README says. Written to the stream itself,
+        // which the test harness does not capture.
+        use std::io::Write;
+        let _ = writeln!(
+            std::io::stderr(),
+            "load_that_falls_inside_the_runs_is_seen: SKIPPED, {cpus} CPUs: under 4 the tool keeps no watch beside a run and on macOS nothing else sees this load (decide/README.md)"
+        );
+        return;
+    }
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     let (code, report, text) = run_once(
         &repo_with_arrays(

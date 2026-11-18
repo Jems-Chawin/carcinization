@@ -124,6 +124,14 @@ regression; a local run does. `ci/test_compare.py` tests the rule.
 
 A local run does not set the variable.
 
+One test does not run on the macOS runner, which has three CPUs:
+`load_that_falls_inside_the_runs_is_seen` needs the process the tool runs
+beside a workload, and under four CPUs there is none. On macOS with fewer
+than four CPUs the test prints a line with "SKIPPED," and counts as
+passed; `run-all.sh` copies such lines into `results.tsv` as `note` rows,
+so they are in the run's summary. That detector is tested by local runs
+and on the Linux runner only.
+
 ## In a Linux container
 
 ```sh

@@ -58,6 +58,8 @@ suite() {
   local counts
   counts=$(grep '^test result:' "$out/suite-$name.log" | awk '{p+=$4; f+=$6; i+=$8} END {printf "%d passed, %d failed, %d ignored", p, f, i}')
   printf 'suite\t%s\t%s\texit %s\t%ss\n' "$name" "${counts:-no result}" "$status" "$(( $(now) - start ))" | tee -a "$results"
+  # A test that could not run on this machine says so in a line with "SKIPPED,".
+  grep 'SKIPPED,' "$out/suite-$name.log" | sed 's/^/note\t/' | tee -a "$results"
   if [ "$status" != 0 ]; then
     grep -E '^test .*FAILED|panicked|^error' -A8 "$out/suite-$name.log" | head -60
   fi

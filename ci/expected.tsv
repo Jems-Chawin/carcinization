@@ -32,7 +32,7 @@ suite	diff-mixed-maturin	1 passed, 0 failed, 0 ignored	exit 0
 suite	structure	52 passed, 0 failed, 0 ignored	exit 0
 suite	structure-shared-target	52 passed, 0 failed, 0 ignored	exit 0
 suite	deps-recorded	25 passed, 0 failed, 2 ignored	exit 0
-suite	decide	29 passed, 0 failed, 1 ignored	exit 0
+suite	decide	30 passed, 0 failed, 1 ignored	exit 0
 suite	decide-numpy	1 passed, 0 failed, 0 ignored	exit 0	optional
 suite	deps-live	2 passed, 0 failed, 0 ignored	exit 0	optional
 suite	example-float	2 passed, 0 failed, 0 ignored	exit 0
