@@ -67,25 +67,32 @@ describes the layout.
 
 Results and how to repeat them are in [`ci/RESULTS.md`](ci/RESULTS.md).
 
-- macOS arm64, Python 3.12: all test suites and worked examples pass.
+- macOS arm64, Python 3.12: all test suites and worked examples pass. On
+  a GitHub runner: one pass, on 2026-11-18 at commit 7675eec, on a runner
+  with 5 CPUs, 33 rows.
 - Debian 13 on arm64 (glibc, Python 3.13), in a container on a Mac: all
   test suites pass, and every worked example ends with the same verdict,
   exit status, and case and allocation counts as on macOS. What is judged
   by time differs: `carcinify decide` raises a flag more or a flag fewer on
   some examples, and the times are other times. That is one distribution,
   one Python and one kernel, the container host's.
-- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): one pass, on a GitHub
-  runner on 2026-11-18 at commit 6e209ff: all test suites, and the worked
-  examples as expected, 33 rows, without the three that ask crates.io. Not
-  run anywhere else on x86-64; an earlier attempt under emulation hung in
-  the build.
+- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): two passes, on GitHub
+  runners on 2026-11-18 at commits 6e209ff and 7675eec: all test suites,
+  and the worked examples as expected, 33 rows, without the three that ask
+  crates.io. Not run anywhere else on x86-64; an earlier attempt under
+  emulation hung in the build.
 - Not tested: Windows, musl, a Python without the GIL.
 
 A workflow runs `ci/run-all.sh` on GitHub's runners for every push (see
-[`ci/README.md`](ci/README.md)). Its first run, the one above, failed on
-macOS (3 CPUs) in one test of `carcinify decide`, for the reason given
-under the open findings: with fewer than four CPUs load inside a run is
-not seen there.
+[`ci/README.md`](ci/README.md)). Its first run, at 6e209ff, failed on
+macOS in one test of `carcinify decide`, for the reason given under the
+open findings: the runner had 3 CPUs, and with fewer than four load inside
+a run is not seen there. Since then that test is skipped on macOS with
+fewer than four CPUs, and the report carries a flag. The second run, at
+7675eec, passed on both systems, but its macOS runner had 5 CPUs, so the
+test ran and neither the skip nor the flag came into play. They have still
+never run on a real Mac with three CPUs. GitHub's macOS runners had 3 CPUs
+in one of these runs and 5 in the other; no more than that was seen.
 
 ## Known open findings
 

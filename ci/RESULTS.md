@@ -4,8 +4,8 @@ The runs recorded here up to commit ca706b6 were made when the tools were
 four programs, `rustify-diff`, `rustify-structure`, `rustify-deps` and
 `rustify-decide`. The text below names them as they are called now.
 
-The first runs were made on 2026-11-15; later ones say when. All but the
-one under "On GitHub's runners" were made on one machine, an arm64 Mac
+The first runs were made on 2026-11-15; later ones say when. All but
+those under "On GitHub's runners" were made on one machine, an arm64 Mac
 with 8 logical CPUs, with `ci/run-all.sh`. The
 tables are from the runs at the commit they name; the entries under "Runs
 since those tables" are newer. The tables are built from the `results.tsv` each
@@ -28,7 +28,8 @@ takes and nothing more.
 | result | exit 0: as `expected.tsv`, which had 34 rows then and has 36 now | exit 0: as `expected.tsv`, 34 rows then, 36 now | **not completed**: see below |
 
 The last commit at which a run was as expected in every row, of those
-recorded below: a2ee1ff, on both. Commit ids in this file up to 97994d3
+recorded below: a2ee1ff, on both, on that machine; 7675eec, on both, on
+GitHub's runners. Commit ids in this file up to 97994d3
 are those of the development history, which is not published; the later
 ones are commits of this repository.
 
@@ -361,7 +362,30 @@ on both.
   Linux limited to three CPUs in the container the test passed three times
   of three. Since then the test is skipped on macOS under four CPUs and
   says so, and the report carries a flag on a machine with fewer than four
-  CPUs. No hosted run has been made with that change.
+  CPUs. The next entry is the first hosted run with that change.
+
+The second hosted run, on 2026-11-18 at 7675eec, started by the push; run
+44256277301 of the workflow, 07:06 to 07:30 UTC, set up as the first. Rust
+1.100.0 and maturin 1.16.0 on both. Both systems passed.
+
+- Linux x86-64, image `ubuntu-26.04` version 20261111.196.1, kernel
+  7.0.0-1019-azure, 4 CPUs, Python 3.13.18: exit 0, 33 rows as expected.
+  The decide suite: 30 passed and 1 ignored in 687 s, no run repeated; the
+  NumPy test passed in 235 s; both structure suites 52.
+- macOS arm64, image `macos-26-arm64` version 20261112.0504.1, Darwin
+  25.6.0, 5 CPUs, Python 3.12.10: exit 0, 33 rows as expected. The decide
+  suite: 30 passed and 1 ignored in 813 s, no run repeated; the NumPy test
+  passed in 104 s; both structure suites 52.
+
+The macOS runner had 5 CPUs this time, not 3. So
+`load_that_falls_inside_the_runs_is_seen` ran and passed, no line with
+"SKIPPED," was printed, and the flag for fewer than four CPUs does not
+apply on such a machine. This run shows that the suite passes on a hosted Mac with 5 CPUs.
+It does not show the skip or the flag at work: those have still never run
+on a real Mac with three CPUs, only in a Linux container limited to three
+and, for the failure they answer, on an 8-CPU Mac with the second process
+switched off. The two hosted runs are all that is known here about how
+many CPUs GitHub's macOS runners have: 3 once, 5 once.
 
 ## Differences found, and what was done
 
@@ -432,7 +456,8 @@ and removed, the line was written, exit status 137.
 
 ## Not tested
 
-- Linux x86-64 beyond the one hosted run above.
+- Linux x86-64 beyond the two hosted runs above.
+- macOS with fewer than four CPUs, since the test was made to skip there.
 - A Python built without the GIL.
 - musl (Alpine), other distributions, other glibc versions.
 - Python 3.12 on Linux and Python 3.13 on macOS: each platform was run with
