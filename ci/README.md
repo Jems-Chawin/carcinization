@@ -132,7 +132,7 @@ than four CPUs the test prints a line with "SKIPPED," and counts as
 passed; `run-all.sh` copies such lines into `results.tsv` as `note` rows,
 so they are in the run's summary. That detector is tested by local runs,
 on the Linux runner, and on a macOS runner only when it has four CPUs or
-more. The skip itself has not yet run on a hosted Mac: see
+more. The skip itself has not run anywhere yet: see
 [`RESULTS.md`](RESULTS.md).
 
 ## In a Linux container

@@ -381,10 +381,10 @@ The macOS runner had 5 CPUs this time, not 3. So
 `load_that_falls_inside_the_runs_is_seen` ran and passed, no line with
 "SKIPPED," was printed, and the flag for fewer than four CPUs does not
 apply on such a machine. This run shows that the suite passes on a hosted Mac with 5 CPUs.
-It does not show the skip or the flag at work: those have still never run
-on a real Mac with three CPUs, only in a Linux container limited to three
-and, for the failure they answer, on an 8-CPU Mac with the second process
-switched off. The two hosted runs are all that is known here about how
+It does not show the skip or the flag at work. The flag has run only in a
+Linux container limited to three CPUs; the skip has not run anywhere. The
+failure they answer was repeated on an 8-CPU Mac with the second process
+switched off, before either was written. The two hosted runs are all that is known here about how
 many CPUs GitHub's macOS runners have: 3 once, 5 once.
 
 ## Differences found, and what was done
