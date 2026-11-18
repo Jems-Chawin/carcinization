@@ -63,7 +63,8 @@ Both exit 0 with `PASS`, 35 of 35 identical.
 ## What the example does not show
 
 - Speed. The numbers are allocations, which is what the step asks to be
-  budgeted. A benchmark from the Python caller belongs to a later step.
+  budgeted. A benchmark from the Python caller is not part of this step, and
+  this project has no step for it.
 - A hot path that has to build output. There the budget is above zero and
   has to be argued; here it is zero and easy.
 - `Rc<RefCell<..>>`. The counter-example shows cloning, collecting,

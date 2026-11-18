@@ -43,7 +43,7 @@ A checklist. The parts below say how to produce each.
 - The port, passing the comparison harness with no relaxations.
 - The allocation test with its budget, and the construct counts.
 - The list of objects that cross the boundary, as copies or as handles, for
-  the next step.
+  whoever builds the binding.
 
 ## What to do
 
@@ -174,8 +174,8 @@ Decide, and be able to say in one sentence each:
   Decide here which objects cross the boundary and whether they are copies
   or handles, and write it in the note. Building that boundary (the classes
   the binding exposes, how they keep the owner alive, what crosses in bulk)
-  is the next step of the skill, the port through PyO3; this step hands it
-  the list.
+  is the port through PyO3, a step this project did not write; this step
+  hands over the list.
 
 Keep observable behaviour exactly as it is, including the order in which
 things happen. If the original updates items in place and later items see

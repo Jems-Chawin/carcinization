@@ -6,17 +6,39 @@
 
 <p align="center">Move a Python codebase to Rust one piece at a time, and measure every step: <code>carcinify</code>.</p>
 
-An agent skill, in progress, for moving parts of a Python codebase to Rust
-one piece at a time behind [PyO3](https://pyo3.rs). Each step comes with a
+Tools and step texts for an agent skill that moves parts of a Python
+codebase to Rust one piece at a time behind [PyO3](https://pyo3.rs). Each step comes with a
 tool that measures the result, so that the numbers in a report come from a
 run and are not typed by the agent. The workload, the test cases and the
 driver that the tools run are still written by the agent: the tools record
 what ran, with hashes and the commit, and each tool's README lists what it
 cannot stop. "Do not port this" is a normal outcome of the first step.
 
-**State: work in progress. It has not been used on a real port yet.** The
-steps are meant to be read and followed by a coding agent; there is no
-top-level `SKILL.md` yet that ties them together.
+## Status
+
+Development stopped on 2026-11-18. The repository stays as it is.
+
+What exists and was tested: `carcinify decide`, `carcinify deps`,
+`carcinify structure` and the comparison harness `carcinify diff`, with the
+texts of steps 1, 2, 4 and 6, which are meant to be read and followed by a
+coding agent. The pilot for step four stands as it was reported: the
+pattern was observed in 1 of 4 runs, which is inconclusive by the rule
+fixed before the runs. None of this has been used on a real port.
+
+What was planned and is not built:
+
+- Step 3 as a step: the comparison tool exists, its instructions do not.
+- Step 5, the port of one piece through PyO3.
+- Step 7, the period when the old and the new code run side by side.
+- A top-level `SKILL.md` that ties the steps together.
+
+For the port itself, see
+[rust-anything](https://github.com/erkamyaman/rust-anything). It generates
+the PyO3 bridge and recorded cases, and times a finished port. It was tried
+here at v1.4.0, on Python only, in a Linux arm64 container. In those runs
+its profile advised a port in the four cases where `carcinify decide`
+answers `contradicted`, so the two are used together: `carcinify decide`
+first.
 
 ## What exists
 
@@ -27,7 +49,7 @@ this workspace behind the one binary in [`carcinify/`](carcinify/):
 |---|---|---|
 | [`carcinify decide`](decide/README.md) | Measures where a Python workload spends its time and checks a declared decision to port, to fix the algorithm first, or not to port, against it | [1 decide](skill/steps/01-decide/STEP.md) |
 | [`carcinify deps`](deps/README.md) | Reads the imports of the code to be ported and looks up on crates.io what the proposal names for each | [2 dependency check](skill/steps/02-dependency-check/STEP.md) |
-| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only, no step text yet) |
+| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only; the step was not written) |
 | [`carcinify structure`](structure/README.md) | Counts allocations on the port's hot path at two input sizes and lists the copies made in the code reachable from it | [6 structure report](skill/steps/06-structure-report/STEP.md) |
 
 One step has no tool: [4 ownership design](skill/steps/04-ownership-design/STEP.md),
@@ -40,13 +62,6 @@ By the rule fixed before the runs that is inconclusive.
 Each step directory has an `EVIDENCE.md` saying how far each of its claims
 is supported; steps 1, 2 and 4 have worked examples. [`skill/README.md`](skill/README.md)
 describes the layout.
-
-## What is not written yet
-
-- Step 3 as a step: the comparison tool exists, its instructions do not.
-- Step 5, the port of one piece through PyO3.
-- Step 7, the period when the old and the new code run side by side.
-- The top-level `SKILL.md`.
 
 ## Tested on
 

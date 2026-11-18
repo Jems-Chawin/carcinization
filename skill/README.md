@@ -1,8 +1,8 @@
-# The skill, as it is being built
+# The skill, as far as it was built
 
-How the skill's files are laid out, for the people and agents working on
-it. The overview is the README at the top of the repository; there is no
-`SKILL.md` yet.
+How the skill's files are laid out. The overview is the README at the top
+of the repository, which also says where the project stopped; there is no
+`SKILL.md`.
 
 ```
 skill/
@@ -26,13 +26,14 @@ examples/                 the harness's own worked example
 The seven steps: 1 decide whether to port, 2 check dependencies on
 crates.io, 3 compare against the original (`harness/`), 4 design ownership,
 5 port a small piece through PyO3, 6 report on structure, 7 manage the
-period when old and new run side by side. Steps 1, 2, 4 and 6 have directories
-so far; the harness predates this layout and stays where it is.
+period when old and new run side by side. Steps 1, 2, 4 and 6 have
+directories; steps 3, 5 and 7 were not written. The harness predates this
+layout and stays where it is.
 
 Why this shape:
 
 - **One directory per step** so a step can be read, tested and audited on
-  its own, and the others can land beside it without touching it.
+  its own.
 - **`STEP.md` apart from `sources/`** keeps what is true of any source
   language apart from what is specific to Python, so another language would
   add a file, not a rewrite.
