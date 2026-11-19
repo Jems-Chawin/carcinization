@@ -16,7 +16,8 @@ cannot stop. "Do not port this" is a normal outcome of the first step.
 
 ## Status
 
-Development stopped on 2026-11-18. The repository stays as it is.
+Development stopped on 2026-11-18 and was resumed on 2026-11-19. The
+project moves Python to Rust and no other pair of languages.
 
 What exists and was tested: `carcinify decide`, `carcinify deps`,
 `carcinify structure` and the comparison harness `carcinify diff`, with the
@@ -25,14 +26,14 @@ coding agent. The pilot for step four stands as it was reported: the
 pattern was observed in 1 of 4 runs, which is inconclusive by the rule
 fixed before the runs. None of this has been used on a real port.
 
-What was planned and is not built:
+What is planned and is not built, with no date for any of it:
 
 - Step 3 as a step: the comparison tool exists, its instructions do not.
 - Step 5, the port of one piece through PyO3.
 - Step 7, the period when the old and the new code run side by side.
 - A top-level `SKILL.md` that ties the steps together.
 
-For the port itself, see
+Another tool for the port exists:
 [rust-anything](https://github.com/erkamyaman/rust-anything). It generates
 the PyO3 bridge and recorded cases, and times a finished port. It was tried
 here at v1.4.0, on Python only, in a Linux arm64 container. In those runs
@@ -49,7 +50,7 @@ this workspace behind the one binary in [`carcinify/`](carcinify/):
 |---|---|---|
 | [`carcinify decide`](decide/README.md) | Measures where a Python workload spends its time and checks a declared decision to port, to fix the algorithm first, or not to port, against it | [1 decide](skill/steps/01-decide/STEP.md) |
 | [`carcinify deps`](deps/README.md) | Reads the imports of the code to be ported and looks up on crates.io what the proposal names for each | [2 dependency check](skill/steps/02-dependency-check/STEP.md) |
-| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only; the step was not written) |
+| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only; the step is not written) |
 | [`carcinify structure`](structure/README.md) | Counts allocations on the port's hot path at two input sizes and lists the copies made in the code reachable from it | [6 structure report](skill/steps/06-structure-report/STEP.md) |
 
 One step has no tool: [4 ownership design](skill/steps/04-ownership-design/STEP.md),
