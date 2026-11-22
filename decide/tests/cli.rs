@@ -2502,7 +2502,7 @@ fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_c
 /// name), each into out/<name>.calls.jsonl, which is ignored, so that the
 /// next run still sees a clean tree.
 fn record_each(repo: &Repo, runs: &[(&str, &str, &str)]) {
-    for (candidate, workload, name) in runs.iter().copied() {
+    for &(candidate, workload, name) in runs {
         std::fs::write(
             repo.0.join(format!("decide-{name}.json")),
             format!(
@@ -2513,7 +2513,7 @@ fn record_each(repo: &Repo, runs: &[(&str, &str, &str)]) {
     }
     git(&repo.0, &["add", "-A"]);
     git(&repo.0, &["commit", "-q", "-m", "declarations"]);
-    for (_, _, name) in runs.iter().copied() {
+    for &(_, _, name) in runs {
         // Into out/, which is ignored, so the next run still sees a clean tree.
         let calls = repo.0.join(format!("out/{name}.calls.jsonl"));
         let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
