@@ -849,16 +849,61 @@ def enc(v):
     raise Unencodable("%s.%s" % (t.__module__, t.__qualname__))
 
 
-def arguments(frame, code):
+NO_DEFAULT = object()
+
+
+def at_default(value, default):
+    """The value is the parameter's default: the object itself, or one the
+    value format writes the same. As `at_default` in the harness's
+    driver.py, which leaves such a parameter out when it compares."""
+    if default is NO_DEFAULT:
+        return False
+    if value is default:
+        return True
+    try:
+        return enc(value) == enc(default)
+    except (Unencodable, RecursionError):
+        return False
+
+
+def defaults_of(frame, code):
+    """The defaults of the function the frame runs, by parameter name, when
+    the function can be found by its name in its module; none otherwise."""
+    fn = frame.f_globals.get(code.co_name)
+    if getattr(fn, "__code__", None) is not code:
+        return {}
+    positional = code.co_varnames[:code.co_argcount]
+    found = dict(zip(positional[len(positional) - len(fn.__defaults__ or ()):], fn.__defaults__ or ()))
+    found.update(fn.__kwdefaults__ or {})
+    return found
+
+
+def arguments(frame, code, defaults):
     """A call's arguments from its frame at entry: the named parameters by
-    position, keyword-only ones by keyword, then `*args` and `**kwargs`."""
+    position, keyword-only ones by keyword, then `*args` and `**kwargs`. A
+    parameter at its default is left out, and the named ones after it go
+    by keyword, so that a default the value format cannot hold (a sentinel
+    object) is never written."""
     names, values = code.co_varnames, frame.f_locals
     positional, kwonly = code.co_argcount, code.co_kwonlyargcount
-    args = [enc(values[n]) for n in names[:positional]]
-    kwargs = {n: enc(values[n]) for n in names[positional:positional + kwonly]}
+    varargs = code.co_flags & inspect.CO_VARARGS
+    rest = values[names[positional + kwonly]] if varargs else ()
+    args, kwargs, by_keyword = [], {}, False
+    for i, n in enumerate(names[:positional]):
+        # Not when the parameter cannot be named, or arguments follow it
+        # by position.
+        if not rest and i >= code.co_posonlyargcount and at_default(values[n], defaults.get(n, NO_DEFAULT)):
+            by_keyword = True
+        elif by_keyword:
+            kwargs[n] = enc(values[n])
+        else:
+            args.append(enc(values[n]))
+    for n in names[positional:positional + kwonly]:
+        if not at_default(values[n], defaults.get(n, NO_DEFAULT)):
+            kwargs[n] = enc(values[n])
     i = positional + kwonly
-    if code.co_flags & inspect.CO_VARARGS:
-        args += [enc(x) for x in values[names[i]]]
+    if varargs:
+        args += [enc(x) for x in rest]
         i += 1
     if code.co_flags & inspect.CO_VARKEYWORDS:
         kwargs.update((k, enc(x)) for k, x in values[names[i]].items())
@@ -874,7 +919,7 @@ def record(spec):
     root = os.path.realpath(spec["project_root"])
     want_file = os.path.realpath(os.path.join(root, spec["candidate"]["file"]))
     want_name = spec["candidate"]["function"]
-    known, seen, lines, state = {}, set(), [], {"calls": 0}
+    known, seen, lines, state, defaults = {}, set(), [], {"calls": 0}, {}
     depth = {}  # per thread: a call in one thread is not inside another's
 
     def hook(frame, event, arg):
@@ -895,7 +940,9 @@ def record(spec):
             return  # a call from inside itself is not an input of the workload
         state["calls"] += 1
         try:
-            line = dict({"fn": want_name}, **arguments(frame, code))
+            if code not in defaults:
+                defaults[code] = defaults_of(frame, code)
+            line = dict({"fn": want_name}, **arguments(frame, code, defaults[code]))
         except Unencodable as e:
             line = {"fn": want_name, "unencodable": str(e)}
         except RecursionError:

@@ -168,3 +168,10 @@ def child_environment(expected):
 def read_text(path):
     with open(path) as f:
         return f.read()
+
+
+_UNSET = object()
+
+
+def with_defaults(x, y=_UNSET, z=None, big=10**30):
+    return [x, y is _UNSET, z, big]

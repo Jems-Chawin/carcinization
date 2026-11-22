@@ -122,8 +122,12 @@ called.
      runs, so an argument the candidate changes in place is recorded as it
      came in.
    - Named parameters are written by position, keyword-only ones by
-     keyword, and `*args` and `**kwargs` as they were passed; defaults are
-     filled in. A call the candidate makes of itself is not recorded: it is
+     keyword, and `*args` and `**kwargs` as they were passed. A parameter
+     whose value is its default (the object itself, or one written the
+     same) is left out, and the named parameters after it go by keyword,
+     so a default the value format cannot hold, such as a sentinel
+     `object()`, is never written. The harness leaves such a parameter out
+     the same way when it compares. A call the candidate makes of itself is not recorded: it is
      not an input of the workload.
    - A call that holds a value the format does not cover (an array, an
      instance of a class) is written as

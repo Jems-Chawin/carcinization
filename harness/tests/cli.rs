@@ -3019,3 +3019,26 @@ fn a_mutant_that_changes_what_the_original_returns_is_invalid() {
         "{p}"
     );
 }
+
+#[test]
+fn a_parameter_left_at_its_default_is_the_same_call_written_or_not() {
+    // `y` defaults to a sentinel object the value format cannot hold; `z`
+    // to None; `big` to an int no JSON decoder hands back as that object.
+    let cases = r#"{"id": "d", "fn": "with_defaults", "args": [1]}"#.to_string() + "\n";
+    let calls = [
+        r#"{"id": "c1", "fn": "with_defaults", "args": [1]}"#,
+        r#"{"id": "c2", "fn": "with_defaults", "args": [1], "kwargs": {"z": null}}"#,
+        r#"{"id": "c3", "fn": "with_defaults", "args": [1], "kwargs": {"big": 1000000000000000000000000000000}}"#,
+    ];
+    let repo = measured_repo(&cases, &(calls.join("\n") + "\n"), "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["measured"][0]["compared"], 3);
+    // Not at its default: another input.
+    let other = r#"{"id": "c4", "fn": "with_defaults", "args": [1], "kwargs": {"z": 0}}"#
+        .to_string()
+        + "\n";
+    let repo = measured_repo(&cases, &other, "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+}

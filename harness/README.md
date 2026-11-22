@@ -119,7 +119,10 @@ also be a case:
 - A recorded call matches a case when the original's signature binds both
   to the same arguments, compared as outputs are: sets in no order, ints by
   every digit, a list never equal to a tuple, and dict key order counted.
-  So a call by keyword matches a case by position, and a typed line
+  A parameter whose value is its default, written or not, is left out, so
+  a default the format cannot hold (a sentinel `object()`) does not stop
+  the match. So a call by keyword matches a case by position, `f(1)`
+  matches `f(1, None)` when `None` is the default, and a typed line
   matches a plain-JSON case that holds the same Python value. A dict
   argument with its keys in another order is another input, and is
   reported missing.

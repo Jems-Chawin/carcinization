@@ -32,6 +32,9 @@ def recorded(items, scale=1, *rest, label='x', **extra):
     if len(items) < 3:
         return recorded(items, scale)
     return len(items)
+_UNSET = object()
+def with_sentinel(x, y=_UNSET, label=None):
+    return x
 def busy_better(n):
     return n
 
@@ -92,6 +95,14 @@ def run_broken():
 
 
 def run_nothing():
+    return 0
+
+
+def run_sentinel():
+    from app import with_sentinel
+    with_sentinel(1)
+    with_sentinel(1, label=None)
+    with_sentinel(2, label='k')
     return 0
 
 
@@ -2216,13 +2227,12 @@ fn record_calls_writes_each_distinct_call_of_the_candidate_as_it_came_in() {
     let text_value = |v: &str| format!(r#"{{"t": "str", "v": "{v}"}}"#);
     // The list is as it came in, before the call appended to it; the call
     // made twice is one line; calls from inside the candidate are not its
-    // inputs; keyword arguments stay by keyword, defaults filled in.
+    // inputs; keyword arguments stay by keyword; a parameter at its default
+    // is left out.
     let expected = [
         format!(
-            r#"{{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{}, {}], "kwargs": {{"label": {}}}}}"#,
+            r#"{{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{}], "kwargs": {{}}}}"#,
             list(&[1, 2]),
-            int(1),
-            text_value("x")
         ),
         format!(
             r#"{{"id": "call-2", "fn": "recorded", "encoding": "typed", "args": [{}, {}], "kwargs": {{"label": {}}}}}"#,
@@ -2231,12 +2241,11 @@ fn record_calls_writes_each_distinct_call_of_the_candidate_as_it_came_in() {
             text_value("y")
         ),
         format!(
-            r#"{{"id": "call-3", "fn": "recorded", "encoding": "typed", "args": [{}, {}, {}, {}], "kwargs": {{"label": {}, "flag": {{"t": "bool", "v": true}}}}}}"#,
+            r#"{{"id": "call-3", "fn": "recorded", "encoding": "typed", "args": [{}, {}, {}, {}], "kwargs": {{"flag": {{"t": "bool", "v": true}}}}}}"#,
             list(&[3]),
             int(2),
             int(5),
             int(6),
-            text_value("x")
         ),
         r#"{"id": "call-4", "fn": "recorded", "unencodable": "builtins.object"}"#.to_string(),
     ];
@@ -2285,6 +2294,45 @@ fn record_calls_sees_a_call_made_in_a_worker_thread() {
     // The call from inside itself, in the same thread, is still left out.
     assert_eq!(
         text,
-        r#"{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{"t": "list", "v": [{"t": "int", "v": "7"}]}, {"t": "int", "v": "1"}], "kwargs": {"label": {"t": "str", "v": "x"}}}"#.to_string() + "\n"
+        r#"{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{"t": "list", "v": [{"t": "int", "v": "7"}]}], "kwargs": {}}"#.to_string() + "\n"
+    );
+}
+
+#[test]
+fn record_calls_leaves_out_a_parameter_at_its_default_a_sentinel_included() {
+    let repo = repo(
+        r#""function": "run_sentinel", "args": []"#,
+        r#"{"file": "app.py", "function": "with_sentinel"}"#,
+        "",
+        "",
+    );
+    let calls = repo.0.join("out/sentinel.calls.jsonl");
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("decide")
+        .arg(repo.0.join("decide.json"))
+        .arg("--report")
+        .arg(repo.0.join("out/report.json"))
+        .arg("--record-calls")
+        .arg(&calls)
+        .output()
+        .unwrap();
+    let text = std::fs::read_to_string(&calls).unwrap_or_else(|e| {
+        panic!(
+            "{e}: {}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        )
+    });
+    // with_sentinel(1) and with_sentinel(1, label=None) are one call; in
+    // with_sentinel(2, label='k') the sentinel is left out and label goes
+    // by name.
+    assert_eq!(
+        text,
+        concat!(
+            r#"{"id": "call-1", "fn": "with_sentinel", "encoding": "typed", "args": [{"t": "int", "v": "1"}], "kwargs": {}}"#,
+            "\n",
+            r#"{"id": "call-2", "fn": "with_sentinel", "encoding": "typed", "args": [{"t": "int", "v": "2"}], "kwargs": {"label": {"t": "str", "v": "k"}}}"#,
+            "\n"
+        )
     );
 }

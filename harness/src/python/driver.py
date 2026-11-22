@@ -372,6 +372,20 @@ def own_class(cls, init):
     return any(origin.startswith(os.path.realpath(d) + os.sep) for d in init["must_load_from"])
 
 
+def at_default(value, default):
+    """The value is the parameter's default: the object itself, or one the
+    value format writes the same (an int decoded from a case is a new
+    object)."""
+    if default is inspect.Parameter.empty:
+        return False
+    if value is default:
+        return True
+    try:
+        return enc(value) == enc(default)
+    except (Unencodable, RecursionError):
+        return False
+
+
 def bind(module, req, init):
     """A call's arguments as the function receives them, by parameter name
     with defaults filled in, so that one call written two ways (by position
@@ -388,14 +402,22 @@ def bind(module, req, init):
     except Exception:
         return {"status": "bad_input", "detail": traceback.format_exc()}
     try:
-        bound = inspect.signature(fn).bind(*args, **kwargs)
+        signature = inspect.signature(fn)
+        bound = signature.bind(*args, **kwargs)
     except TypeError as e:
         return {"status": "bad_call", "detail": "the arguments do not fit the function's signature: %s" % e}
     except ValueError:  # no signature: compared as written
         arguments = {"args": tuple(args), "kwargs": kwargs}
     else:
-        bound.apply_defaults()
-        arguments = dict(bound.arguments)
+        # A parameter at its default is left out, written or not, so that a
+        # default the value format cannot hold (a sentinel object) need not
+        # be encoded. decide's recorder leaves it out the same way.
+        params = signature.parameters
+        arguments = {
+            name: value
+            for name, value in bound.arguments.items()
+            if not at_default(value, params[name].default)
+        }
     try:
         return {"status": "bound", "value": enc(arguments)}
     except Unencodable as e:
