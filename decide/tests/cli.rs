@@ -2339,15 +2339,18 @@ fn record_calls_leaves_out_a_parameter_at_its_default_a_sentinel_included() {
 
 #[test]
 fn record_calls_needs_a_file_named_as_a_recording() {
+    // A path outside the checkout: a run that went further would write it.
+    let report =
+        std::env::temp_dir().join(format!("carcinify-decide-name-{}.json", std::process::id()));
     let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
         .args([
             "decide",
             "declaration.json",
-            "--report",
-            "report.json",
             "--record-calls",
             "calls.jsonl",
+            "--report",
         ])
+        .arg(&report)
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -2356,4 +2359,5 @@ fn record_calls_needs_a_file_named_as_a_recording() {
         stderr.contains("--record-calls calls.jsonl: the file's name must end in .calls.jsonl"),
         "{stderr}"
     );
+    assert!(!report.exists(), "a refused run wrote its report");
 }
