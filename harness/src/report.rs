@@ -5,7 +5,7 @@
 //! from nothing else.
 
 use crate::Options;
-use crate::compare::{Applied, Difference};
+use crate::compare::{Applied, Difference, Outcome, Relax};
 use crate::provenance::{Git, digest_of, sha256_bytes, sha256_file, tool_version, tracked_digest};
 use crate::python::Built;
 use crate::side::Side;
@@ -405,6 +405,11 @@ pub struct CaseReport {
     pub original_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub candidate_sha256: Option<String>,
+    /// The original's outcome and the case's relaxations, for a case that
+    /// declares any: `--mutants` compares the original with the unmutated
+    /// run's as the sides are compared. Not in the report.
+    #[serde(skip)]
+    pub original_relaxed: Option<(Outcome, Relax)>,
 }
 
 fn is_zero_u64(n: &u64) -> bool {
@@ -441,6 +446,7 @@ impl CaseReport {
             candidate_outcome: None,
             original_sha256: None,
             candidate_sha256: None,
+            original_relaxed: None,
         }
     }
 }

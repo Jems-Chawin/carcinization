@@ -10,6 +10,7 @@
 //! marks a patch that cannot change an answer (an equivalent mutant): its
 //! survival is expected, and its being killed is reported.
 
+use crate::compare::compare;
 use crate::report::{CaseReport, CaseResult, ErrorKind, HashSeed, Verdict};
 use crate::suite::{SideSpec, Suite};
 use crate::{Options, provenance};
@@ -398,12 +399,22 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
     }
 
     // What the original gave on each case, unmutated. Only the candidate is
-    // patched, so the original must give the same in every patch's run.
-    let base_original: BTreeMap<&str, &str> = base
-        .cases
-        .iter()
-        .filter_map(|c| Some((c.id.as_str(), c.original_sha256.as_deref()?)))
-        .collect();
+    // patched, so the original must give the same in every patch's run: by
+    // hash, or as the sides are compared where the case relaxes that.
+    let base_original: BTreeMap<&str, &CaseReport> =
+        base.cases.iter().map(|c| (c.id.as_str(), c)).collect();
+    let original_changed = |c: &CaseReport| {
+        let Some(now) = c.original_sha256.as_deref() else {
+            return false;
+        };
+        let Some(was) = base_original.get(c.id.as_str()) else {
+            return true;
+        };
+        match (&was.original_relaxed, &c.original_relaxed) {
+            (Some((was, relax)), Some((now, _))) => compare(was, now, relax).is_err(),
+            _ => was.original_sha256.as_deref() != Some(now),
+        }
+    };
     let mut patches = Vec::new();
     for file in &files {
         let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", name(file)))?;
@@ -464,15 +475,12 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
                 let changed: Vec<&str> = r
                     .cases
                     .iter()
-                    .filter(|c| {
-                        let now = c.original_sha256.as_deref();
-                        now.is_some_and(|h| base_original.get(c.id.as_str()) != Some(&h))
-                    })
+                    .filter(|c| original_changed(c))
                     .map(|c| c.id.as_str())
                     .collect();
                 if !changed.is_empty() {
                     wrong.push(format!(
-                        "the original's output changed in {} from the unmutated run, so the comparison did not read the original the commit holds",
+                        "the original's output in {} changed from the unmutated run: something changed what it reads, or it does not give the same output twice",
                         changed.join(", ")
                     ));
                 }

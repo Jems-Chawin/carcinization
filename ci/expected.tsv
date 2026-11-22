@@ -26,7 +26,7 @@
 check	fmt		exit 0
 check	clippy		exit 0
 suite	command	2 passed, 0 failed, 0 ignored	exit 0
-suite	diff	122 passed, 0 failed, 6 ignored	exit 0
+suite	diff	123 passed, 0 failed, 6 ignored	exit 0
 suite	diff-example-maturin	5 passed, 0 failed, 0 ignored	exit 0
 suite	diff-mixed-maturin	1 passed, 0 failed, 0 ignored	exit 0
 suite	structure	54 passed, 0 failed, 0 ignored	exit 0

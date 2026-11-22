@@ -173,3 +173,9 @@ _UNSET = object()
 
 def with_defaults(x, y=_UNSET, z=None, big=10**30):
     return [x, y is _UNSET, z, big]
+
+
+def check_sign(x):
+    if x < 0:
+        raise ValueError("negative")
+    return x

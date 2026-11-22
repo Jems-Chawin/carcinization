@@ -181,6 +181,9 @@ fn run_case(
     out.candidate_outcome = Some(kind(&b));
     out.original_sha256 = Some(provenance::sha256_bytes(a.canon().as_bytes()));
     out.candidate_sha256 = Some(provenance::sha256_bytes(b.canon().as_bytes()));
+    if out.relaxations_declared.is_some() {
+        out.original_relaxed = Some((a.clone(), case.relax.clone()));
+    }
     let raised = |o: &Outcome| matches!(o, Outcome::Raised(_));
     // Two sides failing the same way is agreement only when the case was
     // written to provoke it. Otherwise a broken case would count as a pass.

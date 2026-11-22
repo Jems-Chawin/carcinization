@@ -3015,7 +3015,7 @@ fn a_mutant_that_changes_what_the_original_returns_is_invalid() {
         p["error"]
             .as_str()
             .unwrap()
-            .contains("the original's output changed in text"),
+            .contains("the original's output in text changed from the unmutated run"),
         "{p}"
     );
 }
@@ -3041,4 +3041,48 @@ fn a_parameter_left_at_its_default_is_the_same_call_written_or_not() {
     let repo = measured_repo(&cases, &other, "");
     let r = repo.run(&[]);
     assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+}
+
+#[test]
+fn an_original_that_differs_from_run_to_run_only_where_the_case_relaxes_leaves_patches_valid() {
+    // The original's message holds an object's address, so it differs from
+    // run to run; the case relaxes the message. The original is compared
+    // with the unmutated run as the sides are, so the patches count.
+    let cases = concat!(
+        r#"{"id": "ok", "fn": "check_sign", "args": [1]}"#,
+        "\n",
+        r#"{"id": "neg", "fn": "check_sign", "args": [-1], "expect_raise": true, "relax": {"exception_message": true}}"#,
+        "\n"
+    );
+    let from = "        raise ValueError(\"negative\")\n    return x\n";
+    let repo = mutant_repo(
+        "mutants",
+        &[
+            (
+                "a-comment",
+                PORT,
+                from,
+                "        raise ValueError(\"negative\")\n    return x  # a comment\n",
+                "Expected to survive: adds a comment\n\n",
+            ),
+            (
+                "b-plus-one",
+                PORT,
+                from,
+                "        raise ValueError(\"negative\")\n    return x + 1\n",
+                "Returns one more.\n\n",
+            ),
+        ],
+    );
+    std::fs::write(repo.dir.join("cases.jsonl"), cases).unwrap();
+    repo.commit();
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    let results: Vec<&str> = r.report["patches"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["result"].as_str().unwrap())
+        .collect();
+    assert_eq!(results, ["survived", "killed"], "{}", r.report["patches"]);
 }
