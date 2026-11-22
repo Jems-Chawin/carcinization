@@ -67,6 +67,17 @@ pub struct Support {
     pub function: String,
     #[serde(default)]
     pub args: Vec<J>,
+    /// A comparison case of carcinify diff: its `args`, as the text in its
+    /// file, are passed to the function as one `&str`, in place of `args`.
+    pub case: Option<CaseRef>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseRef {
+    /// The case file, relative to the declaration.
+    pub file: String,
+    pub id: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

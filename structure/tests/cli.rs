@@ -200,7 +200,14 @@ fn a_field_taken_out_of_self_and_put_back_needs_a_justification() {
 
     let (code, report, text) = run(&repo(BUFFER, &hot("Sim::tick", ZERO, true), JUSTIFIED));
     assert_eq!(code, 0, "{text}");
-    assert_eq!(report["verdict"], "pass");
+    // The one flag: the sizes are not comparison cases.
+    assert_eq!(report["verdict"], "pass_with_flags");
+    let flags = report["flags"].as_array().unwrap();
+    assert_eq!(flags.len(), 1, "{text}");
+    assert!(
+        flags[0].as_str().unwrap().contains("not comparison cases"),
+        "{text}"
+    );
     assert_eq!(
         report["hot_paths"][0]["fields_taken_out_of_self"][0]["justification"],
         "the sum borrows the buffer while total is written"
@@ -472,7 +479,14 @@ fn declared(name: &str) -> (i32, J, String) {
 fn the_first_example_designed_port_passes_and_the_counter_example_fails() {
     let (code, report, text) = declared("fleet-designed.json");
     assert_eq!(code, 0, "{text}");
-    assert_eq!(report["verdict"], "pass");
+    // The one flag: the sizes are not comparison cases.
+    assert_eq!(report["verdict"], "pass_with_flags");
+    let flags = report["flags"].as_array().unwrap();
+    assert_eq!(flags.len(), 1, "{text}");
+    assert!(
+        flags[0].as_str().unwrap().contains("not comparison cases"),
+        "{text}"
+    );
     assert_eq!(
         report["hot_paths"][0]["measured"][0]["allocations_per_iteration"],
         0.0
@@ -1479,4 +1493,93 @@ fn one_target_directory_for_everything_does_not_mix_two_crates() {
         .count();
     assert_eq!(dirs, 2);
     let _ = std::fs::remove_dir_all(&shared);
+}
+
+#[test]
+fn a_size_may_name_a_comparison_case_whose_args_text_the_support_function_gets() {
+    let lib = r##"pub fn total(numbers: &[u64]) -> u64 { numbers.iter().sum() }
+pub mod measure_support {
+    pub fn from_case(args: &str) -> Vec<u64> {
+        match args {
+            r#"[3,  "é"]"# => vec![1; 3],
+            r#"[300]"# => vec![1; 300],
+            other => panic!("the support function got {other:?}"),
+        }
+    }
+}
+"##;
+    let small = r#"{"id": "small", "fn": "total", "args": [3,  "é"]}"#;
+    let large = r#"{"id": "large", "fn": "total", "args": [300]}"#;
+    let size = |label: &str, input: &str| format!(r#"{{"label": "{label}", "input": {input}}}"#);
+    let case = |id: &str| {
+        format!(r#"{{"function": "from_case", "case": {{"file": "cases/c.jsonl", "id": "{id}"}}}}"#)
+    };
+    let driver = |sizes: [String; 2]| {
+        format!(
+            r#"{{"input": "two comparison cases", "sizes": [{}], "call": {{"function": "port::total", "state": "none", "args": [{{"input": "shared"}}]}}, "warm_up": 1, "iterations": 10}}"#,
+            sizes.join(", ")
+        )
+    };
+    let with_cases = |sizes: [String; 2]| {
+        let repo = repo(lib, &free("total", ZERO, &driver(sizes)), "[]");
+        std::fs::create_dir_all(repo.0.join("cases")).unwrap();
+        std::fs::write(repo.0.join("cases/c.jsonl"), format!("{small}\n{large}\n")).unwrap();
+        git(&repo.0, &["add", "-A"]);
+        git(&repo.0, &["commit", "-q", "-m", "cases"]);
+        repo
+    };
+    let flagged = |report: &J| {
+        report["flags"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(J::as_str)
+            .filter(|f| f.contains("not comparison cases"))
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    };
+
+    let repo = with_cases([size("small", &case("small")), size("large", &case("large"))]);
+    let calls = repo.0.join("out/structure.calls.jsonl");
+    let (code, report, text) = run_at(
+        &repo.0.join("structure.json"),
+        &repo.0.join("out/report.json"),
+        &["--record-calls", calls.to_str().unwrap()],
+    );
+    assert_eq!(code, 0, "{text}");
+    assert_eq!(flagged(&report), Vec::<String>::new(), "{text}");
+    assert_eq!(
+        std::fs::read_to_string(&calls).unwrap(),
+        format!("{small}\n{large}\n")
+    );
+
+    // A size whose input names no case is flagged, and is not recorded.
+    let repo = with_cases([
+        size("small", &case("small")),
+        size("large", r#"{"function": "from_case", "args": ["[300]"]}"#),
+    ]);
+    let calls = repo.0.join("out/structure.calls.jsonl");
+    let (code, report, text) = run_at(
+        &repo.0.join("structure.json"),
+        &repo.0.join("out/report.json"),
+        &["--record-calls", calls.to_str().unwrap()],
+    );
+    assert_eq!(code, 0, "{text}");
+    assert_eq!(
+        flagged(&report),
+        [
+            "total: measured on inputs that are not comparison cases, so carcinify diff never compared the port on them: \"large\". Name a case in the size's input"
+        ],
+        "{text}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&calls).unwrap(),
+        format!("{small}\n")
+    );
+
+    // A case that is not in the file stops the run.
+    let repo = with_cases([size("small", &case("small")), size("large", &case("gone"))]);
+    let (code, _, text) = run(&repo);
+    assert_eq!(code, 2, "{text}");
+    assert!(text.contains("no case \"gone\" in cases/c.jsonl"), "{text}");
 }

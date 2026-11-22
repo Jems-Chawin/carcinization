@@ -92,6 +92,18 @@ the design note of step four.
     `measure_support` called once before the loop, and the call's `args`
     may then contain `{"input": "shared"}` (`&input`) or
     `{"input": "exclusive"}` (`&mut input`).
+  - an **input that is a comparison case**: in place of `args`, the
+    input may name a case of `carcinify diff`,
+    `"input": {"function": "problem_from_case", "case": {"file":
+    "../cases/workload.jsonl", "id": "workload-120ops"}}`. The support
+    function then gets one `&str`: the case's `args`, exactly the text in
+    the case file, which it decodes. So the size measured is an input the
+    comparison covered. A size whose input names no case is flagged ("not
+    comparison cases"), since the harness never compared the port on it.
+    With `--record-calls <file>` the tool writes the case lines its sizes
+    name, each once, for the harness's `measured` list (see the harness's
+    "Measured inputs"); a case named that is not in its file stops the
+    run.
   - `warm_up` iterations run before counting, `iterations` are counted.
   - `input` says in words what the input is.
 

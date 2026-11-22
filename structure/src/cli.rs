@@ -7,6 +7,7 @@ use std::process::ExitCode;
 
 pub const USAGE: &str = "\
 usage: carcinify structure <declaration.json> --report <report.json> [--allow-dirty]
+                         [--record-calls <file.calls.jsonl>]
 
 Measures allocations on each declared hot path against its declared budget,
 counts the constructs that hide an undesigned ownership in the functions
@@ -20,10 +21,12 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
     let mut declaration = None;
     let mut out = None;
     let mut allow_dirty = false;
+    let mut record_calls = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--report" => out = args.next().map(PathBuf::from),
             "--allow-dirty" => allow_dirty = true,
+            "--record-calls" => record_calls = args.next().map(PathBuf::from),
             flag if flag.starts_with('-') => {
                 eprintln!("carcinify structure: unknown option {flag}\n\n{USAGE}");
                 return ExitCode::from(2);
@@ -47,6 +50,7 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
     let r = match report::run(&Options {
         declaration,
         allow_dirty,
+        record_calls,
     }) {
         Ok(r) => r,
         Err(e) => {

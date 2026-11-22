@@ -219,6 +219,54 @@ pub struct SharedReport {
 pub struct Options {
     pub declaration: PathBuf,
     pub allow_dirty: bool,
+    /// `--record-calls`: where to write the comparison cases the sizes name,
+    /// one case line each, for the harness's `measured` list.
+    pub record_calls: Option<PathBuf>,
+}
+
+/// Fills in the arguments of each size's input that names a comparison
+/// case: the case's `args`, exactly the text in its file, as one string.
+/// Returns those case lines, each once.
+fn named_cases(decl: &mut Declaration, here: &Path) -> Result<Vec<String>, String> {
+    #[derive(Deserialize)]
+    struct Line<'a> {
+        id: String,
+        #[serde(borrow)]
+        args: Option<&'a serde_json::value::RawValue>,
+    }
+    let mut lines: Vec<String> = Vec::new();
+    for hot in &mut decl.hot_paths {
+        for size in hot.driver.iter_mut().flat_map(|d| d.sizes.iter_mut()) {
+            let label = size.label.clone();
+            let Some(input) = &mut size.input else {
+                continue;
+            };
+            let Some(case) = &input.case else { continue };
+            if !input.args.is_empty() {
+                return Err(format!(
+                    "size {label:?}: an input names a case or gives args, not both"
+                ));
+            }
+            let path = here.join(&case.file);
+            let text = std::fs::read_to_string(&path)
+                .map_err(|e| format!("case file {}: {e}", path.display()))?;
+            let found = text.lines().find_map(|l| {
+                let parsed: Line = serde_json::from_str(l).ok()?;
+                (parsed.id == case.id).then(|| (l, parsed.args.map_or("[]", |a| a.get())))
+            });
+            let Some((line, args)) = found else {
+                return Err(format!(
+                    "size {label:?}: no case {:?} in {}",
+                    case.id, case.file
+                ));
+            };
+            input.args = vec![J::String(args.to_string())];
+            if !lines.iter().any(|l| l == line) {
+                lines.push(line.to_string());
+            }
+        }
+    }
+    Ok(lines)
 }
 
 fn matches_name(function: &str, declared: &str) -> bool {
@@ -326,8 +374,16 @@ pub fn run(opts: &Options) -> Result<Report, String> {
         .parent()
         .ok_or("the declaration file has no directory")?;
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let decl: Declaration = serde_json::from_str(&text)
+    let mut decl: Declaration = serde_json::from_str(&text)
         .map_err(|e| format!("bad declaration {}: {e}", path.display()))?;
+    let cases = named_cases(&mut decl, here)?;
+    if let Some(file) = &opts.record_calls {
+        if let Some(dir) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let text: String = cases.iter().map(|l| format!("{l}\n")).collect();
+        std::fs::write(file, text).map_err(|e| format!("cannot write {}: {e}", file.display()))?;
+    }
     if decl.schema != DECLARATION_SCHEMA {
         return Err(format!(
             "declaration schema is {:?}, expected {DECLARATION_SCHEMA:?}",
@@ -561,6 +617,16 @@ pub fn run(opts: &Options) -> Result<Report, String> {
                 .filter(|_| sizes.len() == 1)
             {
                 flags.push(format!("{}: measured at one input size, so growth with the input cannot be seen. The stated reason: {reason}", hot.entry));
+            }
+            let not_cases: Vec<String> = hot
+                .driver
+                .iter()
+                .flat_map(|d| &d.sizes)
+                .filter(|s| s.input.as_ref().is_none_or(|i| i.case.is_none()))
+                .map(|s| format!("{:?}", s.label))
+                .collect();
+            if !not_cases.is_empty() {
+                flags.push(format!("{}: measured on inputs that are not comparison cases, so carcinify diff never compared the port on them: {}. Name a case in the size's input", hot.entry, not_cases.join(", ")));
             }
         }
         let within = if sizes.is_empty() || budget.is_none() {
