@@ -103,6 +103,32 @@ called.
    candidate runs.
 5. **The alternative**, if one is named: plain runs, like step 1. **The
    stand-in workload**, if one is named: plain runs, and steps 3 and 4.
+6. **With `--record-calls <file>`, one more run with a hook on the
+   candidate**, untimed, which writes each distinct call of the candidate
+   from outside it as a case line of `carcinify diff`, in its typed value
+   format, so that the input measured here can be checked to be among the
+   comparison's cases (see the harness's "Measured inputs").
+
+   - The hook is `sys.setprofile`, matched on the candidate's code, as in
+     step 3. So it sees every call however the candidate was reached:
+     through its module, through a name taken with `from m import f`
+     before the run, or through a reference kept anywhere else. It works
+     on every Python the tool supports.
+   - The arguments are encoded when the call is entered, before the body
+     runs, so an argument the candidate changes in place is recorded as it
+     came in.
+   - Named parameters are written by position, keyword-only ones by
+     keyword, and `*args` and `**kwargs` as they were passed; defaults are
+     filled in. A call the candidate makes of itself is not recorded: it is
+     not an input of the workload.
+   - A call that holds a value the format does not cover (an array, an
+     instance of a class) is written as
+     `{"id": "call-4", "fn": "f", "unencodable": "numpy.ndarray"}`, named
+     on the screen and in the report under `recorded_calls`, with the
+     number of calls and of distinct lines.
+   - `fn` is the candidate's name in the original, which may be private;
+     the harness's measured entry can rename it. Name the file
+     `*.calls.jsonl`.
 
 Before and after every run the script times a tenth of a second of pure
 computation, and for as long as each of these processes runs a second

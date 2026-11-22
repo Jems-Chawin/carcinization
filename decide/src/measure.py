@@ -23,6 +23,10 @@ Phases, each run in a process of its own:
                 often it is entered from outside, how much data goes in
                 and comes out, and which compiled packages are called
                 while it runs
+  record        one call with a hook on the candidate alone, as in
+                `boundary`: each call from outside it, its arguments
+                written as a case line of carcinify diff when it is entered,
+                before its body can change them (--record-calls)
   calls         Python 3.12 and later: one call under `sys.monitoring`,
                 which reports calls of every callable, not only of built-in
                 functions as the profiler does. Times the calls the
@@ -37,10 +41,12 @@ workload's own figures cannot be trusted.
 
 import cProfile
 import importlib.util
+import inspect
 import json
 import os
 import pstats
 import statistics
+import struct
 import sys
 import time
 
@@ -807,6 +813,105 @@ def calls(spec):
     }
 
 
+class Unencodable(Exception):
+    pass
+
+
+def enc(v):
+    """A value in carcinify diff's value format; the same as `enc` in the
+    harness's driver.py. Exact types only: a subclass is reported."""
+    t = type(v)
+    if v is None:
+        return {"t": "none"}
+    if t is bool:
+        return {"t": "bool", "v": v}
+    if t is int:
+        return {"t": "int", "v": str(v)}
+    if t is float:
+        return {"t": "float", "bits": struct.pack(">d", v).hex()}
+    if t is str:
+        try:
+            v.encode("utf-8")
+        except UnicodeEncodeError:  # lone surrogates
+            return {"t": "str", "cp": [ord(c) for c in v]}
+        return {"t": "str", "v": v}
+    if t is bytes:
+        return {"t": "bytes", "hex": v.hex()}
+    if t is list:
+        return {"t": "list", "v": [enc(x) for x in v]}
+    if t is tuple:
+        return {"t": "tuple", "v": [enc(x) for x in v]}
+    if t is dict:
+        return {"t": "map", "v": [[enc(k), enc(x)] for k, x in v.items()]}
+    if t is set or t is frozenset:
+        return {"t": "set", "v": [enc(x) for x in v]}
+    raise Unencodable("%s.%s" % (t.__module__, t.__qualname__))
+
+
+def arguments(frame, code):
+    """A call's arguments from its frame at entry: the named parameters by
+    position, keyword-only ones by keyword, then `*args` and `**kwargs`."""
+    names, values = code.co_varnames, frame.f_locals
+    positional, kwonly = code.co_argcount, code.co_kwonlyargcount
+    args = [enc(values[n]) for n in names[:positional]]
+    kwargs = {n: enc(values[n]) for n in names[positional:positional + kwonly]}
+    i = positional + kwonly
+    if code.co_flags & inspect.CO_VARARGS:
+        args += [enc(x) for x in values[names[i]]]
+        i += 1
+    if code.co_flags & inspect.CO_VARKEYWORDS:
+        kwargs.update((k, enc(x)) for k, x in values[names[i]].items())
+    return {"encoding": "typed", "args": args, "kwargs": kwargs}
+
+
+def record(spec):
+    """Each call of the candidate from outside it, as a case line. The hook
+    sees the candidate's code however it was reached, `from m import f`
+    included, and encodes the arguments as the call is entered."""
+    fn = load(spec)
+    root = os.path.realpath(spec["project_root"])
+    want_file = os.path.realpath(os.path.join(root, spec["candidate"]["file"]))
+    want_name = spec["candidate"]["function"]
+    known, seen, lines, state = {}, set(), [], {"depth": 0, "calls": 0}
+
+    def hook(frame, event, arg):
+        if event != "call" and event != "return":
+            return
+        code = frame.f_code
+        wanted = known.get(code)
+        if wanted is None:
+            wanted = known[code] = code.co_name == want_name and os.path.realpath(code.co_filename) == want_file
+        if not wanted:
+            return
+        if event == "return":
+            state["depth"] -= 1
+            return
+        state["depth"] += 1
+        if state["depth"] > 1:
+            return  # a call from inside itself is not an input of the workload
+        state["calls"] += 1
+        try:
+            line = dict({"fn": want_name}, **arguments(frame, code))
+        except Unencodable as e:
+            line = {"fn": want_name, "unencodable": str(e)}
+        except RecursionError:
+            line = {"fn": want_name, "unencodable": "a value nested too deeply"}
+        key = json.dumps(line)
+        if key not in seen:
+            seen.add(key)
+            lines.append(line)
+
+    sys.setprofile(hook)
+    try:
+        fn(*spec["args"])
+    finally:
+        sys.setprofile(None)
+    return {
+        "calls": state["calls"],
+        "lines": [json.dumps(dict({"id": "call-%d" % n}, **line)) for n, line in enumerate(lines, 1)],
+    }
+
+
 def main():
     phase, spec_path = sys.argv[1], sys.argv[2]
     token = sys.stdin.readline().strip()
@@ -814,7 +919,7 @@ def main():
         spec = json.load(f)
     # What the workload sees as its own command line.
     sys.argv = [spec["workload_file"]]
-    phases = {"plain": plain, "profile": profile, "boundary": boundary, "calls": calls}
+    phases = {"plain": plain, "profile": profile, "boundary": boundary, "calls": calls, "record": record}
     if phase not in phases:
         raise SystemExit("unknown phase " + phase)
     load_before, loop_before = load_average(), calibrate()

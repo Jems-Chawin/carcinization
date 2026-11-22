@@ -202,6 +202,9 @@ pub struct Options {
     pub declaration: PathBuf,
     pub python: PathBuf,
     pub allow_dirty: bool,
+    /// `--record-calls`: where to write the candidate's calls as case lines
+    /// of carcinify diff, from one more, untimed run of the workload.
+    pub record_calls: Option<PathBuf>,
 }
 
 pub const NOT_MEASURED: [&str; 10] = [
@@ -254,6 +257,37 @@ struct Phases {
     /// The stand-in workload: its plain runs, the calls made while the
     /// candidate runs in it, the hook on the candidate, and its file.
     stand_in: Option<(J, J, J, PathBuf)>,
+    /// `--record-calls`: the candidate's calls as case lines.
+    recorded: Option<J>,
+}
+
+/// Writes the recorded calls, one case line each, and says what is in the
+/// file: how many calls, how many distinct lines, and which lines name a
+/// value the format does not cover.
+fn write_calls(recorded: &J, file: &Path) -> Result<J, String> {
+    let lines: Vec<&str> = recorded["lines"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    let text: String = lines.iter().map(|l| format!("{l}\n")).collect();
+    if let Some(dir) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(file, text).map_err(|e| format!("cannot write {}: {e}", file.display()))?;
+    let unencodable: Vec<J> = lines
+        .iter()
+        .filter_map(|l| serde_json::from_str::<J>(l).ok())
+        .filter(|j| j.get("unencodable").is_some())
+        .map(|j| json!({"id": j["id"], "holds": j["unencodable"]}))
+        .collect();
+    Ok(json!({
+        "file": file.display().to_string(),
+        "calls": recorded["calls"],
+        "lines": lines.len(),
+        "unencodable": unencodable,
+    }))
 }
 
 /// What a reader should look at. Each flag has a kind, and says whether it
@@ -658,6 +692,12 @@ pub fn run(opts: &Options) -> Result<J, String> {
         None => None,
     };
 
+    if opts.record_calls.is_some() && decl.candidate.is_none() {
+        return Err(
+            "--record-calls records the calls of the candidate, and the declaration names none"
+                .to_string(),
+        );
+    }
     let seed = format!("{:?} {}", std::time::SystemTime::now(), std::process::id());
     let dir = std::env::temp_dir().join(format!(
         "carcinify-decide-{}",
@@ -725,6 +765,10 @@ pub fn run(opts: &Options) -> Result<J, String> {
             }
             None => None,
         };
+        let recorded = match &opts.record_calls {
+            Some(_) => Some(runner.phase("record", &main_spec)?),
+            None => None,
+        };
         Ok(Phases {
             plain,
             profile,
@@ -732,6 +776,7 @@ pub fn run(opts: &Options) -> Result<J, String> {
             calls,
             tried,
             stand_in,
+            recorded,
         })
     })();
     let _ = std::fs::remove_dir_all(&dir);
@@ -742,7 +787,12 @@ pub fn run(opts: &Options) -> Result<J, String> {
         calls,
         tried,
         stand_in,
+        recorded,
     } = measured?;
+    let recorded_calls = match (recorded, &opts.record_calls) {
+        (Some(r), Some(file)) => write_calls(&r, file)?,
+        _ => J::Null,
+    };
 
     let mut reasons: Vec<String> = Vec::new();
     let mut contradictions: Vec<String> = Vec::new();
@@ -1300,6 +1350,7 @@ pub fn run(opts: &Options) -> Result<J, String> {
         })
         .collect();
     Ok(json!({
+        "recorded_calls": recorded_calls,
         "schema": REPORT_SCHEMA,
         "verdict": verdict,
         "exit_status": if verdict.starts_with("consistent") { 0 } else { 1 },

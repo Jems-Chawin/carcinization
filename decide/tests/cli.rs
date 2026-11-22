@@ -27,6 +27,11 @@ def busy(n):
     return total
 
 
+def recorded(items, scale=1, *rest, label='x', **extra):
+    items.append(scale)
+    if len(items) < 3:
+        return recorded(items, scale)
+    return len(items)
 def busy_better(n):
     return n
 
@@ -63,6 +68,7 @@ def other_half(n):
 ";
 
 const WORKLOAD: &str = "import app
+from app import recorded
 
 
 def run(n):
@@ -86,6 +92,15 @@ def run_broken():
 
 
 def run_nothing():
+    return 0
+
+
+def run_recorded():
+    recorded([1, 2])
+    recorded([1, 2])
+    recorded([3], scale=2, label='y')
+    recorded([3], 2, 5, 6, flag=True)
+    recorded([object()])
     return 0
 
 
@@ -2162,4 +2177,74 @@ fn threads_at_work_outside_the_candidate_do_not_refuse_a_stand_in() {
             && all(&report, "flags").contains("for the candidate's 1 entry"),
         "{text}"
     );
+}
+
+#[test]
+fn record_calls_writes_each_distinct_call_of_the_candidate_as_it_came_in() {
+    let repo = repo(
+        r#""function": "run_recorded", "args": []"#,
+        r#"{"file": "app.py", "function": "recorded"}"#,
+        "",
+        "",
+    );
+    let calls = repo.0.join("out/workload.calls.jsonl");
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("decide")
+        .arg(repo.0.join("decide.json"))
+        .arg("--report")
+        .arg(repo.0.join("out/report.json"))
+        .arg("--record-calls")
+        .arg(&calls)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let text = std::fs::read_to_string(&calls)
+        .unwrap_or_else(|e| panic!("{e}: {stdout}{}", String::from_utf8_lossy(&out.stderr)));
+    let int = |v: u32| format!(r#"{{"t": "int", "v": "{v}"}}"#);
+    let list = |v: &[u32]| {
+        let items: Vec<String> = v.iter().map(|x| int(*x)).collect();
+        format!(r#"{{"t": "list", "v": [{}]}}"#, items.join(", "))
+    };
+    let text_value = |v: &str| format!(r#"{{"t": "str", "v": "{v}"}}"#);
+    // The list is as it came in, before the call appended to it; the call
+    // made twice is one line; calls from inside the candidate are not its
+    // inputs; keyword arguments stay by keyword, defaults filled in.
+    let expected = [
+        format!(
+            r#"{{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{}, {}], "kwargs": {{"label": {}}}}}"#,
+            list(&[1, 2]),
+            int(1),
+            text_value("x")
+        ),
+        format!(
+            r#"{{"id": "call-2", "fn": "recorded", "encoding": "typed", "args": [{}, {}], "kwargs": {{"label": {}}}}}"#,
+            list(&[3]),
+            int(2),
+            text_value("y")
+        ),
+        format!(
+            r#"{{"id": "call-3", "fn": "recorded", "encoding": "typed", "args": [{}, {}, {}, {}], "kwargs": {{"label": {}, "flag": {{"t": "bool", "v": true}}}}}}"#,
+            list(&[3]),
+            int(2),
+            int(5),
+            int(6),
+            text_value("x")
+        ),
+        r#"{"id": "call-4", "fn": "recorded", "unencodable": "builtins.object"}"#.to_string(),
+    ];
+    assert_eq!(text.lines().collect::<Vec<_>>(), expected, "{text}");
+    let report: J =
+        serde_json::from_str(&std::fs::read_to_string(repo.0.join("out/report.json")).unwrap())
+            .unwrap();
+    let rec = &report["recorded_calls"];
+    assert_eq!(
+        (&rec["calls"], &rec["lines"]),
+        (&J::from(5), &J::from(4)),
+        "{rec}"
+    );
+    assert_eq!(
+        rec["unencodable"],
+        serde_json::json!([{"id": "call-4", "holds": "builtins.object"}])
+    );
+    assert!(stdout.contains("builtins.object"), "{stdout}");
 }

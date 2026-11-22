@@ -8,11 +8,14 @@ use std::process::ExitCode;
 pub const USAGE: &str = "\
 usage: carcinify decide <declaration.json> --report <report.json> [--markdown <report.md>]
                       [--python <interpreter>] [--allow-dirty]
+                      [--record-calls <file.calls.jsonl>]
 
 Runs the declared workload of a Python project, several times with nothing
 attached and then under a profiler, and writes where the time goes, what the
 candidate piece holds of it, and whether the measurements contradict the
-declared decision.
+declared decision. --record-calls runs the workload once more, untimed,
+and writes each distinct call of the candidate as a case line of carcinify
+diff, its arguments as they were on entry.
 
 exit status: 0 nothing contradicts the decision; 1 a measurement contradicts
 it, something needed is missing, or the machine was too busy to measure on;
@@ -23,12 +26,14 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
     let (mut declaration, mut out, mut md) = (None, None, None);
     let mut python = PathBuf::from("python3");
     let mut allow_dirty = false;
+    let mut record_calls = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--report" => out = args.next().map(PathBuf::from),
             "--markdown" => md = args.next().map(PathBuf::from),
             "--python" => python = args.next().map(PathBuf::from).unwrap_or(python),
             "--allow-dirty" => allow_dirty = true,
+            "--record-calls" => record_calls = args.next().map(PathBuf::from),
             flag if flag.starts_with('-') => {
                 eprintln!("carcinify decide: unknown option {flag}\n\n{USAGE}");
                 return ExitCode::from(2);
@@ -56,6 +61,7 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
         declaration,
         python,
         allow_dirty,
+        record_calls,
     }) {
         Ok(r) => r,
         Err(e) => {
@@ -76,6 +82,22 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
     if let Err(e) = written {
         eprintln!("carcinify decide: {e}");
         return ExitCode::from(2);
+    }
+    let rec = &r["recorded_calls"];
+    if !rec.is_null() {
+        println!(
+            "recorded: {} call(s) of the candidate, {} distinct, in {}",
+            rec["calls"],
+            rec["lines"],
+            rec["file"].as_str().unwrap_or("")
+        );
+        for u in rec["unencodable"].as_array().into_iter().flatten() {
+            println!(
+                "    {} holds a {}, which the value format of carcinify diff does not cover",
+                u["id"].as_str().unwrap_or(""),
+                u["holds"].as_str().unwrap_or("")
+            );
+        }
     }
     let t = &r["workload"]["measured_with_nothing_attached"];
     let g = &r["where_the_time_goes"];
