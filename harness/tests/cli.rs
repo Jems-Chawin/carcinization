@@ -2124,8 +2124,8 @@ fn plant(dir: &Path, module: &str, marks: &Path, tag: &str) {
 
 /// The user site-packages directory `python` would use with this
 /// environment, or None when it uses none (a virtual environment).
-fn user_site(env: &[(&str, &Path)]) -> Option<PathBuf> {
-    let mut cmd = Command::new(base_python());
+fn user_site(python: &str, env: &[(&str, &Path)]) -> Option<PathBuf> {
+    let mut cmd = Command::new(python);
     cmd.args([
         "-c",
         "import site; print(site.ENABLE_USER_SITE and site.getusersitepackages())",
@@ -2151,19 +2151,23 @@ fn a_side_stays_out_of_reach_of_the_users_python_settings() {
     );
     plant(&pythonpath, "pythonpath_marker", &marks, "pythonpath");
     plant(&cwd, "cwd_marker", &marks, "cwd");
+    // A virtual environment has no user site; the interpreter it was made
+    // from has one.
+    let out = Command::new(base_python())
+        .args(["-c", "import sys; print(sys._base_executable)"])
+        .output()
+        .unwrap();
+    let python = String::from_utf8(out.stdout).unwrap().trim().to_string();
     // The user site, found through HOME (kept: it is not a PYTHON* variable,
     // so only -s keeps this out) and through PYTHONUSERBASE.
-    let home_site = user_site(&[("HOME", &home)]);
-    let base_site = user_site(&[("PYTHONUSERBASE", &userbase)]);
+    let home_site = user_site(&python, &[("HOME", &home)]);
+    let base_site = user_site(&python, &[("PYTHONUSERBASE", &userbase)]);
     match (&home_site, &base_site) {
         (Some(h), Some(b)) => {
             plant(h, "user_marker", &marks, "home");
             plant(b, "userbase_marker", &marks, "userbase");
         }
-        _ => eprintln!(
-            "{} uses no user site; that part shows nothing here",
-            base_python()
-        ),
+        _ => eprintln!("{python} uses no user site; that part shows nothing here"),
     }
     let startup = s.0.join("startup.py");
     std::fs::write(
@@ -2176,7 +2180,7 @@ fn a_side_stays_out_of_reach_of_the_users_python_settings() {
     .unwrap();
 
     let repo = Repo::new(r#"{"id": "c", "fn": "isolation"}"#);
-    let r = repo.run_with(&base_python(), &[], |cmd| {
+    let r = repo.run_with(&python, &[], |cmd| {
         cmd.env("PYTHONPATH", &pythonpath)
             .env("HOME", &home)
             .env("PYTHONUSERBASE", &userbase)
@@ -2193,7 +2197,7 @@ fn a_side_stays_out_of_reach_of_the_users_python_settings() {
 
     // The same settings do reach Python started without the harness, so the
     // test can tell.
-    let reached = Command::new(base_python())
+    let reached = Command::new(&python)
         .args(["-c", "import pythonpath_marker"])
         .env("PYTHONPATH", &pythonpath)
         .status()

@@ -564,7 +564,10 @@ One behaviour changed with this. A process that a side starts inherits the
 side's environment, which now holds `PYTHONHASHSEED` and no other `PYTHON*`
 variable. Under `-I` it inherited the user's `PYTHON*` variables,
 `PYTHONPATH` among them: `-I` made only the side's own interpreter ignore
-them.
+them. A child started by `multiprocessing` gets the side's flags, `-s`, and
+on 3.11 and later `-P`, and runs under the seed; under `-I` it got `-I` and
+ignored the seed. On 3.9 and 3.10 it has no `-P`, so the current directory
+is on its `sys.path` while it starts.
 
 Cargo decides whether to recompile by comparing file times, so a source
 file put in place with a time older than the last build (`cp -p`,
@@ -749,9 +752,11 @@ layer over a compiled core) in a temporary repository, step by step.
 
 The isolation test plants a `PYTHONPATH` directory, a user site (through
 `HOME` and through `PYTHONUSERBASE`), a current directory and a
-`PYTHONSTARTUP` file, each of which leaves a mark if Python runs it. An
-interpreter with no user site, such as one in a virtual environment, makes
-that part show nothing, and the test says so on stderr.
+`PYTHONSTARTUP` file, each of which leaves a mark if Python runs it. A
+virtual environment has no user site, so the test runs the harness with the
+interpreter the environment was made from (`sys._base_executable`). If that
+one has no user site either, that part shows nothing, and the test says so
+on stderr.
 
 ```sh
 CARCINIFY_PYTHON=$PWD/.venv/bin/python CARCINIFY_MATURIN=$PWD/.venv/bin/maturin \
