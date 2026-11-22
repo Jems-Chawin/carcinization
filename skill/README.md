@@ -33,7 +33,7 @@ layout and stays where it is.
 Why this shape:
 
 - **One directory per step** so a step can be read, tested and audited on
-  its own, and the others can land beside it without touching it.
+  its own.
 - **`STEP.md` apart from `sources/`** keeps what is true of any source
   language apart from what is specific to Python, so another language would
   add a file, not a rewrite.
