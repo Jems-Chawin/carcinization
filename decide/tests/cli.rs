@@ -2336,3 +2336,24 @@ fn record_calls_leaves_out_a_parameter_at_its_default_a_sentinel_included() {
         )
     );
 }
+
+#[test]
+fn record_calls_needs_a_file_named_as_a_recording() {
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .args([
+            "decide",
+            "declaration.json",
+            "--report",
+            "report.json",
+            "--record-calls",
+            "calls.jsonl",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    assert!(
+        stderr.contains("--record-calls calls.jsonl: the file's name must end in .calls.jsonl"),
+        "{stderr}"
+    );
+}

@@ -34,6 +34,16 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
             _ => declaration = Some(PathBuf::from(arg)),
         }
     }
+    // carcinify diff finds a recording its suite does not list by this name.
+    if let Some(file) = &record_calls
+        && !file.to_string_lossy().ends_with(".calls.jsonl")
+    {
+        eprintln!(
+            "carcinify structure: --record-calls {}: the file's name must end in .calls.jsonl, so that carcinify diff can warn of a recording its suite does not list",
+            file.display()
+        );
+        return ExitCode::from(2);
+    }
     let (Some(declaration), Some(out)) = (declaration, out) else {
         eprintln!("{USAGE}");
         return ExitCode::from(2);

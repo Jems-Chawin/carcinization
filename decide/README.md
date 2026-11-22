@@ -135,8 +135,9 @@ called.
      on the screen and in the report under `recorded_calls`, with the
      number of calls and of distinct lines.
    - `fn` is the candidate's name in the original, which may be private;
-     the harness's measured entry can rename it. Name the file
-     `*.calls.jsonl`.
+     the harness's measured entry can rename it. The file's name must end
+     in `.calls.jsonl`, or the run is refused: `carcinify diff` warns of
+     a recording its suite does not list by that name.
 
 Before and after every run the script times a tenth of a second of pure
 computation, and for as long as each of these processes runs a second

@@ -29,10 +29,10 @@ suite	command	2 passed, 0 failed, 0 ignored	exit 0
 suite	diff	122 passed, 0 failed, 6 ignored	exit 0
 suite	diff-example-maturin	5 passed, 0 failed, 0 ignored	exit 0
 suite	diff-mixed-maturin	1 passed, 0 failed, 0 ignored	exit 0
-suite	structure	53 passed, 0 failed, 0 ignored	exit 0
-suite	structure-shared-target	53 passed, 0 failed, 0 ignored	exit 0
+suite	structure	54 passed, 0 failed, 0 ignored	exit 0
+suite	structure-shared-target	54 passed, 0 failed, 0 ignored	exit 0
 suite	deps-recorded	25 passed, 0 failed, 2 ignored	exit 0
-suite	decide	33 passed, 0 failed, 1 ignored	exit 0
+suite	decide	34 passed, 0 failed, 1 ignored	exit 0
 suite	decide-numpy	1 passed, 0 failed, 0 ignored	exit 0	optional
 suite	deps-live	2 passed, 0 failed, 0 ignored	exit 0	optional
 suite	example-float	2 passed, 0 failed, 0 ignored	exit 0

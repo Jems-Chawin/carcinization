@@ -100,7 +100,9 @@ the design note of step four.
     the case file, which it decodes. So the size measured is an input the
     comparison covered. A size whose input names no case is flagged ("not
     comparison cases"), since the harness never compared the port on it.
-    With `--record-calls <file>` the tool writes the case lines its sizes
+    With `--record-calls <file>` (a name ending in `.calls.jsonl`, by which
+    `carcinify diff` finds a recording its suite does not list) the tool
+    writes the case lines its sizes
     name, each once, for the harness's `measured` list (see the harness's
     "Measured inputs"). A case named that is not in its file stops the
     run, and so does one with keyword arguments, which the support
