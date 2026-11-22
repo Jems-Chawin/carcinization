@@ -113,7 +113,11 @@ called.
      step 3. So it sees every call however the candidate was reached:
      through its module, through a name taken with `from m import f`
      before the run, or through a reference kept anywhere else. It works
-     on every Python the tool supports.
+     on every Python the tool supports. It is set for every thread:
+     with `threading.setprofile_all_threads` on Python 3.12 and later,
+     which reaches threads already running too, and before that with
+     `threading.setprofile`, which reaches the threads the workload
+     starts. A call from inside the candidate is told by thread.
    - The arguments are encoded when the call is entered, before the body
      runs, so an argument the candidate changes in place is recorded as it
      came in.

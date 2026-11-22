@@ -48,6 +48,7 @@ import pstats
 import statistics
 import struct
 import sys
+import threading
 import time
 
 
@@ -867,12 +868,14 @@ def arguments(frame, code):
 def record(spec):
     """Each call of the candidate from outside it, as a case line. The hook
     sees the candidate's code however it was reached, `from m import f`
-    included, and encodes the arguments as the call is entered."""
+    included, in every thread the workload starts, and encodes the
+    arguments as the call is entered."""
     fn = load(spec)
     root = os.path.realpath(spec["project_root"])
     want_file = os.path.realpath(os.path.join(root, spec["candidate"]["file"]))
     want_name = spec["candidate"]["function"]
-    known, seen, lines, state = {}, set(), [], {"depth": 0, "calls": 0}
+    known, seen, lines, state = {}, set(), [], {"calls": 0}
+    depth = {}  # per thread: a call in one thread is not inside another's
 
     def hook(frame, event, arg):
         if event != "call" and event != "return":
@@ -883,11 +886,12 @@ def record(spec):
             wanted = known[code] = code.co_name == want_name and os.path.realpath(code.co_filename) == want_file
         if not wanted:
             return
+        thread = threading.get_ident()
         if event == "return":
-            state["depth"] -= 1
+            depth[thread] -= 1
             return
-        state["depth"] += 1
-        if state["depth"] > 1:
+        depth[thread] = depth.get(thread, 0) + 1
+        if depth[thread] > 1:
             return  # a call from inside itself is not an input of the workload
         state["calls"] += 1
         try:
@@ -901,11 +905,22 @@ def record(spec):
             seen.add(key)
             lines.append(line)
 
-    sys.setprofile(hook)
+    # 3.12 and later also reach threads already running; before that, the
+    # threads the workload starts from now on, and this one.
+    every = getattr(threading, "setprofile_all_threads", None)
+    if every:
+        every(hook)
+    else:
+        threading.setprofile(hook)
+        sys.setprofile(hook)
     try:
         fn(*spec["args"])
     finally:
-        sys.setprofile(None)
+        if every:
+            every(None)
+        else:
+            threading.setprofile(None)
+            sys.setprofile(None)
     return {
         "calls": state["calls"],
         "lines": [json.dumps(dict({"id": "call-%d" % n}, **line)) for n, line in enumerate(lines, 1)],

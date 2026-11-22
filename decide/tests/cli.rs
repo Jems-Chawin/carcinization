@@ -95,6 +95,14 @@ def run_nothing():
     return 0
 
 
+def run_recorded_in_a_thread():
+    import threading
+    worker = threading.Thread(target=recorded, args=([7],))
+    worker.start()
+    worker.join()
+    return 0
+
+
 def run_recorded():
     recorded([1, 2])
     recorded([1, 2])
@@ -2247,4 +2255,36 @@ fn record_calls_writes_each_distinct_call_of_the_candidate_as_it_came_in() {
         serde_json::json!([{"id": "call-4", "holds": "builtins.object"}])
     );
     assert!(stdout.contains("builtins.object"), "{stdout}");
+}
+
+#[test]
+fn record_calls_sees_a_call_made_in_a_worker_thread() {
+    let repo = repo(
+        r#""function": "run_recorded_in_a_thread", "args": []"#,
+        r#"{"file": "app.py", "function": "recorded"}"#,
+        "",
+        "",
+    );
+    let calls = repo.0.join("out/thread.calls.jsonl");
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("decide")
+        .arg(repo.0.join("decide.json"))
+        .arg("--report")
+        .arg(repo.0.join("out/report.json"))
+        .arg("--record-calls")
+        .arg(&calls)
+        .output()
+        .unwrap();
+    let text = std::fs::read_to_string(&calls).unwrap_or_else(|e| {
+        panic!(
+            "{e}: {}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        )
+    });
+    // The call from inside itself, in the same thread, is still left out.
+    assert_eq!(
+        text,
+        r#"{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{"t": "list", "v": [{"t": "int", "v": "7"}]}, {"t": "int", "v": "1"}], "kwargs": {"label": {"t": "str", "v": "x"}}}"#.to_string() + "\n"
+    );
 }
