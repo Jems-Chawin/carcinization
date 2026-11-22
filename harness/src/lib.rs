@@ -34,6 +34,7 @@ pub struct Options {
     pub count_calls: bool,
     pub timeout: Duration,
     pub keep_work: bool,
+    pub hash_seed: report::HashSeed,
 }
 
 /// What a side made of one case: an outcome to compare, or a failure to run.
@@ -294,6 +295,7 @@ fn run_in(
     let tools = python::Tools {
         python: opts.python.clone(),
         maturin: opts.maturin.clone(),
+        hash_seed: opts.hash_seed.value,
     };
     let tracked = commit::tracked(git)?;
     let mut not_in_commit = Vec::new();

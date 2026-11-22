@@ -1,6 +1,9 @@
 """carcinify diff side driver for Python.
 
-Started by the harness as `python -I driver.py`. It imports one module, calls
+Started by the harness as `python -s driver.py`, with PYTHONHASHSEED and
+PYTHONSAFEPATH set and every other PYTHON* variable removed from its
+environment (see python/mod.rs); it checks that before anything else. It
+imports one module, calls
 the functions the harness names with the inputs the harness sends, and writes
 each outcome back in the harness's value format. It decides nothing: it does
 not compare, count or judge.
@@ -26,6 +29,10 @@ import traceback
 import types
 
 DRIVER = os.path.realpath(__file__)
+# Python before 3.11 puts the script's directory first on sys.path (from 3.11
+# PYTHONSAFEPATH keeps it off). The driver sits alone in its own directory,
+# so nothing came from there; take it off, as -I did.
+sys.path[:] = [p for p in sys.path if os.path.realpath(p or ".") != os.path.dirname(DRIVER)]
 SHARED = None  # set in main() from the init request
 
 
@@ -437,6 +444,24 @@ def invoke(fn, req, init, watch, calls):
         return {"status": "unencodable", "detail": "the result is nested too deeply"}
 
 
+def isolation_error(init):
+    """What is not as the harness started this interpreter, or None."""
+    wrong = []
+    if sys.flags.ignore_environment:
+        wrong.append("it ignores the environment (-E or -I), so the hash seed is not in effect")
+    seed = os.environ.get("PYTHONHASHSEED")
+    if seed != str(init["hash_seed"]):
+        wrong.append("PYTHONHASHSEED is %r, not %r" % (seed, str(init["hash_seed"])))
+    others = sorted(k for k in os.environ if k.startswith("PYTHON") and k not in ("PYTHONHASHSEED", "PYTHONSAFEPATH"))
+    if others:
+        wrong.append("PYTHON* variables that the harness removed are set: %s" % ", ".join(others))
+    if not sys.flags.no_user_site:
+        wrong.append("the user site-packages directory is on")
+    if sys.version_info >= (3, 11) and not sys.flags.safe_path:
+        wrong.append("the script's directory may be on sys.path (safe_path is off)")
+    return "; ".join(wrong) or None
+
+
 def main():
     # Keep the protocol on private descriptors, then point the usual ones away.
     proto_in = os.fdopen(os.dup(0), "r", encoding="utf-8", newline="\n")
@@ -463,6 +488,13 @@ def main():
 
     init = json.loads(proto_in.readline())
     answering[0] = init.get("id")
+    wrong = isolation_error(init)
+    if wrong:
+        reply({"ok": False, "error": "the interpreter does not run as the harness started it: " + wrong})
+        return
+    # Read at start-up and done with: a process the code under test starts
+    # inherits the seed and no other PYTHON* variable.
+    os.environ.pop("PYTHONSAFEPATH", None)
     sys.path[:0] = init["sys_path"]
     watch = Watch(init["other_roots"], init["shared_roots"])
     global SHARED

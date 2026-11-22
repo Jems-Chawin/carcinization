@@ -102,15 +102,21 @@ impl Repo {
     }
 
     fn run_python(&self, python: &str, extra: &[&str]) -> Run {
-        let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
-            .arg("diff")
+        self.run_with(python, extra, |_| {})
+    }
+
+    /// As `run_python`, with the command adjusted first (its environment, its
+    /// directory).
+    fn run_with(&self, python: &str, extra: &[&str], adjust: impl FnOnce(&mut Command)) -> Run {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_carcinify"));
+        cmd.arg("diff")
             .arg(self.dir.join("suite.json"))
             .arg("--report")
             .arg(self.report_path())
             .args(["--python", python])
-            .args(extra)
-            .output()
-            .unwrap();
+            .args(extra);
+        adjust(&mut cmd);
+        let out = cmd.output().unwrap();
         let report = std::fs::read_to_string(self.report_path())
             .map_or(J::Null, |t| serde_json::from_str(&t).unwrap());
         Run {
@@ -1952,4 +1958,277 @@ fn k1_a_copy_of_a_shared_file_is_shared_for_every_purpose() {
         "{}",
         r.stderr
     );
+}
+
+// ---- The hash seed, and the isolation that comes with it ----
+
+/// What plain Python prints for `code` under PYTHONHASHSEED=`seed`, the way
+/// a seed is meant to work.
+fn outside(seed: u32, code: &str) -> String {
+    let out = Command::new(base_python())
+        .args(["-c", code])
+        .env("PYTHONHASHSEED", seed.to_string())
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8(out.stdout).unwrap()
+}
+
+/// Runs the first case under seeds 0 to 5 and checks that the original's
+/// outcome changes exactly where plain Python's `code` changes.
+fn follows_the_seed(cases: &str, code: &str) {
+    let repo = Repo::new(cases);
+    let mut seen = Vec::new();
+    for seed in 0..6u32 {
+        let r = repo.run(&["--hash-seed", &seed.to_string()]);
+        assert_eq!(r.code, 0, "seed {seed}: {}{}", r.stdout, r.stderr);
+        assert_eq!(
+            r.report["hash_seed"],
+            serde_json::json!({"value": seed, "chosen": "given"})
+        );
+        let sha = r.case(0)["original_sha256"].as_str().unwrap().to_string();
+        seen.push((seed, outside(seed, code), sha));
+    }
+    assert!(
+        seen.iter().any(|s| s.1 != seen[0].1),
+        "seeds 0 to 5 give plain Python the same answer, so this shows nothing: {seen:?}"
+    );
+    for a in &seen {
+        for b in &seen {
+            assert_eq!(
+                a.1 == b.1,
+                a.2 == b.2,
+                "seeds {} and {}: {seen:?}",
+                a.0,
+                b.0
+            );
+        }
+    }
+}
+
+const WORDS: &str = r#"["apple", "pear", "fig", "kiwi", "plum", "lime", "date", "sloe"]"#;
+
+#[test]
+fn a_given_hash_seed_orders_a_set_as_it_does_outside_the_harness() {
+    follows_the_seed(
+        &format!(r#"{{"id": "c", "fn": "set_order", "args": [{WORDS}]}}"#),
+        &format!("print(list(set({WORDS})))"),
+    );
+    // The same seed twice gives the same outcome.
+    let repo = Repo::new(&format!(
+        r#"{{"id": "c", "fn": "set_order", "args": [{WORDS}]}}"#
+    ));
+    let sha = |r: Run| r.case(0)["original_sha256"].clone();
+    assert_eq!(
+        sha(repo.run(&["--hash-seed", "3"])),
+        sha(repo.run(&["--hash-seed", "3"]))
+    );
+}
+
+#[test]
+fn the_key_error_named_follows_the_hash_seed() {
+    follows_the_seed(
+        concat!(
+            r#"{"id": "missing", "fn": "first_missing", "args": [["a", "y", "z"], {"a": 2}], "expect_raise": true}"#,
+            "\n",
+            r#"{"id": "found", "fn": "first_missing", "args": [["a", "y"], {"a": 2, "y": 3}]}"#,
+            "\n"
+        ),
+        "s = {'a': 2}\ntry:\n    [s[c] for c in set(['a', 'y', 'z'])]\nexcept KeyError as e:\n    print(e.args)",
+    );
+}
+
+#[test]
+fn a_drawn_hash_seed_is_recorded_and_repeats_the_run() {
+    let repo = Repo::new(&format!(
+        r#"{{"id": "c", "fn": "set_order", "args": [{WORDS}]}}"#
+    ));
+    let drawn = repo.run(&[]);
+    assert_eq!(drawn.code, 0, "{}{}", drawn.stdout, drawn.stderr);
+    assert_eq!(drawn.report["hash_seed"]["chosen"], "drawn");
+    let seed = drawn.report["hash_seed"]["value"]
+        .as_u64()
+        .unwrap()
+        .to_string();
+    assert!(
+        drawn.stdout.contains(&format!("hash seed {seed} (drawn)")),
+        "{}",
+        drawn.stdout
+    );
+    let again = repo.run(&["--hash-seed", &seed]);
+    assert_eq!(again.report["hash_seed"]["chosen"], "given");
+    assert_eq!(
+        drawn.case(0)["original_sha256"],
+        again.case(0)["original_sha256"]
+    );
+}
+
+#[test]
+fn a_hash_seed_outside_32_bits_is_refused() {
+    let repo = Repo::new(r#"{"id": "c", "fn": "big"}"#);
+    for bad in ["4294967296", "-1", "x"] {
+        let r = repo.run(&["--hash-seed", bad]);
+        assert_eq!(r.code, 2, "{bad}: {}{}", r.stdout, r.stderr);
+        assert!(
+            r.stderr
+                .contains("--hash-seed needs a whole number from 0 to 4294967295"),
+            "{}",
+            r.stderr
+        );
+    }
+    let r = repo.run(&["--hash-seed", "4294967295"]);
+    assert_eq!(r.report["hash_seed"]["value"], 4294967295u32);
+}
+
+/// A directory outside the test repository, removed when dropped.
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new(name: &str) -> Scratch {
+        let dir = std::env::temp_dir().join(format!(
+            "carcinify-diff-{name}-{}-{}",
+            std::process::id(),
+            N.fetch_add(1, Ordering::SeqCst)
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        Scratch(dir)
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Writes `module.py` into `dir`, and a `sitecustomize.py` and
+/// `usercustomize.py` that leave a file in `marks` named after `tag` if
+/// Python ever runs them.
+fn plant(dir: &Path, module: &str, marks: &Path, tag: &str) {
+    std::fs::create_dir_all(dir).unwrap();
+    std::fs::write(dir.join(format!("{module}.py")), "").unwrap();
+    for hook in ["sitecustomize", "usercustomize"] {
+        let mark = marks.join(format!("{tag}-{hook}"));
+        std::fs::write(
+            dir.join(format!("{hook}.py")),
+            format!("open({:?}, 'w').close()\n", mark.to_str().unwrap()),
+        )
+        .unwrap();
+    }
+}
+
+/// The user site-packages directory `python` would use with this
+/// environment, or None when it uses none (a virtual environment).
+fn user_site(env: &[(&str, &Path)]) -> Option<PathBuf> {
+    let mut cmd = Command::new(base_python());
+    cmd.args([
+        "-c",
+        "import site; print(site.ENABLE_USER_SITE and site.getusersitepackages())",
+    ]);
+    cmd.env_remove("PYTHONUSERBASE");
+    for (k, v) in env {
+        cmd.env(k, v);
+    }
+    let out = String::from_utf8(cmd.output().unwrap().stdout).unwrap();
+    (out.trim() != "False").then(|| PathBuf::from(out.trim()))
+}
+
+#[test]
+fn a_side_stays_out_of_reach_of_the_users_python_settings() {
+    let s = Scratch::new("isolation");
+    let marks = s.0.join("marks");
+    std::fs::create_dir_all(&marks).unwrap();
+    let (pythonpath, home, userbase, cwd) = (
+        s.0.join("pythonpath"),
+        s.0.join("home"),
+        s.0.join("userbase"),
+        s.0.join("cwd"),
+    );
+    plant(&pythonpath, "pythonpath_marker", &marks, "pythonpath");
+    plant(&cwd, "cwd_marker", &marks, "cwd");
+    // The user site, found through HOME (kept: it is not a PYTHON* variable,
+    // so only -s keeps this out) and through PYTHONUSERBASE.
+    let home_site = user_site(&[("HOME", &home)]);
+    let base_site = user_site(&[("PYTHONUSERBASE", &userbase)]);
+    match (&home_site, &base_site) {
+        (Some(h), Some(b)) => {
+            plant(h, "user_marker", &marks, "home");
+            plant(b, "userbase_marker", &marks, "userbase");
+        }
+        _ => eprintln!(
+            "{} uses no user site; that part shows nothing here",
+            base_python()
+        ),
+    }
+    let startup = s.0.join("startup.py");
+    std::fs::write(
+        &startup,
+        format!(
+            "open({:?}, 'w').close()\n",
+            marks.join("startup").to_str().unwrap()
+        ),
+    )
+    .unwrap();
+
+    let repo = Repo::new(r#"{"id": "c", "fn": "isolation"}"#);
+    let r = repo.run_with(&base_python(), &[], |cmd| {
+        cmd.env("PYTHONPATH", &pythonpath)
+            .env("HOME", &home)
+            .env("PYTHONUSERBASE", &userbase)
+            .env("PYTHONSTARTUP", &startup)
+            .env("PYTHONINSPECT", "1")
+            .current_dir(&cwd);
+    });
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    let left: Vec<_> = std::fs::read_dir(&marks)
+        .unwrap()
+        .map(|e| e.unwrap().file_name())
+        .collect();
+    assert!(left.is_empty(), "Python ran: {left:?}");
+
+    // The same settings do reach Python started without the harness, so the
+    // test can tell.
+    let reached = Command::new(base_python())
+        .args(["-c", "import pythonpath_marker"])
+        .env("PYTHONPATH", &pythonpath)
+        .status()
+        .unwrap();
+    assert!(reached.success());
+}
+
+#[test]
+fn a_process_a_side_starts_gets_the_seed_and_no_other_python_variable() {
+    let repo =
+        Repo::new(r#"{"id": "c", "fn": "child_environment", "args": [[["PYTHONHASHSEED", "7"]]]}"#);
+    let r = repo.run_with(&base_python(), &["--hash-seed", "7"], |cmd| {
+        cmd.env("PYTHONPATH", "/nonexistent")
+            .env("PYTHONWARNINGS", "error")
+            .env("PYTHONUTF8", "1");
+    });
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+}
+
+#[test]
+fn an_interpreter_that_ignores_the_environment_is_refused() {
+    let s = Scratch::new("wrapper");
+    let wrapper = s.0.join("python-E");
+    std::fs::write(
+        &wrapper,
+        format!("#!/bin/sh\nexec {} -E \"$@\"\n", base_python()),
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    let repo = Repo::new(r#"{"id": "c", "fn": "big"}"#);
+    let r = repo.run_python(wrapper.to_str().unwrap(), &[]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(r.stderr.contains("ignores the environment"), "{}", r.stderr);
 }

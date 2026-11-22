@@ -34,6 +34,7 @@ pub struct Report {
     /// Whether `--strict` was given, which turns `pass_with_relaxations`
     /// into a failing exit status.
     pub strict: bool,
+    pub hash_seed: HashSeed,
     pub summary: Summary,
     pub checks: Checks,
     pub git: GitReport,
@@ -324,6 +325,16 @@ pub struct CrateSource {
     pub dir: String,
     pub tracked_files: usize,
     pub sha256: String,
+}
+
+/// `PYTHONHASHSEED` for both sides: given with `--hash-seed`, or drawn by the
+/// harness. Either way the report has the number, and `--hash-seed` with it
+/// repeats the run.
+#[derive(Serialize, Clone, Copy, Debug)]
+pub struct HashSeed {
+    pub value: u32,
+    /// `given` or `drawn`.
+    pub chosen: &'static str,
 }
 
 #[derive(Serialize)]
@@ -795,6 +806,7 @@ pub fn build(p: Parts) -> Result<Report, String> {
         exit_status: verdict.outcome(p.opts.strict).exit_status(),
         reasons,
         strict: p.opts.strict,
+        hash_seed: p.opts.hash_seed,
         summary,
         checks: Checks {
             sides_are_different_code: DistinctCheck {

@@ -18,6 +18,8 @@ pub const DRIVER: &str = include_str!("driver.py");
 pub struct Tools {
     pub python: PathBuf,
     pub maturin: PathBuf,
+    /// `PYTHONHASHSEED` for both sides.
+    pub hash_seed: u32,
 }
 
 /// The parts of a side's report entry that are known before it runs.
@@ -87,7 +89,11 @@ pub fn prepare(
     work: &Path,
     tools: &Tools,
 ) -> Result<(SideConfig, Built), String> {
-    let driver = work.join("driver.py");
+    // Alone in its own directory: Python before 3.11 puts the script's
+    // directory first on sys.path, and there it holds nothing else.
+    let driver_dir = work.join("driver");
+    std::fs::create_dir_all(&driver_dir).map_err(|e| format!("cannot write driver: {e}"))?;
+    let driver = driver_dir.join("driver.py");
     std::fs::write(&driver, DRIVER).map_err(|e| format!("cannot write driver: {e}"))?;
     let dir = |rel: &str| {
         let p = suite_dir.join(rel);
@@ -300,12 +306,24 @@ pub fn prepare(
         "python_functions": built.python_functions,
         // Set by the caller.
         "count_calls": true,
+        // The driver checks that this is what it runs under.
+        "hash_seed": tools.hash_seed,
     });
     let cfg = SideConfig {
         name,
         program: tools.python.clone(),
-        // -I: no PYTHONPATH, no user site-packages, no current directory on
-        // sys.path. The module comes from where the suite says, or not at all.
+        // What `-I` gave, except that the hash seed takes effect (`-I`
+        // includes `-E`, which drops PYTHONHASHSEED with every other
+        // variable): no PYTHONPATH, no user site-packages, no script
+        // directory or current directory on sys.path. The module comes from
+        // where the suite says, or not at all.
+        // -s: no user site-packages.
+        // env_remove: every PYTHON* variable the harness was started with,
+        // which is what `-E` ignored; then PYTHONHASHSEED, and
+        // PYTHONSAFEPATH=1, which is `-P` on Python 3.11 and later (no
+        // script directory on sys.path). Earlier versions ignore it, so the
+        // driver sits alone in its own directory and takes that off sys.path
+        // itself. A version probe would cost a process start for a flag.
         // pycache_prefix: bytecode is cached in the work directory, which is
         // new on every run. Python trusts a cache file whose recorded source
         // time and size match, so a cache left beside the source by an
@@ -313,13 +331,21 @@ pub fn prepare(
         // changed without its time or size changing. This way none is read
         // from the repository and none is written into it.
         args: vec![
-            "-I".to_string(),
+            "-s".to_string(),
             "-X".to_string(),
             format!(
                 "pycache_prefix={}",
                 utf8(&work.join(format!("{name}-pycache")))?
             ),
             utf8(&driver)?,
+        ],
+        env_remove: std::env::vars_os()
+            .map(|(name, _)| name)
+            .filter(|name| name.as_encoded_bytes().starts_with(b"PYTHON"))
+            .collect(),
+        env: vec![
+            ("PYTHONHASHSEED".to_string(), tools.hash_seed.to_string()),
+            ("PYTHONSAFEPATH".to_string(), "1".to_string()),
         ],
         init,
         log: work.join(format!("{name}.log")),

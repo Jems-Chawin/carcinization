@@ -1,7 +1,7 @@
 //! The command line of this tool, as a function the `carcinify` binary
 //! calls.
 
-use crate::report::{CaseResult, Verdict};
+use crate::report::{CaseResult, HashSeed, Verdict};
 use crate::{Options, report, run};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -23,6 +23,8 @@ options:
   --no-call-counts      do not count Python calls made by each function
                         (the count slows sides that are mostly Python)
   --keep-work           keep the temporary build and log directory
+  --hash-seed <n>       PYTHONHASHSEED for both sides, 0 to 4294967295
+                        [drawn at random; the report records it either way]
 
 exit status: 0 every case identical (with --strict: and none through a
 relaxation), 1 any difference, any case that failed to run, a function never
@@ -43,6 +45,10 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
         count_calls: true,
         timeout: Duration::from_secs(120),
         keep_work: false,
+        hash_seed: HashSeed {
+            value: drawn_seed(),
+            chosen: "drawn",
+        },
     };
     while let Some(arg) = args.next() {
         let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
@@ -60,6 +66,15 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--strict" => opts.strict = true,
             "--no-call-counts" => opts.count_calls = false,
             "--keep-work" => opts.keep_work = true,
+            "--hash-seed" => {
+                let value = value()?.parse().map_err(|_| {
+                    "--hash-seed needs a whole number from 0 to 4294967295".to_string()
+                })?;
+                opts.hash_seed = HashSeed {
+                    value,
+                    chosen: "given",
+                };
+            }
             "-h" | "--help" => return Err(String::new()),
             flag if flag.starts_with('-') => return Err(format!("unknown option {flag}")),
             _ if suite.is_none() => suite = Some(PathBuf::from(arg)),
@@ -78,6 +93,14 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
         }
     }
     Ok(opts)
+}
+
+/// A seed for a run that names none. The keys of std's `RandomState` are
+/// random for each process, so one hash of them is a random number without a
+/// dependency.
+fn drawn_seed() -> u32 {
+    use std::hash::{BuildHasher, RandomState};
+    RandomState::new().hash_one(std::process::id()) as u32
 }
 
 /// The `diff` subcommand: its arguments, without the program's name.
@@ -239,6 +262,10 @@ pub fn main(args: impl Iterator<Item = String>) -> ExitCode {
         } else {
             ""
         }
+    );
+    println!(
+        "hash seed {} ({}); --hash-seed {} repeats the run",
+        r.hash_seed.value, r.hash_seed.chosen, r.hash_seed.value
     );
     println!("report {}", opts.report.display());
     let headline = match r.verdict {

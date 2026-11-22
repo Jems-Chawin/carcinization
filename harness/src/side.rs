@@ -16,6 +16,10 @@ pub struct SideConfig {
     pub name: &'static str,
     pub program: PathBuf,
     pub args: Vec<String>,
+    /// Variables taken out of the environment the side would inherit.
+    pub env_remove: Vec<std::ffi::OsString>,
+    /// Variables set for the side, after those are taken out.
+    pub env: Vec<(String, String)>,
     /// The `init` request.
     pub init: J,
     /// Everything the side writes to stdout or stderr ends up here.
@@ -100,8 +104,13 @@ impl Side {
             .append(true)
             .open(&self.cfg.log)
             .map_err(|e| format!("{name}: cannot open log: {e}"))?;
-        let mut child = Command::new(&self.cfg.program)
+        let mut command = Command::new(&self.cfg.program);
+        for name in &self.cfg.env_remove {
+            command.env_remove(name);
+        }
+        let mut child = command
             .args(&self.cfg.args)
+            .envs(self.cfg.env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::from(log))

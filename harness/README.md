@@ -36,6 +36,15 @@ and 7.5 s with it for two million small calls. Compiled code is not slowed.
 If an original runs out of time only because it is being counted, pass
 `--no-call-counts`; the report then says the calls were not counted.
 
+Python orders a set of strings by a hash that changes with every process
+unless `PYTHONHASHSEED` fixes it. Both sides run under one seed: the one
+given with `--hash-seed` (0 to 4294967295), or one the harness draws. The
+report records it as `hash_seed`, with `chosen` set to `given` or `drawn`,
+and the screen prints it, so `--hash-seed` with that number repeats the run.
+A `PYTHONHASHSEED` in the harness's own environment is not used. To see
+whether an original's answers depend on set order, run the suite under
+several seeds.
+
 Needs: `git`, a Python 3.9+ interpreter, and for a PyO3 side `cargo` and
 maturin 1.16. Nothing is installed by the harness. To get maturin without
 touching the system: `uv venv && uv pip install maturin==1.16.0`.
@@ -384,6 +393,7 @@ path is deleted before the run starts. Top level:
 | Field | Content |
 |---|---|
 | `verdict`, `reasons`, `strict` | `pass`, `pass_with_relaxations`, `fail` or `error`, and why; whether `--strict` was given |
+| `hash_seed` | `value`, the `PYTHONHASHSEED` both sides ran under, and `chosen`: `given` with `--hash-seed` or `drawn` by the harness |
 | `outcome`, `exit_status` | how the run ended once `--strict` is applied: `pass` and 0, `fail` and 1, or `error` and 2 |
 | `summary` | counts: `cases`, `identical`, `identical_with_relaxations`, `different`, `errors` |
 | `checks` | `sides_are_different_code` with the rules applied, and `functions`: for each function called, how many cases returned on both sides, raised on both, differed or failed, whether it was `compared_on_a_returned_value`, whether it is `python` or `extension` on each side, the Python calls made while it ran on each side (`own`, `shared`, `other`), and the file (with SHA-256) that defines it on each side; `public_functions_not_called`: each module's own public functions that no case named; `shared`: the declared entries, whether each is inside a side's directory, and the files each side loaded from them; `processes_started`: per side, a count and the first twenty |
@@ -449,14 +459,36 @@ parser does.
 
 **The module that runs is the one just built.** A PyO3 side is built with
 `maturin build --release --locked` into a temporary directory, unpacked, and
-put first on `sys.path`. The interpreter runs with `-I`, so `PYTHONPATH`, the
-user site and the current directory are out. After import the driver checks
+put first on `sys.path`. The interpreter runs isolated (next paragraph), so
+`PYTHONPATH`, the user site, the script's directory and the current
+directory are out. After import the driver checks
 where the module came from and refuses anything outside the unpacked wheel
 (for a Python side, outside the suite's directories). A copy left in a venv
 by `maturin develop` cannot be picked up. Each feature set builds in its own
 target directory, `target/carcinify-diff/<features>` in the crate's workspace:
 Cargo writes the finished library to one path per target directory, so two
 runs with different features would otherwise swap libraries.
+
+**The interpreter's environment is the harness's.** Each side runs as
+`python -s -X pycache_prefix=... driver.py`, not with `-I`: `-I` includes
+`-E`, which ignores every `PYTHON*` variable, `PYTHONHASHSEED` among them,
+so under `-I` no seed could take effect. Instead the harness removes every
+`PYTHON*` variable from the side's environment, which is what `-E` ignored,
+then sets `PYTHONHASHSEED` and `PYTHONSAFEPATH=1`. `-s` keeps the user site
+out. `PYTHONSAFEPATH` keeps the script's directory off `sys.path` on Python
+3.11 and later, where it is `-P`; earlier versions ignore it, so the driver
+sits alone in a directory of its own and takes that directory off
+`sys.path` itself. Before anything else the driver refuses to run if the
+interpreter ignores the environment (one wrapped to add `-E`), if the seed
+is not the one the harness set, if any other `PYTHON*` variable is set, if
+the user site is on, or, on 3.11 and later, if safe-path is off. It then
+removes `PYTHONSAFEPATH` from its own environment.
+
+One behaviour changed with this. A process that a side starts inherits the
+side's environment, which now holds `PYTHONHASHSEED` and no other `PYTHON*`
+variable. Under `-I` it inherited the user's `PYTHON*` variables,
+`PYTHONPATH` among them: `-I` made only the side's own interpreter ignore
+them.
 
 Cargo decides whether to recompile by comparing file times, so a source
 file put in place with a time older than the last build (`cp -p`,
@@ -638,6 +670,12 @@ in a temporary git repository per test. Two test files need maturin and are
 ignored by default: `tests/example.rs` runs the worked example, and
 `tests/mixed.rs` builds the fixture in `tests/mixed/` (a wheel with a Python
 layer over a compiled core) in a temporary repository, step by step.
+
+The isolation test plants a `PYTHONPATH` directory, a user site (through
+`HOME` and through `PYTHONUSERBASE`), a current directory and a
+`PYTHONSTARTUP` file, each of which leaves a mark if Python runs it. An
+interpreter with no user site, such as one in a virtual environment, makes
+that part show nothing, and the test says so on stderr.
 
 ```sh
 CARCINIFY_PYTHON=$PWD/.venv/bin/python CARCINIFY_MATURIN=$PWD/.venv/bin/maturin \

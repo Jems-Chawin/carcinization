@@ -125,3 +125,41 @@ def args_differ(fail=True):
     if fail:
         raise ValueError(1)  # str(e) is "1" on both sides
     return 1
+
+
+def set_order(words):
+    return list(set(words))
+
+
+def first_missing(labels, sizes):
+    total = 1
+    for label in set(labels):  # a missing size is named in set order
+        total *= sizes[label]
+    return total
+
+
+def isolation():
+    """Raises if anything the harness keeps out of a side got in."""
+    import importlib.util
+    import sys
+
+    markers = ("pythonpath_marker", "user_marker", "userbase_marker", "cwd_marker")
+    found = [m for m in markers if importlib.util.find_spec(m) is not None]
+    found += ["driver directory %r" % p for p in sys.path if os.path.isfile(os.path.join(p or ".", "driver.py"))]
+    if found:
+        raise AssertionError(found)
+    return True
+
+
+def child_environment(expected):
+    """Raises unless a process this side starts sees exactly `expected` as
+    its PYTHON* variables."""
+    import json
+    import subprocess
+    import sys
+
+    code = "import json, os; print(json.dumps(sorted([k, v] for k, v in os.environ.items() if k.startswith('PYTHON'))))"
+    seen = json.loads(subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout)
+    if seen != expected:
+        raise AssertionError(seen)
+    return True
