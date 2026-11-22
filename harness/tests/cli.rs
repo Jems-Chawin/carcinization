@@ -3086,3 +3086,25 @@ fn an_original_that_differs_from_run_to_run_only_where_the_case_relaxes_leaves_p
         .collect();
     assert_eq!(results, ["survived", "killed"], "{}", r.report["patches"]);
 }
+
+#[test]
+fn a_measured_file_with_no_calls_is_warned_about() {
+    // A recording that never saw its candidate: a lambda, a partial or a
+    // wrong name. Nothing in it can be missing, so it would pass unseen.
+    let repo = measured_repo(SIZES_CASES, "", "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["measured"][0]["lines"], 0);
+    assert!(
+        r.report["measured"][0]["warning"]
+            .as_str()
+            .is_some_and(|w| w.contains("holds no calls")),
+        "{}",
+        r.report["measured"]
+    );
+    assert!(
+        r.stdout.contains("warning: m.calls.jsonl holds no calls"),
+        "{}",
+        r.stdout
+    );
+}

@@ -58,6 +58,9 @@ pub struct FileReport {
     /// The author's reason, from the suite, why `unencodable` may stand.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub not_comparable: Option<String>,
+    /// Set when the file holds no calls, which nothing else would show.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub warning: Option<&'static str>,
 }
 
 /// Reads every listed file. A listed file that is not there stops the run.
@@ -188,6 +191,9 @@ pub fn check(
             missing,
             unencodable: f.unencodable.clone(),
             not_comparable: f.entry.not_comparable.clone(),
+            warning: (f.calls.is_empty() && f.unencodable.is_empty()).then_some(
+                "holds no calls: the recording never saw its candidate (a lambda, a partial or a wrong name), or the workload did not call it",
+            ),
         });
     }
     Ok(reports)

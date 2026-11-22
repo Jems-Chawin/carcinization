@@ -265,6 +265,9 @@ pub fn main(args: impl Iterator<Item = String>) -> ExitCode {
             "measured {}: {} call(s), {} among the cases",
             m.file, m.lines, m.compared
         );
+        if let Some(w) = m.warning {
+            println!("warning: {} {w}", m.file);
+        }
         for x in &m.missing {
             let why = x.why.as_ref().map_or(String::new(), |w| format!(": {w}"));
             println!("    not a case: {} ({}){why}", x.source, x.func);
