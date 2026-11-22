@@ -431,6 +431,82 @@ many Python calls were made while it ran (see "Where the work was done").
 A line for each shared entry and for any processes started follows when
 there are any.
 
+### Kept mutants
+
+How strong are the cases? A mutant is a deliberate bug in the port, kept
+as a patch in the repository. `--mutants` runs the cases against each one:
+
+```sh
+carcinify diff suite.json --mutants mutants --report out/mutants.json
+```
+
+- Each `*.patch` in the directory, in name order, is applied on its own to a
+  scratch clone of the commit (`git clone --shared`), never to the working
+  tree. The tree must be clean, and `--allow-dirty` is refused: the patches
+  are against the commit.
+- Before anything runs, every patch is checked. It may change only the
+  candidate's code: a PyO3 side's Cargo workspace, which holds the crate and
+  the crates beside it, or a Python side's `path` directories. Even there it
+  may not change what the comparison reads: the suite, the case and data
+  files, the original's code and the shared directories. It must also
+  apply. Any failure stops the run, as a bad case file does.
+- The unmutated suite runs first in the clone and must pass.
+- Then, for each patch, the candidate is built and every case is run, all
+  under the same hash seed. A patch is **killed** when any case is not
+  identical. The report says how: `different`, `panicked` (a Rust panic,
+  which reaches Python as `pyo3_runtime.PanicException`), `crashed`,
+  `timed out` or `failed`. The first case that times out ends that patch's
+  run: the hang has caught it, and the cases after it would each wait out
+  `--timeout-secs`. A patch whose candidate does not build or import is
+  `did_not_run`. A patch no case catches **survived**.
+- Text before a patch's first `diff --git` line is its description, which
+  `git apply` ignores. A line there reading `Expected to survive: <reason>`
+  marks a mutant that cannot change an answer, such as one that only adds
+  work. Its survival is expected; if it is killed, the description is
+  wrong, and the run says so.
+- One target directory, inside the clone, serves every patch, so only the
+  port's own crates are rebuilt between patches. The clone and its target
+  are removed when the run ends. A process that is killed cannot clean up
+  after itself; the next run removes clones left by processes that no
+  longer exist.
+
+Exit status: `0` when every patch was killed, except those expected to
+survive, which survived; `1` for a survivor, an expected survivor that was
+killed, or a patch that did not run; `2` when the run could not be carried
+out. The report (`carcinify/diff/mutants/1`) gives the hash seed, the
+commit, the unmutated counts, and per patch its file and SHA-256, the
+result, how it was killed, the cases run, the cases not identical in all
+and per case file, the first few of them, and whether the run stopped at a
+time-out. `--hash-seed` with the recorded seed repeats the run.
+
+#### Writing mutants for arithmetic on Python's `int`
+
+Python's `int` has no bound; a port stands for it with a fixed-width type,
+an arbitrary-precision one, or both. Cases can hold large numbers and still
+decide nothing on exact integers. For each type that stands for `int`,
+keep these patches; each must be killed:
+
+1. **53 significant bits.** After each multiplication, keep the top 53
+   bits and drop the rest, which is what a `float64` keeps. If it survives,
+   no case's answer depends on two numbers above 2^53 that differ by a few
+   units. Add such cases, captured from the real caller where it can pass
+   them.
+2. **Off by one in addition.** Adding 1 to every sum moves all values of
+   one kind together, so it survives unless a case lands a sum exactly on
+   a bound the code compares it with. Add such a case.
+3. **Comparison flips.** Turn `>` into `>=` at each bound (and so on). A
+   survivor means no case lands exactly on that bound.
+4. **Swapped signs.** Wherever a value can be negative, or so large that
+   the port keeps it as a sign and no more, swap the sign.
+
+Rounding depends on the order of multiplication. If the port's order
+follows something the hash seed changes, such as labels numbered in set
+order, a rounding mutant may be killed under one seed and survive under
+another, and a count that moves between runs is no check. Choose values so
+that the order cannot matter: multiplying by a power of two commutes with
+the rounding, so scale by powers of two. Or check every order when the
+cases are generated.
+
 ## Design choices
 
 **Rust for the harness.** The comparison must not depend on the interpreter

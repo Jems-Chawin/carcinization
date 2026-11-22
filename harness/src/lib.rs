@@ -6,6 +6,7 @@ pub mod cli;
 pub mod commit;
 pub mod compare;
 pub mod distinct;
+pub mod mutants;
 pub mod provenance;
 pub mod python;
 pub mod report;
@@ -35,6 +36,13 @@ pub struct Options {
     pub timeout: Duration,
     pub keep_work: bool,
     pub hash_seed: report::HashSeed,
+    /// `--mutants`: the directory of kept patches to run instead of the
+    /// suite alone (see `mutants`).
+    pub mutants: Option<PathBuf>,
+    /// Stop at the first case that times out. Set for each mutant's run: a
+    /// hang has caught the mutant, and the cases after it would each wait
+    /// out the limit too.
+    pub stop_at_first_timeout: bool,
 }
 
 /// What a side made of one case: an outcome to compare, or a failure to run.
@@ -418,13 +426,15 @@ fn run_in(
     let scratch = work.join("scratch");
     let mut cases = Vec::with_capacity(loaded.cases.len());
     for case in &loaded.cases {
-        cases.push(run_case(
-            case,
-            &mut original,
-            &mut candidate,
-            &scratch,
-            opts.timeout,
-        )?);
+        let ran = run_case(case, &mut original, &mut candidate, &scratch, opts.timeout)?;
+        let timed_out = ran
+            .errors
+            .iter()
+            .any(|e| e.kind == report::ErrorKind::Timeout);
+        cases.push(ran);
+        if timed_out && opts.stop_at_first_timeout {
+            break;
+        }
     }
     original.finish();
     candidate.finish();

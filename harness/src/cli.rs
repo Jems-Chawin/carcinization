@@ -2,7 +2,7 @@
 //! calls.
 
 use crate::report::{CaseResult, HashSeed, Verdict};
-use crate::{Options, report, run};
+use crate::{Options, mutants, report, run};
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
@@ -25,6 +25,9 @@ options:
   --keep-work           keep the temporary build and log directory
   --hash-seed <n>       PYTHONHASHSEED for both sides, 0 to 4294967295
                         [drawn at random; the report records it either way]
+  --mutants <dir>       apply each kept patch in <dir> on its own to a
+                        scratch clone of the commit, run the cases, and
+                        report the patches no case caught (see README)
 
 exit status: 0 every case identical (with --strict: and none through a
 relaxation), 1 any difference, any case that failed to run, a function never
@@ -49,6 +52,8 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
             value: drawn_seed(),
             chosen: "drawn",
         },
+        mutants: None,
+        stop_at_first_timeout: false,
     };
     while let Some(arg) = args.next() {
         let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
@@ -66,6 +71,7 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--strict" => opts.strict = true,
             "--no-call-counts" => opts.count_calls = false,
             "--keep-work" => opts.keep_work = true,
+            "--mutants" => opts.mutants = Some(PathBuf::from(value()?)),
             "--hash-seed" => {
                 let value = value()?.parse().map_err(|_| {
                     "--hash-seed needs a whole number from 0 to 4294967295".to_string()
@@ -95,6 +101,60 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
     Ok(opts)
 }
 
+fn main_mutants(opts: &Options, dir: &std::path::Path) -> ExitCode {
+    let outcome = mutants::run(opts, dir).and_then(|r| report::write(&opts.report, &r).map(|()| r));
+    let r = match outcome {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("carcinify diff: {e}");
+            let error = serde_json::json!({"schema": mutants::SCHEMA, "verdict": "error", "exit_status": 2, "reasons": [e]});
+            if let Err(e) = report::write(&opts.report, &error) {
+                eprintln!("carcinify diff: {e}");
+            }
+            return ExitCode::from(2);
+        }
+    };
+    println!(
+        "{:<40} {:<12} {:<22} {:>13}  by case file",
+        "mutant", "result", "how", "not identical"
+    );
+    for p in &r.patches {
+        let how: Vec<&str> = p.how.iter().copied().collect();
+        let files: Vec<String> = p
+            .not_identical_by_case_file
+            .iter()
+            .map(|(f, n)| format!("{f} {n}"))
+            .collect();
+        let result = match (&p.expected_to_survive, p.result) {
+            (Some(_), r) => format!("{r} (expected to survive)"),
+            (None, r) => r.to_string(),
+        };
+        println!(
+            "{:<40} {:<12} {:<22} {:>13}  {}",
+            p.file,
+            result,
+            how.join(", "),
+            p.not_identical,
+            files.join(", ")
+        );
+    }
+    println!(
+        "unmutated: {} cases, {} identical; commit {}",
+        r.base.cases, r.base.identical, r.commit
+    );
+    println!(
+        "hash seed {} ({}); --hash-seed {} repeats the run",
+        r.hash_seed.value, r.hash_seed.chosen, r.hash_seed.value
+    );
+    println!("report {}", opts.report.display());
+    if r.reasons.is_empty() {
+        println!("PASS: every patch was killed, or survived as it says it would");
+    } else {
+        println!("FAIL: {}", r.reasons.join("; "));
+    }
+    ExitCode::from(r.exit_status)
+}
+
 /// A seed for a run that names none. The keys of std's `RandomState` are
 /// random for each process, so one hash of them is a random number without a
 /// dependency.
@@ -117,6 +177,9 @@ pub fn main(args: impl Iterator<Item = String>) -> ExitCode {
     };
     // Whatever happens next, a report from an earlier run must not survive it.
     let _ = std::fs::remove_file(&opts.report);
+    if let Some(dir) = &opts.mutants {
+        return main_mutants(&opts, dir);
+    }
     let outcome = run(&opts).and_then(|r| report::write(&opts.report, &r).map(|()| r));
     let r = match outcome {
         Ok(r) => r,

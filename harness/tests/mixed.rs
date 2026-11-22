@@ -385,4 +385,31 @@ fn a_mixed_wheel_built_by_maturin_step_by_step() {
         (&J::from("21"), &J::from("22"))
     );
     assert_eq!(report["git"]["dirty"], false);
+
+    // 9. --mutants on a compiled candidate: a kept patch that makes `scale`
+    //    panic is killed, and the report says how. The scratch clone builds
+    //    the crate afresh in its own target directory, which goes with it.
+    repo.edit("rs/src/lib.rs", |s| s.replace("x * 3 + 1", "x * 3"));
+    repo.commit();
+    repo.edit("rs/src/lib.rs", |s| {
+        s.replace("        x * 3\n", "        panic!(\"a mutant\")\n")
+    });
+    let diff = Command::new("git")
+        .arg("-C")
+        .arg(&repo.0)
+        .arg("diff")
+        .output()
+        .unwrap();
+    repo.edit("rs/src/lib.rs", |s| {
+        s.replace("        panic!(\"a mutant\")\n", "        x * 3\n")
+    });
+    std::fs::create_dir_all(repo.0.join("mutants")).unwrap();
+    std::fs::write(repo.0.join("mutants/panics.patch"), diff.stdout).unwrap();
+    repo.commit();
+    let mutants = repo.0.join("mutants");
+    let (code, report, stdout, stderr) = repo.run_with(&["--mutants", mutants.to_str().unwrap()]);
+    assert_eq!(code, 0, "{stdout}{stderr}");
+    assert_eq!(report["patches"][0]["result"], "killed");
+    assert_eq!(report["patches"][0]["how"], serde_json::json!(["panicked"]));
+    assert!(!Path::new(report["scratch"].as_str().unwrap()).exists());
 }

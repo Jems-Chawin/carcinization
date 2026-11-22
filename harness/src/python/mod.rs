@@ -77,6 +77,27 @@ fn utf8(p: &Path) -> Result<String, String> {
         .ok_or_else(|| format!("path is not UTF-8: {}", p.display()))
 }
 
+/// The root of the Cargo workspace a crate belongs to: where Cargo.lock and
+/// any sibling crates the build pulls in live.
+pub fn cargo_workspace(name: &str, crate_dir: &Path) -> Result<PathBuf, String> {
+    let located = Command::new("cargo")
+        .args(["locate-project", "--workspace", "--message-format", "plain"])
+        .current_dir(crate_dir)
+        .output()
+        .map_err(|e| format!("{name}: cannot run cargo: {e}"))?;
+    if !located.status.success() {
+        return Err(format!(
+            "{name}: {} is not a Cargo package: {}",
+            crate_dir.display(),
+            String::from_utf8_lossy(&located.stderr).trim()
+        ));
+    }
+    Path::new(String::from_utf8_lossy(&located.stdout).trim())
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "cargo gave no workspace path".to_string())
+}
+
 /// Gets one side ready to run. For a PyO3 crate that means building a wheel
 /// with maturin now, from the working tree, and unpacking it into `work`:
 /// the module that runs is the one just built, never one already installed.
@@ -123,22 +144,7 @@ pub fn prepare(
             python_functions,
         } => {
             let crate_dir = dir(crate_dir)?;
-            let located = Command::new("cargo")
-                .args(["locate-project", "--workspace", "--message-format", "plain"])
-                .current_dir(&crate_dir)
-                .output()
-                .map_err(|e| format!("{name}: cannot run cargo: {e}"))?;
-            if !located.status.success() {
-                return Err(format!(
-                    "{name}: {} is not a Cargo package: {}",
-                    crate_dir.display(),
-                    String::from_utf8_lossy(&located.stderr).trim()
-                ));
-            }
-            let workspace_dir = Path::new(String::from_utf8_lossy(&located.stdout).trim())
-                .parent()
-                .map(Path::to_path_buf)
-                .ok_or("cargo gave no workspace path")?;
+            let workspace_dir = cargo_workspace(name, &crate_dir)?;
             let out = work.join(format!("{name}-wheel"));
             let unpacked = work.join(format!("{name}-module"));
             let mut cmd = vec![

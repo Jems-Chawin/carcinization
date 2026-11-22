@@ -2232,3 +2232,417 @@ fn an_interpreter_that_ignores_the_environment_is_refused() {
     assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
     assert!(r.stderr.contains("ignores the environment"), "{}", r.stderr);
 }
+
+// ---- Kept mutants: --mutants ----
+
+/// The patch `git diff` gives for replacing `from` with `to` in `file`; the
+/// file is put back. `preamble` goes before the diff, as a kept patch may
+/// carry it.
+fn patch(repo: &Repo, file: &str, from: &str, to: &str, preamble: &str) -> String {
+    let path = repo.dir.join(file);
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(text.matches(from).count(), 1, "{from}");
+    std::fs::write(&path, text.replace(from, to)).unwrap();
+    let out = Command::new("git")
+        .arg("-C")
+        .arg(&repo.dir)
+        .arg("diff")
+        .output()
+        .unwrap();
+    std::fs::write(&path, text).unwrap();
+    format!("{preamble}{}", String::from_utf8(out.stdout).unwrap())
+}
+
+/// A repository with two cases the fixture's sides agree on, and the given
+/// patches committed under `dir/`.
+fn mutant_repo(dir: &str, patches: &[(&str, &str, &str, &str, &str)]) -> Repo {
+    let repo = Repo::new(&format!(
+        "{}\n{}\n",
+        format_args!(r#"{{"id": "order", "fn": "set_order", "args": [{WORDS}]}}"#),
+        r#"{"id": "found", "fn": "first_missing", "args": [["a", "y"], {"a": 2, "y": 3}]}"#
+    ));
+    std::fs::create_dir_all(repo.dir.join(dir)).unwrap();
+    for (name, file, from, to, preamble) in patches {
+        let text = patch(&repo, file, from, to, preamble);
+        std::fs::write(repo.dir.join(dir).join(format!("{name}.patch")), text).unwrap();
+    }
+    repo.commit();
+    repo
+}
+
+fn state(repo: &Repo) -> (String, String) {
+    let out = |args: &[&str]| {
+        let o = Command::new("git")
+            .arg("-C")
+            .arg(&repo.dir)
+            .args(args)
+            .output()
+            .unwrap();
+        String::from_utf8(o.stdout).unwrap()
+    };
+    // Everything git sees, ignored files included, except out/, where the
+    // test itself writes the report.
+    (
+        out(&["rev-parse", "HEAD"]),
+        out(&[
+            "status",
+            "--porcelain",
+            "--ignored",
+            "--",
+            ".",
+            ":(exclude)out",
+        ]),
+    )
+}
+
+const PORT: &str = "candidate/port.py";
+const SET_ORDER: &str = "    return list(set(words))";
+const TIMES: &str = "        total *= sizes[label]";
+
+#[test]
+fn each_kept_mutant_is_reported_killed_or_survived_and_the_tree_is_left_alone() {
+    let repo = mutant_repo(
+        "mutants",
+        &[
+            (
+                "a-drops-a-word",
+                PORT,
+                SET_ORDER,
+                "    return list(set(words))[1:]",
+                "",
+            ),
+            (
+                "b-times-one",
+                PORT,
+                TIMES,
+                "        total *= sizes[label] * 1",
+                "",
+            ),
+            (
+                "c-times-one-expected",
+                PORT,
+                TIMES,
+                "        total *= 1 * sizes[label]",
+                "Multiplying by one changes nothing.\nExpected to survive: equivalent to the port\n\n",
+            ),
+            ("d-exits", PORT, SET_ORDER, "    os._exit(3)", ""),
+        ],
+    );
+    let before = state(&repo);
+    let mutants = repo.dir.join("mutants");
+    let r = repo.run(&["--mutants", mutants.to_str().unwrap(), "--hash-seed", "1"]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    assert_eq!(state(&repo), before, "the author's tree changed");
+    let rep = &r.report;
+    assert_eq!(rep["schema"], "carcinify/diff/mutants/1");
+    assert_eq!(
+        rep["hash_seed"],
+        serde_json::json!({"value": 1, "chosen": "given"})
+    );
+    assert_eq!(rep["base"]["cases"], 2);
+    assert!(
+        !Path::new(rep["scratch"].as_str().unwrap()).exists(),
+        "the scratch clone is still there"
+    );
+    let p = |i: usize| &rep["patches"][i];
+    assert_eq!(p(0)["file"], "a-drops-a-word.patch");
+    assert_eq!(p(0)["result"], "killed");
+    assert_eq!(p(0)["how"], serde_json::json!(["different"]));
+    assert_eq!(
+        p(0)["not_identical_by_case_file"],
+        serde_json::json!({"cases.jsonl": 1})
+    );
+    assert_eq!(p(1)["result"], "survived");
+    assert_eq!(p(2)["result"], "survived");
+    assert_eq!(p(2)["expected_to_survive"], "equivalent to the port");
+    assert_eq!(p(3)["result"], "killed");
+    assert_eq!(p(3)["how"], serde_json::json!(["crashed"]));
+    assert_eq!(
+        rep["reasons"].as_array().unwrap().len(),
+        1,
+        "{}",
+        rep["reasons"]
+    );
+    assert!(
+        rep["reasons"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("b-times-one.patch: survived")
+    );
+    assert!(r.stdout.contains("b-times-one.patch"), "{}", r.stdout);
+
+    // The same seed gives the same results again.
+    let again = repo.run(&["--mutants", mutants.to_str().unwrap(), "--hash-seed", "1"]);
+    assert_eq!(again.report["patches"], rep["patches"]);
+}
+
+#[test]
+fn every_mutant_killed_or_expected_to_survive_passes() {
+    let repo = mutant_repo(
+        "mutants",
+        &[
+            (
+                "a-drops-a-word",
+                PORT,
+                SET_ORDER,
+                "    return list(set(words))[1:]",
+                "",
+            ),
+            (
+                "c-expected",
+                PORT,
+                TIMES,
+                "        total *= 1 * sizes[label]",
+                "Expected to survive: times one\n",
+            ),
+        ],
+    );
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["verdict"], "pass");
+    assert_eq!(r.report["hash_seed"]["chosen"], "drawn");
+}
+
+#[test]
+fn a_mutant_expected_to_survive_that_is_killed_fails_the_run() {
+    let repo = mutant_repo(
+        "mutants",
+        &[(
+            "a",
+            PORT,
+            SET_ORDER,
+            "    return list(set(words))[1:]",
+            "Expected to survive: wrongly\n",
+        )],
+    );
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["patches"][0]["result"], "killed");
+    assert!(
+        r.report["reasons"][0]
+            .as_str()
+            .unwrap()
+            .contains("expected to survive"),
+        "{}",
+        r.report["reasons"]
+    );
+}
+
+#[test]
+fn a_mutant_that_hangs_is_killed_as_timed_out_and_its_other_cases_skipped() {
+    let repo = mutant_repo(
+        "mutants",
+        &[(
+            "hangs",
+            PORT,
+            SET_ORDER,
+            "    __import__('time').sleep(600)",
+            "",
+        )],
+    );
+    let r = repo.run(&[
+        "--mutants",
+        repo.dir.join("mutants").to_str().unwrap(),
+        "--timeout-secs",
+        "1",
+    ]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    let p = &r.report["patches"][0];
+    assert_eq!(p["result"], "killed");
+    assert_eq!(p["how"], serde_json::json!(["timed out"]));
+    assert_eq!(p["stopped_after_timeout"], true);
+    assert_eq!(p["cases_run"], 1);
+}
+
+#[test]
+fn a_mutant_that_cannot_even_be_imported_is_reported_and_fails_the_run() {
+    let repo = mutant_repo(
+        "mutants",
+        &[(
+            "syntax",
+            PORT,
+            "def set_order(words):",
+            "def set_order(words)",
+            "",
+        )],
+    );
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["patches"][0]["result"], "did_not_run");
+    assert!(
+        r.report["patches"][0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("SyntaxError"),
+        "{}",
+        r.report
+    );
+}
+
+#[test]
+fn a_patch_outside_the_candidate_or_one_that_does_not_apply_stops_the_run() {
+    let repo = mutant_repo(
+        "mutants",
+        &[
+            (
+                "original",
+                "original/orig.py",
+                "    return list(set(words))",
+                "    return []",
+                "",
+            ),
+            ("elsewhere", ".gitignore", "out/\n", "out/\nmore/\n", ""),
+        ],
+    );
+    let stale =
+        patch(&repo, PORT, SET_ORDER, "    return []", "").replace("words))\n+", "word))\n+");
+    std::fs::write(repo.dir.join("mutants/stale.patch"), stale).unwrap();
+    repo.commit();
+    let before = state(&repo);
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(
+        r.stderr.contains(
+            "original.patch: changes original/orig.py, which the comparison reads (original)"
+        ),
+        "{}",
+        r.stderr
+    );
+    assert!(
+        r.stderr.contains(
+            "elsewhere.patch: changes .gitignore, which is outside the candidate (candidate)"
+        ),
+        "{}",
+        r.stderr
+    );
+    assert!(
+        r.stderr.contains("stale.patch: does not apply"),
+        "{}",
+        r.stderr
+    );
+    assert_eq!(state(&repo), before);
+}
+
+#[test]
+fn mutants_need_a_clean_tree_and_a_passing_suite() {
+    let repo = mutant_repo("mutants", &[("a", PORT, SET_ORDER, "    return []", "")]);
+    let dir = repo.dir.join("mutants");
+    let r = repo.run(&["--mutants", dir.to_str().unwrap(), "--allow-dirty"]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(r.stderr.contains("--allow-dirty"), "{}", r.stderr);
+
+    std::fs::write(repo.dir.join("cases.jsonl"), r#"{"id": "c", "fn": "big"}"#).unwrap();
+    repo.commit();
+    let r = repo.run(&["--mutants", dir.to_str().unwrap()]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(
+        r.stderr.contains("the unmutated suite does not pass"),
+        "{}",
+        r.stderr
+    );
+}
+
+#[test]
+fn a_patch_may_not_change_what_the_comparison_reads_even_inside_the_candidate() {
+    let repo = Repo::new(&format!(
+        "{}\n",
+        format_args!(r#"{{"id": "order", "fn": "set_order", "args": [{WORDS}]}}"#)
+    ));
+    std::fs::create_dir_all(repo.dir.join("mutants")).unwrap();
+    std::fs::write(
+        repo.dir.join("candidate/more.jsonl"),
+        r#"{"id": "more", "fn": "set_order", "args": [["a"]]}"#.to_string() + "\n",
+    )
+    .unwrap();
+    repo.suite(r#""cases": ["cases.jsonl", "candidate/more.jsonl"]"#);
+    repo.commit();
+    let text = patch(
+        &repo,
+        "candidate/more.jsonl",
+        r#"[["a"]]"#,
+        r#"[["b"]]"#,
+        "",
+    );
+    std::fs::write(repo.dir.join("mutants/case.patch"), text).unwrap();
+    repo.commit();
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(
+        r.stderr.contains(
+            "case.patch: changes candidate/more.jsonl, which the comparison reads (case file)"
+        ),
+        "{}",
+        r.stderr
+    );
+}
+
+#[test]
+fn a_stopped_run_leaves_the_tree_alone_and_the_next_run_removes_its_clone() {
+    let repo = mutant_repo(
+        "mutants",
+        &[("a", PORT, SET_ORDER, "    return list(set(words))[1:]", "")],
+    );
+    let before = state(&repo);
+    let tmp = Scratch::new("stopped");
+    let mutants = repo.dir.join("mutants");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("diff")
+        .arg(repo.dir.join("suite.json"))
+        .arg("--report")
+        .arg(repo.report_path())
+        .args([
+            "--python",
+            &base_python(),
+            "--mutants",
+            mutants.to_str().unwrap(),
+        ])
+        .env("TMPDIR", &tmp.0)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    // Stopped from outside as soon as its clone is there: it cleans nothing up.
+    let prefix = format!("carcinify-mutants-{}-", child.id());
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let left = loop {
+        let found = std::fs::read_dir(&tmp.0)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .find(|p| {
+                p.file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with(&prefix)
+                    && p.join("repo/.git").exists()
+            });
+        if let Some(p) = found {
+            break p;
+        }
+        assert!(
+            std::time::Instant::now() < deadline && child.try_wait().unwrap().is_none(),
+            "the run ended before its clone was seen"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    };
+    child.kill().unwrap();
+    child.wait().unwrap();
+    assert!(left.exists());
+    assert_eq!(state(&repo), before, "the author's tree changed");
+
+    let r = repo.run_with(
+        &base_python(),
+        &["--mutants", mutants.to_str().unwrap()],
+        |c| {
+            c.env("TMPDIR", &tmp.0);
+        },
+    );
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert!(!left.exists(), "the stopped run's clone is still there");
+    let rest: Vec<_> = std::fs::read_dir(&tmp.0)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name())
+        .collect();
+    assert!(rest.is_empty(), "left in the temporary directory: {rest:?}");
+}
