@@ -233,6 +233,8 @@ fn named_cases(decl: &mut Declaration, here: &Path) -> Result<Vec<String>, Strin
         id: String,
         #[serde(borrow)]
         args: Option<&'a serde_json::value::RawValue>,
+        #[serde(default)]
+        kwargs: serde_json::Map<String, J>,
     }
     let mut lines: Vec<String> = Vec::new();
     for hot in &mut decl.hot_paths {
@@ -252,14 +254,22 @@ fn named_cases(decl: &mut Declaration, here: &Path) -> Result<Vec<String>, Strin
                 .map_err(|e| format!("case file {}: {e}", path.display()))?;
             let found = text.lines().find_map(|l| {
                 let parsed: Line = serde_json::from_str(l).ok()?;
-                (parsed.id == case.id).then(|| (l, parsed.args.map_or("[]", |a| a.get())))
+                (parsed.id == case.id).then_some((l, parsed))
             });
-            let Some((line, args)) = found else {
+            let Some((line, parsed)) = found else {
                 return Err(format!(
                     "size {label:?}: no case {:?} in {}",
                     case.id, case.file
                 ));
             };
+            // The support function gets the args alone.
+            if !parsed.kwargs.is_empty() {
+                return Err(format!(
+                    "size {label:?}: a size's input can name only a case without keyword arguments, and {:?} has some",
+                    case.id
+                ));
+            }
+            let args = parsed.args.map_or("[]", |a| a.get());
             input.args = vec![J::String(args.to_string())];
             if !lines.iter().any(|l| l == line) {
                 lines.push(line.to_string());

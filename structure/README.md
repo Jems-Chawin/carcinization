@@ -102,8 +102,9 @@ the design note of step four.
     comparison cases"), since the harness never compared the port on it.
     With `--record-calls <file>` the tool writes the case lines its sizes
     name, each once, for the harness's `measured` list (see the harness's
-    "Measured inputs"); a case named that is not in its file stops the
-    run.
+    "Measured inputs"). A case named that is not in its file stops the
+    run, and so does one with keyword arguments, which the support
+    function would never see.
   - `warm_up` iterations run before counting, `iterations` are counted.
   - `input` says in words what the input is.
 

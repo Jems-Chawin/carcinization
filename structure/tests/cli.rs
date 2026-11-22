@@ -1582,4 +1582,21 @@ pub mod measure_support {
     let (code, _, text) = run(&repo);
     assert_eq!(code, 2, "{text}");
     assert!(text.contains("no case \"gone\" in cases/c.jsonl"), "{text}");
+
+    // The support function gets the args alone, so a case with keyword
+    // arguments cannot be named.
+    let repo = with_cases([size("small", &case("small")), size("large", &case("large"))]);
+    let with_kwargs = large.replace("[300]}", r#"[300], "kwargs": {"scale": 2}}"#);
+    std::fs::write(
+        repo.0.join("cases/c.jsonl"),
+        format!("{small}\n{with_kwargs}\n"),
+    )
+    .unwrap();
+    git(&repo.0, &["commit", "-qam", "kwargs"]);
+    let (code, _, text) = run(&repo);
+    assert_eq!(code, 2, "{text}");
+    assert!(
+        text.contains("size \"large\": a size's input can name only a case without keyword arguments, and \"large\" has some"),
+        "{text}"
+    );
 }
