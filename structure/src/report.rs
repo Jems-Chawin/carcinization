@@ -377,13 +377,6 @@ pub fn run(opts: &Options) -> Result<Report, String> {
     let mut decl: Declaration = serde_json::from_str(&text)
         .map_err(|e| format!("bad declaration {}: {e}", path.display()))?;
     let cases = named_cases(&mut decl, here)?;
-    if let Some(file) = &opts.record_calls {
-        if let Some(dir) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let text: String = cases.iter().map(|l| format!("{l}\n")).collect();
-        std::fs::write(file, text).map_err(|e| format!("cannot write {}: {e}", file.display()))?;
-    }
     if decl.schema != DECLARATION_SCHEMA {
         return Err(format!(
             "declaration schema is {:?}, expected {DECLARATION_SCHEMA:?}",
@@ -882,6 +875,14 @@ pub fn run(opts: &Options) -> Result<Report, String> {
         verdict
     };
     let (source_sha256, source_files) = tracked_digest(&git.root, &crate_dir)?;
+    // Only for a run that was carried out: a refused run writes nothing.
+    if let Some(file) = &opts.record_calls {
+        if let Some(dir) = file.parent().filter(|d| !d.as_os_str().is_empty()) {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let text: String = cases.iter().map(|l| format!("{l}\n")).collect();
+        std::fs::write(file, text).map_err(|e| format!("cannot write {}: {e}", file.display()))?;
+    }
     Ok(Report {
         schema: REPORT_SCHEMA,
         verdict,
