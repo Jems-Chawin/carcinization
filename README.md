@@ -24,7 +24,16 @@ What exists and was tested: `carcinify decide`, `carcinify deps`,
 texts of steps 1, 2, 4 and 6, which are meant to be read and followed by a
 coding agent. The pilot for step four stands as it was reported: the
 pattern was observed in 1 of 4 runs, which is inconclusive by the rule
-fixed before the runs. None of this has been used on a real port.
+fixed before the runs.
+
+They have been used on one real port, outside this repository: NumPy's
+greedy path search for `einsum` (`_greedy_path`), moved to Rust through
+PyO3. Its answers match the original's on 594 comparison cases. On a
+made-up network of 40 operands the search is 26 to 28 times faster on macOS
+and on Linux arm64 (in a container on the same Mac). On one of 120 operands
+it is 18 times faster on macOS and 7.7 times on Linux arm64; the cause of
+the difference is not known. Through `np.einsum_path` the gain is 6 to 7
+times. What the port showed the tools lack sets the next work.
 
 What is planned and is not built, with no date for any of it:
 
