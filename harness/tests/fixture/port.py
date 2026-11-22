@@ -161,3 +161,8 @@ def child_environment(expected):
     if seen != expected:
         raise AssertionError(seen)
     return True
+
+
+def read_text(path):
+    with open(path) as f:
+        return f.read()

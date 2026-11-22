@@ -2981,3 +2981,41 @@ fn keep_work_keeps_the_scratch_clone_and_names_it() {
     assert!(kept.join("repo/suite.json").exists(), "{}", kept.display());
     std::fs::remove_dir_all(&kept).unwrap();
 }
+
+#[test]
+fn a_mutant_that_changes_what_the_original_returns_is_invalid() {
+    // The patched candidate, when imported, rewrites a file outside the
+    // repository that both sides read. The clone holds what the commit
+    // holds, so only the original's outputs can show it.
+    let outside = Scratch::new("outside");
+    let file = outside.0.join("data.txt");
+    std::fs::write(&file, "as committed").unwrap();
+    let cases = format!(
+        "{}\n{}\n",
+        format_args!(r#"{{"id": "order", "fn": "set_order", "args": [{WORDS}]}}"#),
+        format_args!(
+            r#"{{"id": "text", "fn": "read_text", "args": [{:?}]}}"#,
+            file.to_str().unwrap()
+        )
+    );
+    let repo = Repo::new(&cases);
+    std::fs::create_dir_all(repo.dir.join("mutants")).unwrap();
+    let rewrite = format!(
+        "{SET_ORDER}\nopen({:?}, 'w').write('changed')\n",
+        file.to_str().unwrap()
+    );
+    let text = patch(&repo, PORT, SET_ORDER, &rewrite, "");
+    std::fs::write(repo.dir.join("mutants/rewrites.patch"), text).unwrap();
+    repo.commit();
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    let p = &r.report["patches"][0];
+    assert_eq!(p["result"], "invalid", "{p}");
+    assert!(
+        p["error"]
+            .as_str()
+            .unwrap()
+            .contains("the original's output changed in text"),
+        "{p}"
+    );
+}

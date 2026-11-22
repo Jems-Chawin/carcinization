@@ -518,7 +518,11 @@ carcinify diff suite.json --mutants mutants --report out/mutants.json
   candidate's ignored target directory passes the rule and is kept.
 - Only the candidate is mutated. A case that fails on the original's side
   (a time-out on a busy machine, say) makes the patch **invalid**, never
-  killed, and the run fails.
+  killed, and the run fails. For the same reason the original must give, on
+  every case, the output it gave in the unmutated run (by SHA-256). If it
+  does not, something changed what it reads (a file outside the
+  repository that the candidate wrote, say), and the patch is
+  **invalid**.
 - Text before a patch's first `diff --git` line is its description, which
   `git apply` ignores. A line there reading `Expected to survive: <reason>`
   marks a mutant that cannot change an answer, such as one that only adds

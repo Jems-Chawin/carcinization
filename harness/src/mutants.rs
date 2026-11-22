@@ -397,6 +397,13 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
         ));
     }
 
+    // What the original gave on each case, unmutated. Only the candidate is
+    // patched, so the original must give the same in every patch's run.
+    let base_original: BTreeMap<&str, &str> = base
+        .cases
+        .iter()
+        .filter_map(|c| Some((c.id.as_str(), c.original_sha256.as_deref()?)))
+        .collect();
     let mut patches = Vec::new();
     for file in &files {
         let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", name(file)))?;
@@ -446,13 +453,32 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
                 if p.not_identical > 0 {
                     p.result = "killed";
                 }
+                let mut wrong = Vec::new();
                 let original = not_the_candidates(&r.cases);
                 if !original.is_empty() {
-                    p.result = "invalid";
-                    p.error = Some(format!(
+                    wrong.push(format!(
                         "not the candidate alone failed, so the result says nothing: {}",
                         original.join(", ")
                     ));
+                }
+                let changed: Vec<&str> = r
+                    .cases
+                    .iter()
+                    .filter(|c| {
+                        let now = c.original_sha256.as_deref();
+                        now.is_some_and(|h| base_original.get(c.id.as_str()) != Some(&h))
+                    })
+                    .map(|c| c.id.as_str())
+                    .collect();
+                if !changed.is_empty() {
+                    wrong.push(format!(
+                        "the original's output changed in {} from the unmutated run, so the comparison did not read the original the commit holds",
+                        changed.join(", ")
+                    ));
+                }
+                if !wrong.is_empty() {
+                    p.result = "invalid";
+                    p.error = Some(wrong.join("; "));
                 }
             }
         }
