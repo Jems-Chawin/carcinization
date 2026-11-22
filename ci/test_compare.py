@@ -83,5 +83,24 @@ class TooBusy(unittest.TestCase):
         self.assertEqual(compare(r, "", busy_allowed=True)[0], 1)
 
 
+
+class Tree(unittest.TestCase):
+    OK = results("3 passed, 0 failed, 1 ignored", "exit 0")
+
+    def test_a_tree_clean_before_and_unchanged_after_passes(self):
+        code, out = compare(self.OK + "tree\t0 change(s) before the run, 0 after\n", "", busy_allowed=False)
+        self.assertEqual(code, 0, out)
+
+    def test_a_tree_dirty_before_the_run_fails_though_clean_after(self):
+        # Committed while the run went on: clean at the end, not what ran.
+        code, out = compare(self.OK + "tree\t1 change(s) before the run, 0 after\n", "", busy_allowed=False)
+        self.assertEqual(code, 1, out)
+        self.assertIn("1 change(s) before the run", out)
+
+    def test_a_tree_changed_by_the_run_fails(self):
+        code, out = compare(self.OK + "tree\t0 change(s) before the run, 2 after\n", "", busy_allowed=False)
+        self.assertEqual(code, 1, out)
+
+
 if __name__ == "__main__":
     unittest.main()
