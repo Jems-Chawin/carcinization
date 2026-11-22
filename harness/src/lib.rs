@@ -6,6 +6,7 @@ pub mod cli;
 pub mod commit;
 pub mod compare;
 pub mod distinct;
+pub mod measured;
 pub mod mutants;
 pub mod provenance;
 pub mod python;
@@ -251,7 +252,8 @@ pub fn run(opts: &Options) -> Result<Report, String> {
             git.dirty.join("\n  ")
         ));
     }
-    let loaded = suite::load_cases(&suite_dir, &suite.cases)?;
+    let mut loaded = suite::load_cases(&suite_dir, &suite.cases)?;
+    let measured = measured::load(&suite_dir, &suite.measured, &mut loaded.inputs)?;
 
     let work = std::env::temp_dir().join(format!(
         "carcinify-diff-{}-{}",
@@ -262,7 +264,15 @@ pub fn run(opts: &Options) -> Result<Report, String> {
     ));
     std::fs::create_dir_all(&work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
     let work = work.canonicalize().map_err(|e| e.to_string())?;
-    let result = run_in(opts, &suite_path, &suite, &git, loaded, &work, started);
+    let result = run_in(
+        opts,
+        &suite_path,
+        &suite,
+        &git,
+        (loaded, measured),
+        &work,
+        started,
+    );
     if opts.keep_work {
         eprintln!("carcinify diff: work directory kept at {}", work.display());
     } else {
@@ -295,7 +305,7 @@ fn run_in(
     suite_path: &Path,
     suite: &suite::Suite,
     git: &provenance::Git,
-    loaded: suite::Loaded,
+    (loaded, measured): (suite::Loaded, Vec<measured::File>),
     work: &Path,
     started: std::time::Instant,
 ) -> Result<Report, String> {
@@ -424,6 +434,16 @@ fn run_in(
     )?;
 
     let scratch = work.join("scratch");
+    let calls_files_not_measured = measured::not_listed(&git.root, &measured)?;
+    // Before any case: the measured calls are looked up among the cases.
+    let measured = measured::check(
+        &measured,
+        &git.root,
+        &loaded.cases,
+        &mut original,
+        &scratch,
+        opts.timeout,
+    )?;
     let mut cases = Vec::with_capacity(loaded.cases.len());
     for case in &loaded.cases {
         let ran = run_case(case, &mut original, &mut candidate, &scratch, opts.timeout)?;
@@ -455,6 +475,8 @@ fn run_in(
         original: (&original, &original_built),
         candidate: (&candidate, &candidate_built),
         cases,
+        measured,
+        calls_files_not_measured,
         shared: &shared,
         not_in_commit,
         cargo_config_outside_repository: outside,

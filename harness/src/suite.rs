@@ -28,6 +28,26 @@ pub struct Suite {
     /// No function under test may be defined in one.
     #[serde(default)]
     pub shared: Vec<String>,
+    /// Files of calls a measurement made: each must also be a case (see
+    /// `measured`).
+    #[serde(default)]
+    pub measured: Vec<Measured>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Measured {
+    /// Relative to the suite file.
+    pub file: String,
+    /// The function every line calls, in place of the name the line gives:
+    /// a measurement may call a private function that the cases reach under
+    /// a public name.
+    #[serde(default, rename = "fn")]
+    pub func: Option<String>,
+    /// The author's reason why the calls in this file that the value format
+    /// cannot hold need not be compared. Without it they fail the run.
+    #[serde(default)]
+    pub not_comparable: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -285,72 +305,94 @@ pub fn load_cases(suite_dir: &Path, files: &[String]) -> Result<Loaded, String> 
                 continue;
             }
             let source = format!("{rel}:{}", n + 1);
-            let raw: RawCase = serde_json::from_str(line).map_err(|e| format!("{source}: {e}"))?;
-            if raw.id.is_empty() || !ids.insert(raw.id.clone()) {
+            let case = parse_case(line, &source, &dir, &mut inputs)?;
+            if case.id.is_empty() || !ids.insert(case.id.clone()) {
                 return Err(format!(
                     "{source}: case id {:?} is empty or used twice",
-                    raw.id
+                    case.id
                 ));
             }
-            let args = raw
-                .args
-                .unwrap_or(RawValue::from_string("[]".into()).map_err(|e| e.to_string())?);
-            let kwargs = raw
-                .kwargs
-                .unwrap_or(RawValue::from_string("{}".into()).map_err(|e| e.to_string())?);
-            if !args.get().starts_with('[') || !kwargs.get().starts_with('{') {
-                return Err(format!(
-                    "{source}: \"args\" must be an array and \"kwargs\" an object"
-                ));
-            }
-            let input = match raw.encoding {
-                Encoding::Plain => Input::Plain { args, kwargs },
-                Encoding::Typed => {
-                    let args: Vec<J> =
-                        serde_json::from_str(args.get()).map_err(|e| format!("{source}: {e}"))?;
-                    let kwargs: serde_json::Map<String, J> =
-                        serde_json::from_str(kwargs.get()).map_err(|e| format!("{source}: {e}"))?;
-                    // Check every value now and hash every data file now, so a
-                    // bad case stops the run before either side starts.
-                    let mut check = |s: Special| -> Result<J, String> {
-                        if let Special::FilePath(p) | Special::FileBytes(p) = s {
-                            let file = dir.join(p);
-                            let file = file
-                                .canonicalize()
-                                .map_err(|e| format!("data file {}: {e}", file.display()))?;
-                            let hash = sha256_file(&file)?;
-                            inputs.entry(file).or_insert(("data", hash));
-                        }
-                        Ok(J::Null)
-                    };
-                    for v in args.iter().chain(kwargs.values()) {
-                        walk(v, &mut check).map_err(|e| format!("{source}: {e}"))?;
-                    }
-                    Input::Typed {
-                        args,
-                        kwargs,
-                        dir: dir.clone(),
-                    }
-                }
-            };
-            cases.push(Case {
-                id: raw.id,
-                func: raw.func,
-                source: source.clone(),
-                expect_raise: raw.expect_raise,
-                relax: raw.relax.build().map_err(|e| format!("{source}: {e}"))?,
-                relax_decl: raw.relax,
-                input,
-            });
+            cases.push(case);
         }
     }
     Ok(Loaded { cases, inputs })
+}
+
+/// One line of a case file, `source` naming it. Data files a typed input
+/// names are hashed into `inputs`.
+pub fn parse_case(
+    line: &str,
+    source: &str,
+    dir: &Path,
+    inputs: &mut BTreeMap<PathBuf, (&'static str, String)>,
+) -> Result<Case, String> {
+    let raw: RawCase = serde_json::from_str(line).map_err(|e| format!("{source}: {e}"))?;
+    let args = raw
+        .args
+        .unwrap_or(RawValue::from_string("[]".into()).map_err(|e| e.to_string())?);
+    let kwargs = raw
+        .kwargs
+        .unwrap_or(RawValue::from_string("{}".into()).map_err(|e| e.to_string())?);
+    if !args.get().starts_with('[') || !kwargs.get().starts_with('{') {
+        return Err(format!(
+            "{source}: \"args\" must be an array and \"kwargs\" an object"
+        ));
+    }
+    let input = match raw.encoding {
+        Encoding::Plain => Input::Plain { args, kwargs },
+        Encoding::Typed => {
+            let args: Vec<J> =
+                serde_json::from_str(args.get()).map_err(|e| format!("{source}: {e}"))?;
+            let kwargs: serde_json::Map<String, J> =
+                serde_json::from_str(kwargs.get()).map_err(|e| format!("{source}: {e}"))?;
+            // Check every value now and hash every data file now, so a
+            // bad case stops the run before either side starts.
+            let mut check = |s: Special| -> Result<J, String> {
+                if let Special::FilePath(p) | Special::FileBytes(p) = s {
+                    let file = dir.join(p);
+                    let file = file
+                        .canonicalize()
+                        .map_err(|e| format!("data file {}: {e}", file.display()))?;
+                    let hash = sha256_file(&file)?;
+                    inputs.entry(file).or_insert(("data", hash));
+                }
+                Ok(J::Null)
+            };
+            for v in args.iter().chain(kwargs.values()) {
+                walk(v, &mut check).map_err(|e| format!("{source}: {e}"))?;
+            }
+            Input::Typed {
+                args,
+                kwargs,
+                dir: dir.to_path_buf(),
+            }
+        }
+    };
+    Ok(Case {
+        id: raw.id,
+        func: raw.func,
+        source: source.to_string(),
+        expect_raise: raw.expect_raise,
+        relax: raw.relax.build().map_err(|e| format!("{source}: {e}"))?,
+        relax_decl: raw.relax,
+        input,
+    })
 }
 
 /// The request for one side. Data files are copied into `scratch` first, so
 /// a side that changes its file cannot change what the other side reads.
 /// Both sides get the same paths: the harness empties `scratch` in between.
 pub fn request(case: &Case, scratch: &Path) -> Result<String, String> {
+    request_as(case, scratch, "call", &case.func)
+}
+
+/// The same with another operation, for another function of the module.
+pub fn request_as(
+    case: &Case,
+    scratch: &Path,
+    op: &'static str,
+    func: &str,
+) -> Result<String, String> {
     #[derive(Serialize)]
     struct Call<'a> {
         op: &'static str,
@@ -362,8 +404,8 @@ pub fn request(case: &Case, scratch: &Path) -> Result<String, String> {
     }
     let line = |encoding, args: &RawValue, kwargs: &RawValue| {
         serde_json::to_string(&Call {
-            op: "call",
-            func: &case.func,
+            op,
+            func,
             encoding,
             args,
             kwargs,

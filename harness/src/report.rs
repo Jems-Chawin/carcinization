@@ -36,6 +36,12 @@ pub struct Report {
     pub strict: bool,
     pub hash_seed: HashSeed,
     pub summary: Summary,
+    /// Each file of measured calls the suite lists, and which of its calls
+    /// are not among the cases.
+    pub measured: Vec<crate::measured::FileReport>,
+    /// Files named `*.calls.jsonl` in the repository that the suite does
+    /// not list under `measured`: a recording that may have been forgotten.
+    pub calls_files_not_measured: Vec<String>,
     pub checks: Checks,
     pub git: GitReport,
     pub suite: FileHash,
@@ -447,6 +453,8 @@ pub struct Parts<'a> {
     pub original: (&'a Side, &'a Built),
     pub candidate: (&'a Side, &'a Built),
     pub cases: Vec<CaseReport>,
+    pub measured: Vec<crate::measured::FileReport>,
+    pub calls_files_not_measured: Vec<String>,
     pub shared: &'a [PathBuf],
     pub not_in_commit: Vec<crate::commit::NotInCommit>,
     pub cargo_config_outside_repository: Vec<FileHash>,
@@ -747,7 +755,7 @@ fn not_called(side: &Side) -> Vec<String> {
         .collect()
 }
 
-pub fn build(p: Parts) -> Result<Report, String> {
+pub fn build(mut p: Parts) -> Result<Report, String> {
     let mut summary = Summary {
         cases: p.cases.len(),
         ..Summary::default()
@@ -772,6 +780,47 @@ pub fn build(p: Parts) -> Result<Report, String> {
     }
     if summary.errors > 0 {
         reasons.push(format!("{} case(s) failed to run", summary.errors));
+    }
+    let listed = |items: Vec<String>| {
+        let more = items.len().saturating_sub(10);
+        let mut text = items.into_iter().take(10).collect::<Vec<_>>().join(", ");
+        if more > 0 {
+            text += &format!(" and {more} more");
+        }
+        text
+    };
+    let missing: Vec<String> = p
+        .measured
+        .iter()
+        .flat_map(|m| {
+            m.missing
+                .iter()
+                .map(|x| format!("{} ({})", x.source, x.func))
+        })
+        .collect();
+    if !missing.is_empty() {
+        reasons.push(format!(
+            "measured_input_not_compared: {} measured call(s) are not among the cases: {}",
+            missing.len(),
+            listed(missing)
+        ));
+    }
+    let unwaived: Vec<String> = p
+        .measured
+        .iter()
+        .filter(|m| m.not_comparable.is_none())
+        .flat_map(|m| {
+            m.unencodable
+                .iter()
+                .map(|u| format!("{} ({} holds a {})", u.source, u.func, u.holds))
+        })
+        .collect();
+    if !unwaived.is_empty() {
+        reasons.push(format!(
+            "measured_input_not_encodable: {} measured call(s) hold a value the value format does not cover, and the suite gives no \"not_comparable\" reason: {}",
+            unwaived.len(),
+            listed(unwaived)
+        ));
     }
     let functions = function_checks(&p)?;
     for f in functions
@@ -807,6 +856,8 @@ pub fn build(p: Parts) -> Result<Report, String> {
         reasons,
         strict: p.opts.strict,
         hash_seed: p.opts.hash_seed,
+        measured: std::mem::take(&mut p.measured),
+        calls_files_not_measured: std::mem::take(&mut p.calls_files_not_measured),
         summary,
         checks: Checks {
             sides_are_different_code: DistinctCheck {

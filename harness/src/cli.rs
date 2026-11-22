@@ -260,6 +260,35 @@ pub fn main(args: impl Iterator<Item = String>) -> ExitCode {
         println!("    original:  {}", f.original_work);
         println!("    candidate: {}", f.candidate_work);
     }
+    for m in &r.measured {
+        println!(
+            "measured {}: {} call(s), {} among the cases",
+            m.file, m.lines, m.compared
+        );
+        for x in &m.missing {
+            let why = x.why.as_ref().map_or(String::new(), |w| format!(": {w}"));
+            println!("    not a case: {} ({}){why}", x.source, x.func);
+        }
+        if !m.unencodable.is_empty() {
+            let lines: Vec<String> = m
+                .unencodable
+                .iter()
+                .map(|u| format!("{} ({} holds a {})", u.source, u.func, u.holds))
+                .collect();
+            match &m.not_comparable {
+                Some(why) => println!(
+                    "    not comparable, in the author's word: {why}: {}",
+                    lines.join(", ")
+                ),
+                None => println!("    the value format does not cover: {}", lines.join(", ")),
+            }
+        }
+    }
+    for f in &r.calls_files_not_measured {
+        println!(
+            "warning: {f} is named as a file of recorded calls, and the suite does not list it under \"measured\""
+        );
+    }
     let nc = &r.checks.public_functions_not_called;
     for (side, names) in [("original", &nc.original), ("candidate", &nc.candidate)] {
         if !names.is_empty() {

@@ -166,6 +166,13 @@ fn read_by_comparison(
     };
     read.extend(original.into_iter().map(|d| (d, "original")));
     read.extend(suite.shared.iter().filter_map(dir).map(|d| (d, "shared")));
+    read.extend(
+        suite
+            .measured
+            .iter()
+            .filter_map(|m| dir(&m.file))
+            .map(|f| (f, "measured file")),
+    );
     Ok(read)
 }
 

@@ -87,6 +87,50 @@ Rust and not all new:
 
 Both are explained under "What a pass requires".
 
+### Measured inputs
+
+A speed figure is for the inputs it was measured on. If those inputs are not
+among the cases, the comparison says nothing about them. The suite lists the
+files of calls that a measurement recorded, and every recorded call must
+also be a case:
+
+```json
+{
+  "measured": [
+    {"file": "decide/workload.calls.jsonl", "fn": "greedy_path"},
+    {"file": "speed/timing.calls.jsonl",
+     "not_comparable": "the arrays are compared by the port's own test"}
+  ]
+}
+```
+
+- A recorded file is a case file: each line is a case line, written in the
+  typed value format, so the fix for a missing input is to copy its line
+  into the cases. `carcinify decide --record-calls` and `carcinify
+  structure --record-calls` write such files. Name them `*.calls.jsonl`.
+- A line may instead say that the call held a value the format does not
+  cover: `{"id": "call-3", "fn": "f", "unencodable": "numpy.ndarray"}`.
+  Such a line fails the run unless the entry gives `not_comparable`, the
+  author's reason, which the report and the screen print as the author's
+  word.
+- `fn` names the function every line of the file calls, in place of the
+  name each line gives. A measurement of the original may call a private
+  function that the cases reach under a public name.
+- A recorded call matches a case when the original's signature binds both
+  to the same arguments, compared as outputs are: sets in no order, ints by
+  every digit, a list never equal to a tuple, and dict key order counted.
+  So a call by keyword matches a case by position, and a typed line
+  matches a plain-JSON case that holds the same Python value. A dict
+  argument with its keys in another order is another input, and is
+  reported missing.
+- The check runs on the original alone, before any case. A call missing
+  from the cases is listed by `file:line` and function; the verdict is
+  `fail`, with the reason `measured_input_not_compared`. A listed file that
+  is not there stops the run.
+- Any `*.calls.jsonl` file in the repository that the suite does not list
+  gets a warning on the screen and in the report: a recording that may
+  have been made and then forgotten. It does not fail the run.
+
 ### How to lay a port out
 
 ```
@@ -398,7 +442,9 @@ path is deleted before the run starts. Top level:
 | `summary` | counts: `cases`, `identical`, `identical_with_relaxations`, `different`, `errors` |
 | `checks` | `sides_are_different_code` with the rules applied, and `functions`: for each function called, how many cases returned on both sides, raised on both, differed or failed, whether it was `compared_on_a_returned_value`, whether it is `python` or `extension` on each side, the Python calls made while it ran on each side (`own`, `shared`, `other`), and the file (with SHA-256) that defines it on each side; `public_functions_not_called`: each module's own public functions that no case named; `shared`: the declared entries, whether each is inside a side's directory, and the files each side loaded from them; `processes_started`: per side, a count and the first twenty |
 | `git` | commit, `dirty`, the `git status` lines, and `used_but_not_tracked`: files the run used that git does not track |
-| `suite`, `inputs` | SHA-256 of the suite, every case file and every data file |
+| `suite`, `inputs` | SHA-256 of the suite, every case file, every data file and every measured file |
+| `measured` | per listed file: its SHA-256, `fn`, how many calls it holds, how many are among the cases, the `missing` ones by `file:line` and function (with `why` when the original could not bind it), the `unencodable` ones and the type each holds, and `not_comparable` as the suite gives it |
+| `calls_files_not_measured` | `*.calls.jsonl` files in the repository that the suite does not list |
 | `sides` | for each side: interpreter, the project files of the code that ran with their SHA-256, the installed-package files it loaded (`third_party_files`) with theirs, one digest over all of them; for a PyO3 side also the maturin command, the wheel's SHA-256 and a digest of the Cargo workspace's tracked files |
 | `tools` | rustc, cargo, maturin, OS and architecture, SHA-256 of the harness binary and of the Python driver; for a PyO3 build also Cargo and rustup configuration found outside the repository, and the environment variables that change what Cargo builds |
 | `cases` | every case: `identical`, `identical_with_relaxations`, `different` or `error` |
@@ -447,8 +493,8 @@ carcinify diff suite.json --mutants mutants --report out/mutants.json
 - Before anything runs, every patch is checked. It may change only the
   candidate's code: a PyO3 side's Cargo workspace, which holds the crate and
   the crates beside it, or a Python side's `path` directories. Even there it
-  may not change what the comparison reads: the suite, the case and data
-  files, the original's code and the shared directories. It must also
+  may not change what the comparison reads: the suite, the case, data
+  and measured files, the original's code and the shared directories. It must also
   apply. Any failure stops the run, as a bad case file does.
 - The unmutated suite runs first in the clone and must pass.
 - Then, for each patch, the candidate is built and every case is run, all

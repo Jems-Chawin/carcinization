@@ -2650,3 +2650,200 @@ fn a_stopped_run_leaves_the_tree_alone_and_the_next_run_removes_its_clone() {
         .collect();
     assert!(rest.is_empty(), "left in the temporary directory: {rest:?}");
 }
+
+// ---- Measured inputs: the suite's "measured" list ----
+
+/// A repository whose cases are `cases`, with `calls` committed as
+/// `m.calls.jsonl` and listed under "measured" with `entry` added.
+fn measured_repo(cases: &str, calls: &str, entry: &str) -> Repo {
+    let repo = Repo::new(cases);
+    std::fs::write(repo.dir.join("m.calls.jsonl"), calls).unwrap();
+    repo.suite(&format!(
+        r#""cases": ["cases.jsonl"], "measured": [{{"file": "m.calls.jsonl"{entry}}}]"#
+    ));
+    repo.commit();
+    repo
+}
+
+const SIZES_CASES: &str = r#"{"id": "words", "fn": "set_order", "encoding": "typed", "args": [{"t": "set", "v": [{"t": "str", "v": "a"}, {"t": "str", "v": "b"}, {"t": "str", "v": "c"}]}]}
+{"id": "found", "fn": "first_missing", "args": [["a", "y"], {"a": 2, "y": 3}]}
+"#;
+
+fn s(v: &str) -> String {
+    format!(r#"{{"t": "str", "v": "{v}"}}"#)
+}
+
+fn i(v: u32) -> String {
+    format!(r#"{{"t": "int", "v": "{v}"}}"#)
+}
+
+/// A recorded call of `first_missing` with the sizes map written as given.
+fn sizes_call(id: &str, sizes: &[(&str, u32)], by_keyword: bool) -> String {
+    let labels = format!(r#"{{"t": "list", "v": [{}, {}]}}"#, s("a"), s("y"));
+    let map: Vec<String> = sizes
+        .iter()
+        .map(|(k, v)| format!("[{}, {}]", s(k), i(*v)))
+        .collect();
+    let sizes = format!(r#"{{"t": "map", "v": [{}]}}"#, map.join(", "));
+    let (args, kwargs) = if by_keyword {
+        (format!("[{labels}]"), format!(r#"{{"sizes": {sizes}}}"#))
+    } else {
+        (format!("[{labels}, {sizes}]"), "{}".to_string())
+    };
+    format!(
+        r#"{{"id": "{id}", "fn": "first_missing", "encoding": "typed", "args": {args}, "kwargs": {kwargs}}}"#
+    )
+}
+
+#[test]
+fn a_measured_call_that_is_a_case_passes_whatever_its_set_order_or_spelling() {
+    let calls = [
+        // The set in another order.
+        format!(
+            r#"{{"id": "c1", "fn": "set_order", "encoding": "typed", "args": [{{"t": "set", "v": [{}, {}, {}]}}]}}"#,
+            s("c"),
+            s("a"),
+            s("b")
+        ),
+        // Typed, where the case is plain JSON holding the same Python value.
+        sizes_call("c2", &[("a", 2), ("y", 3)], false),
+        // By keyword, where the case passes it by position.
+        sizes_call("c3", &[("a", 2), ("y", 3)], true),
+    ];
+    let repo = measured_repo(SIZES_CASES, &(calls.join("\n") + "\n"), "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    let m = &r.report["measured"][0];
+    assert_eq!(m["file"], "m.calls.jsonl");
+    assert_eq!((&m["lines"], &m["compared"]), (&J::from(3), &J::from(3)));
+    assert_eq!(m["missing"], serde_json::json!([]));
+    assert_eq!(m["sha256"].as_str().unwrap().len(), 64);
+}
+
+#[test]
+fn a_measured_call_missing_from_the_cases_fails_the_run_and_is_listed() {
+    let calls = [
+        sizes_call("same", &[("a", 2), ("y", 3)], false),
+        sizes_call("digit", &[("a", 2), ("y", 4)], false),
+        // Dict key order is part of a value, so this is another input.
+        sizes_call("order", &[("y", 3), ("a", 2)], false),
+    ];
+    let repo = measured_repo(SIZES_CASES, &(calls.join("\n") + "\n"), "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    let missing = &r.report["measured"][0]["missing"];
+    assert_eq!(missing.as_array().unwrap().len(), 2, "{missing}");
+    assert_eq!(missing[0]["source"], "m.calls.jsonl:2");
+    assert_eq!(missing[0]["fn"], "first_missing");
+    assert_eq!(missing[1]["source"], "m.calls.jsonl:3");
+    let reasons = r.report["reasons"].to_string();
+    assert!(reasons.contains("measured_input_not_compared"), "{reasons}");
+    assert!(r.stdout.contains("m.calls.jsonl:2"), "{}", r.stdout);
+    // The cases still ran.
+    assert_eq!(r.report["summary"]["identical"], 2);
+}
+
+#[test]
+fn a_measured_file_that_is_listed_but_missing_stops_the_run() {
+    let repo = Repo::new(SIZES_CASES);
+    repo.suite(r#""cases": ["cases.jsonl"], "measured": [{"file": "gone.calls.jsonl"}]"#);
+    repo.commit();
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(r.stderr.contains("gone.calls.jsonl"), "{}", r.stderr);
+}
+
+#[test]
+fn the_report_hashes_each_measured_file() {
+    let one = sizes_call("c", &[("a", 2), ("y", 3)], false) + "\n";
+    let repo = measured_repo(SIZES_CASES, &one, "");
+    let first = repo.run(&[]).report["measured"][0]["sha256"].clone();
+    std::fs::write(repo.dir.join("m.calls.jsonl"), one.clone() + &one).unwrap();
+    repo.commit();
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_ne!(r.report["measured"][0]["sha256"], first);
+    assert!(
+        r.report["inputs"].to_string().contains("m.calls.jsonl"),
+        "{}",
+        r.report["inputs"]
+    );
+}
+
+#[test]
+fn fn_renames_the_function_a_measured_file_calls() {
+    let cases = r#"{"id": "w", "fn": "set_order", "args": [["a"]]}"#.to_string() + "\n";
+    let calls = r#"{"id": "c", "fn": "_private", "args": [["a"]]}"#.to_string() + "\n";
+    let repo = measured_repo(&cases, &calls, "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    let missing = &r.report["measured"][0]["missing"][0];
+    assert_eq!(missing["fn"], "_private");
+    assert!(
+        missing["why"].as_str().unwrap().contains("_private"),
+        "{missing}"
+    );
+
+    let repo = measured_repo(&cases, &calls, r#", "fn": "set_order""#);
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["measured"][0]["fn"], "set_order");
+    assert_eq!(r.report["measured"][0]["compared"], 1);
+}
+
+#[test]
+fn an_input_the_format_cannot_hold_fails_unless_the_entry_says_why() {
+    let calls = sizes_call("c", &[("a", 2), ("y", 3)], false)
+        + "\n"
+        + r#"{"id": "arr", "fn": "set_order", "unencodable": "numpy.ndarray"}"#
+        + "\n";
+    let repo = measured_repo(SIZES_CASES, &calls, "");
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    assert!(
+        r.report["reasons"]
+            .to_string()
+            .contains("measured_input_not_encodable"),
+        "{}",
+        r.report["reasons"]
+    );
+    assert_eq!(
+        r.report["measured"][0]["unencodable"][0]["source"],
+        "m.calls.jsonl:2"
+    );
+    assert_eq!(
+        r.report["measured"][0]["unencodable"][0]["holds"],
+        "numpy.ndarray"
+    );
+
+    let why = "the arrays are checked by the port's own test";
+    let repo = measured_repo(
+        SIZES_CASES,
+        &calls,
+        &format!(r#", "not_comparable": "{why}""#),
+    );
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_eq!(r.report["measured"][0]["not_comparable"], why);
+    assert!(r.stdout.contains(why), "{}", r.stdout);
+}
+
+#[test]
+fn a_calls_file_left_out_of_the_measured_list_is_warned_about() {
+    let one = sizes_call("c", &[("a", 2), ("y", 3)], false) + "\n";
+    let repo = measured_repo(SIZES_CASES, &one, "");
+    std::fs::create_dir_all(repo.dir.join("speed")).unwrap();
+    std::fs::write(repo.dir.join("speed/timing.calls.jsonl"), &one).unwrap();
+    repo.commit();
+    let r = repo.run(&[]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    assert_eq!(
+        r.report["calls_files_not_measured"],
+        serde_json::json!(["speed/timing.calls.jsonl"])
+    );
+    assert!(
+        r.stdout.contains("warning: speed/timing.calls.jsonl"),
+        "{}",
+        r.stdout
+    );
+}

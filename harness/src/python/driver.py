@@ -372,6 +372,36 @@ def own_class(cls, init):
     return any(origin.startswith(os.path.realpath(d) + os.sep) for d in init["must_load_from"])
 
 
+def bind(module, req, init):
+    """A call's arguments as the function receives them, by parameter name
+    with defaults filled in, so that one call written two ways (by position
+    and by keyword) is one input. Nothing is run."""
+    fn, found = resolve(module, req["fn"], init)
+    if fn is None:
+        return found
+    try:
+        if req["encoding"] == "typed":
+            args = [dec(x) for x in req["args"]]
+            kwargs = {k: dec(x) for k, x in req["kwargs"].items()}
+        else:
+            args, kwargs = req["args"], req["kwargs"]
+    except Exception:
+        return {"status": "bad_input", "detail": traceback.format_exc()}
+    try:
+        bound = inspect.signature(fn).bind(*args, **kwargs)
+    except TypeError as e:
+        return {"status": "bad_call", "detail": "the arguments do not fit the function's signature: %s" % e}
+    except ValueError:  # no signature: compared as written
+        arguments = {"args": tuple(args), "kwargs": kwargs}
+    else:
+        bound.apply_defaults()
+        arguments = dict(bound.arguments)
+    try:
+        return {"status": "bound", "value": enc(arguments)}
+    except Unencodable as e:
+        return {"status": "unencodable", "detail": "a default value is a %s" % e}
+
+
 def call(module, req, init, watch, calls):
     fn, found = resolve(module, req["fn"], init)
     if fn is None:
@@ -557,6 +587,9 @@ def main():
                 "watch": watch.drain(),
             })
             return
+        if req["op"] == "bind":
+            reply(bind(module, req, init))
+            continue
         resp = call(module, req, init, watch, calls)
         resp["watch"] = watch.drain()
         sys.stdout.flush()
