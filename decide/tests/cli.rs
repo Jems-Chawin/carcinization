@@ -44,6 +44,18 @@ def scaled(x, factor=2):
 SETTINGS = {'scale': 1}
 def lookup(key, table=SETTINGS):
     return table.get(key)
+import functools
+def _deco(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        return fn(*args, **kwargs)
+    return wrapper
+@_deco
+def wrapped(x, y=_UNSET):
+    return x
+@functools.lru_cache(maxsize=None)
+def cached(x, y=_UNSET):
+    return x
 def busy_better(n):
     return n
 
@@ -121,6 +133,13 @@ def run_scaled():
 def run_lookup():
     app.SETTINGS['scale'] = 99
     app.lookup('scale', {'scale': 99})
+    return 0
+
+
+def run_decorated():
+    app.wrapped(1)
+    app.wrapped(2, 3)
+    app.cached(1)
     return 0
 
 
@@ -2409,36 +2428,7 @@ fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_c
         ("scaled", "run_scaled", "scaled"),
         ("lookup", "run_lookup", "lookup"),
     ];
-    for (candidate, workload, name) in runs {
-        std::fs::write(
-            repo.0.join(format!("decide-{name}.json")),
-            format!(
-                r#"{{"schema": "carcinify/decide/declaration/2", "project_root": "proj", "workload": {{"description": "a test workload", "file": "proj/workload.py", "function": "{workload}", "args": [], "repeat": 3}}, "candidate": {{"file": "app.py", "function": "{candidate}"}}}}"#
-            ),
-        )
-        .unwrap();
-    }
-    git(&repo.0, &["add", "-A"]);
-    git(&repo.0, &["commit", "-q", "-m", "declarations"]);
-    for (_, _, name) in runs {
-        // Into out/, which is ignored, so the next run still sees a clean tree.
-        let calls = repo.0.join(format!("out/{name}.calls.jsonl"));
-        let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
-            .arg("decide")
-            .arg(repo.0.join(format!("decide-{name}.json")))
-            .arg("--report")
-            .arg(repo.0.join(format!("out/decide-{name}.json")))
-            .arg("--record-calls")
-            .arg(&calls)
-            .output()
-            .unwrap();
-        assert!(
-            calls.exists(),
-            "{}{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
+    record_each(&repo, &runs);
     std::fs::create_dir_all(repo.0.join("rec")).unwrap();
     for (_, _, name) in runs {
         std::fs::copy(
@@ -2506,4 +2496,75 @@ fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_c
             m["file"]
         );
     }
+}
+
+/// Runs decide --record-calls once per (candidate, workload function,
+/// name), each into out/<name>.calls.jsonl, which is ignored, so that the
+/// next run still sees a clean tree.
+fn record_each(repo: &Repo, runs: &[(&str, &str, &str)]) {
+    for (candidate, workload, name) in runs.iter().copied() {
+        std::fs::write(
+            repo.0.join(format!("decide-{name}.json")),
+            format!(
+                r#"{{"schema": "carcinify/decide/declaration/2", "project_root": "proj", "workload": {{"description": "a test workload", "file": "proj/workload.py", "function": "{workload}", "args": [], "repeat": 3}}, "candidate": {{"file": "app.py", "function": "{candidate}"}}}}"#
+            ),
+        )
+        .unwrap();
+    }
+    git(&repo.0, &["add", "-A"]);
+    git(&repo.0, &["commit", "-q", "-m", "declarations"]);
+    for (_, _, name) in runs.iter().copied() {
+        // Into out/, which is ignored, so the next run still sees a clean tree.
+        let calls = repo.0.join(format!("out/{name}.calls.jsonl"));
+        let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+            .arg("decide")
+            .arg(repo.0.join(format!("decide-{name}.json")))
+            .arg("--report")
+            .arg(repo.0.join(format!("out/decide-{name}.json")))
+            .arg("--record-calls")
+            .arg(&calls)
+            .output()
+            .unwrap();
+        assert!(
+            calls.exists(),
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+}
+
+#[test]
+fn record_calls_finds_the_defaults_of_a_candidate_behind_a_decorator() {
+    // The module holds the wrapper; inspect.unwrap reaches the function
+    // through __wrapped__, so the sentinel is left out, not written.
+    let repo = repo(
+        r#""function": "run_decorated", "args": []"#,
+        r#"{"file": "app.py", "function": "wrapped"}"#,
+        "",
+        "",
+    );
+    record_each(
+        &repo,
+        &[
+            ("wrapped", "run_decorated", "wrapped"),
+            ("cached", "run_decorated", "cached"),
+        ],
+    );
+    let read = |name: &str| {
+        std::fs::read_to_string(repo.0.join(format!("out/{name}.calls.jsonl"))).unwrap()
+    };
+    assert_eq!(
+        read("wrapped"),
+        concat!(
+            r#"{"id": "call-1", "fn": "wrapped", "encoding": "typed", "args": [{"t": "int", "v": "1"}], "kwargs": {}}"#,
+            "\n",
+            r#"{"id": "call-2", "fn": "wrapped", "encoding": "typed", "args": [{"t": "int", "v": "2"}, {"t": "int", "v": "3"}], "kwargs": {}}"#,
+            "\n"
+        )
+    );
+    assert_eq!(
+        read("cached"),
+        r#"{"id": "call-1", "fn": "cached", "encoding": "typed", "args": [{"t": "int", "v": "1"}], "kwargs": {}}"#.to_string() + "\n"
+    );
 }

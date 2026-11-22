@@ -869,8 +869,14 @@ def must_leave_out(value, default):
 
 def defaults_of(frame, code):
     """The defaults of the function the frame runs, by parameter name, when
-    the function can be found by its name in its module; none otherwise."""
+    the function can be found by its name in its module, behind any
+    decorator that sets `__wrapped__` (functools.wraps, lru_cache); none
+    otherwise."""
     fn = frame.f_globals.get(code.co_name)
+    try:
+        fn = inspect.unwrap(fn)
+    except ValueError:  # a cycle of __wrapped__
+        pass
     if getattr(fn, "__code__", None) is not code:
         return {}
     positional = code.co_varnames[:code.co_argcount]

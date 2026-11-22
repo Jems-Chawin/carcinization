@@ -131,8 +131,11 @@ called.
      when it compares, so a call written with its defaults still matches a
      case written without them. Two limits: such a default is
      still written, and so reported unencodable by name, when its
-     parameter is positional-only or `*args` follow it; and a method gets
-     no defaults, so all its parameters are written. A call the candidate makes of itself is not recorded: it is
+     parameter is positional-only or `*args` follow it; and a function its
+     module does not hold under its own name (a method, a nested
+     function, a decorator without `__wrapped__`) gets no defaults, so all
+     its parameters are written. A decorator that sets `__wrapped__`
+     (`functools.wraps`, `functools.lru_cache`) is looked through. A call the candidate makes of itself is not recorded: it is
      not an input of the workload.
    - A call that holds a value the format does not cover (an array, an
      instance of a class) is written as
