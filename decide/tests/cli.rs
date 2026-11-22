@@ -35,6 +35,15 @@ def recorded(items, scale=1, *rest, label='x', **extra):
 _UNSET = object()
 def with_sentinel(x, y=_UNSET, label=None):
     return x
+def _total(xs, limit=10):
+    return sum(xs[:limit])
+def total(xs, limit=None):
+    return _total(xs, len(xs) if limit is None else limit)
+def scaled(x, factor=2):
+    return x * factor
+SETTINGS = {'scale': 1}
+def lookup(key, table=SETTINGS):
+    return table.get(key)
 def busy_better(n):
     return n
 
@@ -95,6 +104,23 @@ def run_broken():
 
 
 def run_nothing():
+    return 0
+
+
+def run_total():
+    app._total(list(range(12)))
+    return 0
+
+
+def run_scaled():
+    app.scaled.__defaults__ = (3,)
+    app.scaled(5)
+    return 0
+
+
+def run_lookup():
+    app.SETTINGS['scale'] = 99
+    app.lookup('scale', {'scale': 99})
     return 0
 
 
@@ -2227,12 +2253,14 @@ fn record_calls_writes_each_distinct_call_of_the_candidate_as_it_came_in() {
     let text_value = |v: &str| format!(r#"{{"t": "str", "v": "{v}"}}"#);
     // The list is as it came in, before the call appended to it; the call
     // made twice is one line; calls from inside the candidate are not its
-    // inputs; keyword arguments stay by keyword; a parameter at its default
-    // is left out.
+    // inputs; keyword arguments stay by keyword; defaults are written as
+    // the call received them.
     let expected = [
         format!(
-            r#"{{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{}], "kwargs": {{}}}}"#,
+            r#"{{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{}, {}], "kwargs": {{"label": {}}}}}"#,
             list(&[1, 2]),
+            int(1),
+            text_value("x")
         ),
         format!(
             r#"{{"id": "call-2", "fn": "recorded", "encoding": "typed", "args": [{}, {}], "kwargs": {{"label": {}}}}}"#,
@@ -2241,11 +2269,12 @@ fn record_calls_writes_each_distinct_call_of_the_candidate_as_it_came_in() {
             text_value("y")
         ),
         format!(
-            r#"{{"id": "call-3", "fn": "recorded", "encoding": "typed", "args": [{}, {}, {}, {}], "kwargs": {{"flag": {{"t": "bool", "v": true}}}}}}"#,
+            r#"{{"id": "call-3", "fn": "recorded", "encoding": "typed", "args": [{}, {}, {}, {}], "kwargs": {{"label": {}, "flag": {{"t": "bool", "v": true}}}}}}"#,
             list(&[3]),
             int(2),
             int(5),
             int(6),
+            text_value("x")
         ),
         r#"{"id": "call-4", "fn": "recorded", "unencodable": "builtins.object"}"#.to_string(),
     ];
@@ -2294,12 +2323,12 @@ fn record_calls_sees_a_call_made_in_a_worker_thread() {
     // The call from inside itself, in the same thread, is still left out.
     assert_eq!(
         text,
-        r#"{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{"t": "list", "v": [{"t": "int", "v": "7"}]}], "kwargs": {}}"#.to_string() + "\n"
+        r#"{"id": "call-1", "fn": "recorded", "encoding": "typed", "args": [{"t": "list", "v": [{"t": "int", "v": "7"}]}, {"t": "int", "v": "1"}], "kwargs": {"label": {"t": "str", "v": "x"}}}"#.to_string() + "\n"
     );
 }
 
 #[test]
-fn record_calls_leaves_out_a_parameter_at_its_default_a_sentinel_included() {
+fn record_calls_leaves_out_a_default_it_cannot_write_and_writes_the_rest() {
     let repo = repo(
         r#""function": "run_sentinel", "args": []"#,
         r#"{"file": "app.py", "function": "with_sentinel"}"#,
@@ -2323,13 +2352,13 @@ fn record_calls_leaves_out_a_parameter_at_its_default_a_sentinel_included() {
             String::from_utf8_lossy(&out.stderr)
         )
     });
-    // with_sentinel(1) and with_sentinel(1, label=None) are one call; in
-    // with_sentinel(2, label='k') the sentinel is left out and label goes
-    // by name.
+    // The sentinel is left out, so label goes by name; its default, None,
+    // is written as received: with_sentinel(1) and with_sentinel(1,
+    // label=None) are one call.
     assert_eq!(
         text,
         concat!(
-            r#"{"id": "call-1", "fn": "with_sentinel", "encoding": "typed", "args": [{"t": "int", "v": "1"}], "kwargs": {}}"#,
+            r#"{"id": "call-1", "fn": "with_sentinel", "encoding": "typed", "args": [{"t": "int", "v": "1"}], "kwargs": {"label": {"t": "none"}}}"#,
             "\n",
             r#"{"id": "call-2", "fn": "with_sentinel", "encoding": "typed", "args": [{"t": "int", "v": "2"}], "kwargs": {"label": {"t": "str", "v": "k"}}}"#,
             "\n"
@@ -2360,4 +2389,121 @@ fn record_calls_needs_a_file_named_as_a_recording() {
         "{stderr}"
     );
     assert!(!report.exists(), "a refused run wrote its report");
+}
+
+#[test]
+fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_cannot_match() {
+    // The auditor's three: a private function renamed by `fn` to a public
+    // one with another default; defaults reassigned after definition; a
+    // default dict changed in place. The harness binds with the defaults of
+    // the function it calls, freshly imported, so each call is another
+    // input than the case that looks like it.
+    let repo = repo(
+        r#""function": "run_total", "args": []"#,
+        r#"{"file": "app.py", "function": "_total"}"#,
+        "",
+        "",
+    );
+    let runs = [
+        ("_total", "run_total", "total"),
+        ("scaled", "run_scaled", "scaled"),
+        ("lookup", "run_lookup", "lookup"),
+    ];
+    for (candidate, workload, name) in runs {
+        std::fs::write(
+            repo.0.join(format!("decide-{name}.json")),
+            format!(
+                r#"{{"schema": "carcinify/decide/declaration/2", "project_root": "proj", "workload": {{"description": "a test workload", "file": "proj/workload.py", "function": "{workload}", "args": [], "repeat": 3}}, "candidate": {{"file": "app.py", "function": "{candidate}"}}}}"#
+            ),
+        )
+        .unwrap();
+    }
+    git(&repo.0, &["add", "-A"]);
+    git(&repo.0, &["commit", "-q", "-m", "declarations"]);
+    for (_, _, name) in runs {
+        // Into out/, which is ignored, so the next run still sees a clean tree.
+        let calls = repo.0.join(format!("out/{name}.calls.jsonl"));
+        let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+            .arg("decide")
+            .arg(repo.0.join(format!("decide-{name}.json")))
+            .arg("--report")
+            .arg(repo.0.join(format!("out/decide-{name}.json")))
+            .arg("--record-calls")
+            .arg(&calls)
+            .output()
+            .unwrap();
+        assert!(
+            calls.exists(),
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    std::fs::create_dir_all(repo.0.join("rec")).unwrap();
+    for (_, _, name) in runs {
+        std::fs::copy(
+            repo.0.join(format!("out/{name}.calls.jsonl")),
+            repo.0.join(format!("rec/{name}.calls.jsonl")),
+        )
+        .unwrap();
+    }
+    std::fs::create_dir_all(repo.0.join("port")).unwrap();
+    // The harness refuses two sides of the same content.
+    std::fs::write(repo.0.join("port/app.py"), format!("{APP}# the port\n")).unwrap();
+    std::fs::write(
+        repo.0.join("cases.jsonl"),
+        concat!(
+            r#"{"id": "total-12", "fn": "total", "args": [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]}"#,
+            "\n",
+            r#"{"id": "scaled-5", "fn": "scaled", "args": [5]}"#,
+            "\n",
+            r#"{"id": "lookup-scale", "fn": "lookup", "args": ["scale"]}"#,
+            "\n"
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        repo.0.join("suite.json"),
+        r#"{"schema": "carcinify/diff/suite/1",
+ "original": {"kind": "python", "path": ["proj"], "module": "app"},
+ "candidate": {"kind": "python", "path": ["port"], "module": "app"},
+ "cases": ["cases.jsonl"],
+ "measured": [
+   {"file": "rec/total.calls.jsonl", "fn": "total"},
+   {"file": "rec/scaled.calls.jsonl"},
+   {"file": "rec/lookup.calls.jsonl"}]}"#,
+    )
+    .unwrap();
+    git(&repo.0, &["add", "-A"]);
+    git(&repo.0, &["commit", "-q", "-m", "cases"]);
+    let report = repo.0.join("out/diff.json");
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("diff")
+        .arg(repo.0.join("suite.json"))
+        .arg("--report")
+        .arg(&report)
+        .output()
+        .unwrap();
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let r: J = serde_json::from_str(&std::fs::read_to_string(&report).unwrap()).unwrap();
+    assert_eq!(out.status.code(), Some(1), "{text}");
+    assert_eq!(r["summary"]["identical"], 3, "{text}");
+    assert!(
+        r["reasons"]
+            .to_string()
+            .contains("measured_input_not_compared"),
+        "{text}"
+    );
+    for m in r["measured"].as_array().unwrap() {
+        assert_eq!(
+            (m["lines"].as_u64(), m["compared"].as_u64()),
+            (Some(1), Some(0)),
+            "{}: {text}",
+            m["file"]
+        );
+    }
 }

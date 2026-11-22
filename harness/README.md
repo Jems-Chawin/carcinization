@@ -115,7 +115,11 @@ also be a case:
   word.
 - `fn` names the function every line of the file calls, in place of the
   name each line gives. A measurement of the original may call a private
-  function that the cases reach under a public name.
+  function that the cases reach under a public name. A parameter the
+  recording leaves out (a sentinel default) is read as the default of the
+  function `fn` names; decide writes every other default as the call
+  received it. What remains: a sentinel default that differs between the
+  two functions is not seen.
 - A recorded call matches a case when the original's signature binds both
   to the same arguments, compared as outputs are: sets in no order, ints by
   every digit, a list never equal to a tuple, and dict key order counted.

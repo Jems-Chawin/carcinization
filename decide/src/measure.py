@@ -852,18 +852,19 @@ def enc(v):
 NO_DEFAULT = object()
 
 
-def at_default(value, default):
-    """The value is the parameter's default: the object itself, or one the
-    value format writes the same. As `at_default` in the harness's
-    driver.py, which leaves such a parameter out when it compares."""
-    if default is NO_DEFAULT:
+def must_leave_out(value, default):
+    """The value is the parameter's default object, which the value format
+    cannot hold (a sentinel). Only such a parameter is left out: any other
+    value is written as received, since the harness reads a left-out
+    parameter as the default of the function it calls, freshly imported,
+    which need not be this one's as the workload left it."""
+    if default is NO_DEFAULT or value is not default:
         return False
-    if value is default:
-        return True
     try:
-        return enc(value) == enc(default)
+        enc(default)
     except (Unencodable, RecursionError):
-        return False
+        return True
+    return False
 
 
 def defaults_of(frame, code):
@@ -881,9 +882,8 @@ def defaults_of(frame, code):
 def arguments(frame, code, defaults):
     """A call's arguments from its frame at entry: the named parameters by
     position, keyword-only ones by keyword, then `*args` and `**kwargs`. A
-    parameter at its default is left out, and the named ones after it go
-    by keyword, so that a default the value format cannot hold (a sentinel
-    object) is never written."""
+    parameter at a default the value format cannot hold (a sentinel
+    object) is left out, and the named ones after it go by keyword."""
     names, values = code.co_varnames, frame.f_locals
     positional, kwonly = code.co_argcount, code.co_kwonlyargcount
     varargs = code.co_flags & inspect.CO_VARARGS
@@ -892,14 +892,14 @@ def arguments(frame, code, defaults):
     for i, n in enumerate(names[:positional]):
         # Not when the parameter cannot be named, or arguments follow it
         # by position.
-        if not rest and i >= code.co_posonlyargcount and at_default(values[n], defaults.get(n, NO_DEFAULT)):
+        if not rest and i >= code.co_posonlyargcount and must_leave_out(values[n], defaults.get(n, NO_DEFAULT)):
             by_keyword = True
         elif by_keyword:
             kwargs[n] = enc(values[n])
         else:
             args.append(enc(values[n]))
     for n in names[positional:positional + kwonly]:
-        if not at_default(values[n], defaults.get(n, NO_DEFAULT)):
+        if not must_leave_out(values[n], defaults.get(n, NO_DEFAULT)):
             kwargs[n] = enc(values[n])
     i = positional + kwonly
     if varargs:

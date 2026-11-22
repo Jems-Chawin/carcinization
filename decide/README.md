@@ -122,12 +122,14 @@ called.
      runs, so an argument the candidate changes in place is recorded as it
      came in.
    - Named parameters are written by position, keyword-only ones by
-     keyword, and `*args` and `**kwargs` as they were passed. A parameter
-     whose value is its default (the object itself, or one written the
-     same) is left out, and the named parameters after it go by keyword,
-     so a default the value format cannot hold, such as a sentinel
-     `object()`, need not be written. The harness leaves such a parameter
-     out the same way when it compares. Two limits: such a default is
+     keyword, and `*args` and `**kwargs` as they were passed, defaults
+     included, as the call received them. Only a parameter that holds its
+     own default, where the value format cannot hold that default (a
+     sentinel `object()`), is left out, and the named parameters after it
+     go by keyword. The harness reads a left-out parameter as the default
+     of the function it calls, and leaves out a parameter at its default
+     when it compares, so a call written with its defaults still matches a
+     case written without them. Two limits: such a default is
      still written, and so reported unencodable by name, when its
      parameter is positional-only or `*args` follow it; and a method gets
      no defaults, so all its parameters are written. A call the candidate makes of itself is not recorded: it is
