@@ -2334,9 +2334,22 @@ fn each_kept_mutant_is_reported_killed_or_survived_and_the_tree_is_left_alone() 
     );
     let before = state(&repo);
     let mutants = repo.dir.join("mutants");
-    let r = repo.run(&["--mutants", mutants.to_str().unwrap(), "--hash-seed", "1"]);
+    let tmp = Scratch::new("mutants-tmp");
+    let r = repo.run_with(
+        &base_python(),
+        &["--mutants", mutants.to_str().unwrap(), "--hash-seed", "1"],
+        |c| {
+            c.env("TMPDIR", &tmp.0);
+        },
+    );
     assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
     assert_eq!(state(&repo), before, "the author's tree changed");
+    let left: Vec<_> = std::fs::read_dir(&tmp.0)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name())
+        .collect();
+    assert!(left.is_empty(), "left in the temporary directory: {left:?}");
     let rep = &r.report;
     assert_eq!(rep["schema"], "carcinify/diff/mutants/1");
     assert_eq!(
@@ -2344,10 +2357,7 @@ fn each_kept_mutant_is_reported_killed_or_survived_and_the_tree_is_left_alone() 
         serde_json::json!({"value": 1, "chosen": "given"})
     );
     assert_eq!(rep["base"]["cases"], 2);
-    assert!(
-        !Path::new(rep["scratch"].as_str().unwrap()).exists(),
-        "the scratch clone is still there"
-    );
+    assert!(rep.get("scratch").is_none(), "a removed directory is named");
     let p = |i: usize| &rep["patches"][i];
     assert_eq!(p(0)["file"], "a-drops-a-word.patch");
     assert_eq!(p(0)["result"], "killed");
@@ -2846,4 +2856,128 @@ fn a_calls_file_left_out_of_the_measured_list_is_warned_about() {
         "{}",
         r.stdout
     );
+}
+
+#[test]
+fn a_patch_whose_run_writes_where_a_patch_may_not_is_invalid_and_the_next_is_not() {
+    // The candidate, once patched, writes beside the original when it is
+    // imported: a file Python would load before the original's own.
+    let writes = "import os as _os\nopen(_os.path.join(_os.path.dirname(__file__), '..', 'original', 'orig_extra.py'), 'w').close()\n";
+    let repo = mutant_repo(
+        "mutants",
+        &[
+            (
+                "a-writes",
+                PORT,
+                SET_ORDER,
+                &format!("{SET_ORDER}\n{writes}"),
+                "",
+            ),
+            (
+                "b-drops-a-word",
+                PORT,
+                SET_ORDER,
+                "    return list(set(words))[1:]",
+                "",
+            ),
+        ],
+    );
+    let before = state(&repo);
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 1, "{}{}", r.stdout, r.stderr);
+    let p = &r.report["patches"];
+    assert_eq!(p[0]["result"], "invalid", "{p}");
+    assert!(
+        p[0]["error"]
+            .as_str()
+            .unwrap()
+            .contains("original/orig_extra.py, which the comparison reads (original)"),
+        "{p}"
+    );
+    assert!(
+        r.report["reasons"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("a-writes.patch: invalid")
+    );
+    // What it left was removed before the next patch ran.
+    assert_eq!(p[1]["result"], "killed", "{p}");
+    assert_eq!(state(&repo), before, "the author's tree changed");
+}
+
+#[test]
+fn a_patch_that_renames_what_the_comparison_reads_stops_the_run() {
+    let repo = mutant_repo("mutants", &[("a", PORT, SET_ORDER, "    return []", "")]);
+    let renamed = |from: &str, to: &str| {
+        git(&repo.dir, &["mv", from, to]);
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(&repo.dir)
+            .args(["diff", "--cached", "-M"])
+            .output()
+            .unwrap();
+        git(&repo.dir, &["reset", "-q", "--hard"]);
+        let text = String::from_utf8(out.stdout).unwrap();
+        assert!(text.contains("rename from"), "{text}");
+        text
+    };
+    let cases = renamed("cases.jsonl", "candidate/cases.jsonl");
+    let original = renamed("original/orig.py", "candidate/orig.py");
+    std::fs::write(repo.dir.join("mutants/cases.patch"), cases).unwrap();
+    std::fs::write(repo.dir.join("mutants/original.patch"), original).unwrap();
+    repo.commit();
+    let r = repo.run(&["--mutants", repo.dir.join("mutants").to_str().unwrap()]);
+    assert_eq!(r.code, 2, "{}{}", r.stdout, r.stderr);
+    assert!(
+        r.stderr
+            .contains("cases.patch: changes cases.jsonl, which the comparison reads (case file)"),
+        "{}",
+        r.stderr
+    );
+    assert!(
+        r.stderr.contains(
+            "original.patch: changes original/orig.py, which the comparison reads (original)"
+        ),
+        "{}",
+        r.stderr
+    );
+}
+
+#[test]
+fn mutants_given_relative_to_a_subdirectory_are_read_from_there() {
+    let repo = mutant_repo(
+        "mutants",
+        &[("a", PORT, SET_ORDER, "    return list(set(words))[1:]", "")],
+    );
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .current_dir(repo.dir.join("candidate"))
+        .args(["diff", "../suite.json", "--report", "../out/report.json"])
+        .args(["--python", &base_python(), "--mutants", "../mutants"])
+        .output()
+        .unwrap();
+    let text =
+        String::from_utf8_lossy(&out.stdout).into_owned() + &String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "{text}");
+    let report: J =
+        serde_json::from_str(&std::fs::read_to_string(repo.dir.join("out/report.json")).unwrap())
+            .unwrap();
+    assert_eq!(report["patches"][0]["file"], "a.patch");
+    assert_eq!(report["patches"][0]["result"], "killed");
+}
+
+#[test]
+fn keep_work_keeps_the_scratch_clone_and_names_it() {
+    let repo = mutant_repo(
+        "mutants",
+        &[("a", PORT, SET_ORDER, "    return list(set(words))[1:]", "")],
+    );
+    let r = repo.run(&[
+        "--mutants",
+        repo.dir.join("mutants").to_str().unwrap(),
+        "--keep-work",
+    ]);
+    assert_eq!(r.code, 0, "{}{}", r.stdout, r.stderr);
+    let kept = PathBuf::from(r.report["scratch"].as_str().unwrap());
+    assert!(kept.join("repo/suite.json").exists(), "{}", kept.display());
+    std::fs::remove_dir_all(&kept).unwrap();
 }

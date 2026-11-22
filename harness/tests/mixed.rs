@@ -411,5 +411,51 @@ fn a_mixed_wheel_built_by_maturin_step_by_step() {
     assert_eq!(code, 0, "{stdout}{stderr}");
     assert_eq!(report["patches"][0]["result"], "killed");
     assert_eq!(report["patches"][0]["how"], serde_json::json!(["panicked"]));
-    assert!(!Path::new(report["scratch"].as_str().unwrap()).exists());
+
+    // 10. The auditor's probe: a patch of the candidate alone whose build
+    //     script makes the same change in the original. Both sides then
+    //     agree, and the mutant would survive with nothing different. The
+    //     check of the clone after the run sees the original changed.
+    repo.edit("rs/src/lib.rs", |s| {
+        s.replace("        x * 3\n", "        x * 4\n")
+    });
+    std::fs::write(
+        repo.0.join("rs/build.rs"),
+        "fn main() {\n    let p = concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/../py/orig.py\");\n    let s = std::fs::read_to_string(p).unwrap();\n    std::fs::write(p, s.replace(\"x * 3\", \"x * 4\")).unwrap();\n}\n",
+    )
+    .unwrap();
+    repo.git(&["add", "-N", "rs/build.rs"]);
+    let diff = Command::new("git")
+        .arg("-C")
+        .arg(&repo.0)
+        .arg("diff")
+        .output()
+        .unwrap();
+    repo.git(&["reset", "-q", "rs/build.rs"]);
+    std::fs::remove_file(repo.0.join("rs/build.rs")).unwrap();
+    repo.edit("rs/src/lib.rs", |s| {
+        s.replace("        x * 4\n", "        x * 3\n")
+    });
+    std::fs::create_dir_all(repo.0.join("mutants-build")).unwrap();
+    std::fs::write(repo.0.join("mutants-build/rewrites.patch"), diff.stdout).unwrap();
+    repo.commit();
+    let mutants = repo.0.join("mutants-build");
+    let (code, report, stdout, stderr) = repo.run_with(&["--mutants", mutants.to_str().unwrap()]);
+    assert_eq!(code, 1, "{stdout}{stderr}");
+    let p = &report["patches"][0];
+    assert_eq!(p["result"], "invalid", "{p}");
+    assert!(
+        p["error"]
+            .as_str()
+            .unwrap()
+            .contains("py/orig.py, which the comparison reads (original)"),
+        "{p}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(repo.0.join("py/orig.py"))
+            .unwrap()
+            .matches("x * 3")
+            .count(),
+        1
+    );
 }

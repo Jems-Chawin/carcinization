@@ -490,12 +490,16 @@ carcinify diff suite.json --mutants mutants --report out/mutants.json
   scratch clone of the commit (`git clone --shared`), never to the working
   tree. The tree must be clean, and `--allow-dirty` is refused: the patches
   are against the commit.
-- Before anything runs, every patch is checked. It may change only the
-  candidate's code: a PyO3 side's Cargo workspace, which holds the crate and
-  the crates beside it, or a Python side's `path` directories. Even there it
-  may not change what the comparison reads: the suite, the case, data
-  and measured files, the original's code and the shared directories. It must also
-  apply. Any failure stops the run, as a bad case file does.
+- Before anything runs, every patch is applied in the clone and checked.
+  It must apply, and every path that then differs from the commit (`git
+  status` with renames as a deletion and an addition, untracked and
+  ignored files included) must pass the rule: inside the candidate's code,
+  which is a PyO3 side's Cargo workspace (the crate and the crates beside
+  it) or a Python side's `path` directories, and even there nothing the
+  comparison reads: the suite, the case, data and measured files, the
+  original's code and the shared directories. Any failure stops the run,
+  as a bad case file does. The patch directory is read from where it is
+  given, relative to the current directory.
 - The unmutated suite runs first in the clone and must pass.
 - Then, for each patch, the candidate is built and every case is run, all
   under the same hash seed. A patch is **killed** when any case is not
@@ -505,6 +509,16 @@ carcinify diff suite.json --mutants mutants --report out/mutants.json
   run: the hang has caught it, and the cases after it would each wait out
   `--timeout-secs`. A patch whose candidate does not build or import is
   `did_not_run`. A patch no case catches **survived**.
+- After each patch's run the clone is checked again by the same rule. A
+  build script, a procedural macro or the candidate at run time can write
+  where the patch itself may not: into the original, or a compiled module
+  beside it, which Python imports before the `.py`. Then the comparison
+  did not read what the commit holds, the patch is **invalid**, and the
+  run fails. What it wrote is removed before the next patch; the
+  candidate's ignored target directory passes the rule and is kept.
+- Only the candidate is mutated. A case that fails on the original's side
+  (a time-out on a busy machine, say) makes the patch **invalid**, never
+  killed, and the run fails.
 - Text before a patch's first `diff --git` line is its description, which
   `git apply` ignores. A line there reading `Expected to survive: <reason>`
   marks a mutant that cannot change an answer, such as one that only adds
@@ -512,14 +526,15 @@ carcinify diff suite.json --mutants mutants --report out/mutants.json
   wrong, and the run says so.
 - One target directory, inside the clone, serves every patch, so only the
   port's own crates are rebuilt between patches. The clone and its target
-  are removed when the run ends. A process that is killed cannot clean up
-  after itself; the next run removes clones left by processes that no
-  longer exist.
+  are removed when the run ends; with `--keep-work` they are kept and the
+  report names the clone (`scratch`). A process that is killed cannot
+  clean up after itself; the next run removes clones left by processes
+  that no longer exist.
 
 Exit status: `0` when every patch was killed, except those expected to
 survive, which survived; `1` for a survivor, an expected survivor that was
-killed, or a patch that did not run; `2` when the run could not be carried
-out. The report (`carcinify/diff/mutants/1`) gives the hash seed, the
+killed, a patch that did not run, or an invalid one; `2` when the run could
+not be carried out. The report (`carcinify/diff/mutants/1`) gives the hash seed, the
 commit, the unmutated counts, and per patch its file and SHA-256, the
 result, how it was killed, the cases run, the cases not identical in all
 and per case file, the first few of them, and whether the run stopped at a
@@ -537,13 +552,21 @@ keep these patches; each must be killed:
    no case's answer depends on two numbers above 2^53 that differ by a few
    units. Add such cases, captured from the real caller where it can pass
    them.
-2. **Off by one in addition.** Adding 1 to every sum moves all values of
-   one kind together, so it survives unless a case lands a sum exactly on
-   a bound the code compares it with. Add such a case.
+2. **Off by one in addition.** Add 1 at each addition. A sum then grows by
+   the number of additions in it, so two sums with the same number of
+   terms keep their order. The mutant survives unless some comparison
+   turns on that: two sums with different numbers of terms that tie or are
+   a unit apart, or a sum exactly on a bound the code compares it with.
+   Add such a case.
 3. **Comparison flips.** Turn `>` into `>=` at each bound (and so on). A
    survivor means no case lands exactly on that bound.
-4. **Swapped signs.** Wherever a value can be negative, or so large that
-   the port keeps it as a sign and no more, swap the sign.
+4. **Swapped signs.** Wherever a value can be negative, swap its sign.
+   Where the port does not hold a value but marks it, for instance "larger
+   than any limit", swap the mark.
+5. **Overflow.** Make the fixed-width arithmetic wrap instead of moving to
+   the arbitrary-precision type. If it survives, no case leaves the fixed
+   width.
+6. **Zero.** Remove a check for a zero size or product.
 
 Rounding depends on the order of multiplication. If the port's order
 follows something the hash seed changes, such as labels numbered in set
