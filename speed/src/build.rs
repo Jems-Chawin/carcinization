@@ -178,10 +178,7 @@ fn callers(
     plan["result"] = json!(result_path);
     plan["targets"] = callers
         .iter()
-        .map(|(t, c, path)| {
-            json!({"name": t.name, "calls_per_run": t.calls_per_run,
-            "caller": {"path": path, "function": c.function, "fn": c.func, "replace": c.replace}})
-        })
+        .map(|(t, _, path)| crate::run::caller_target(t, path))
         .collect();
     let result = crate::run::drive(opts, work, &driver, &plan, &result_path)?.ok_or_else(|| {
         format!(

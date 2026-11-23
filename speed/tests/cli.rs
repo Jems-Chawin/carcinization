@@ -939,3 +939,90 @@ fn a_target_names_a_case_or_a_caller() {
         "{err}"
     );
 }
+
+/// Design §1: each side's function is put where the library calls it from,
+/// and the caller is timed.
+#[test]
+fn a_caller_is_timed_with_each_sides_function_in_place() {
+    let declaration = declare_targets(
+        "caller-timed",
+        "suite-python.json",
+        vec![caller("two-naps", "two_naps", "nap")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("unreliable")),
+        "not under the gate: {err}\n{report:#}"
+    );
+    let target = &report["targets"][0];
+    assert!(target["failed"].is_null(), "{target:#}");
+    assert_eq!(target["caller"]["function"], "two_naps", "{target:#}");
+    let ratio = target["ratio"]["median"].as_f64().unwrap();
+    // The port's nap sleeps ten times as long.
+    assert!((0.05..0.2).contains(&ratio), "{ratio}: {target:#}");
+}
+
+#[test]
+fn a_caller_whose_outputs_differ_fails() {
+    let declaration = declare_targets(
+        "caller-differs",
+        "suite-python.json",
+        vec![caller("wrong", "a_wrong", "wrong")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = run(&declaration, &wheels, &[], &[]);
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
+    assert!(failed.starts_with("output_differs: "), "{report:#}");
+}
+
+/// What is timed is what speed build checked: the run records the
+/// original's untimed call again.
+#[test]
+fn a_caller_that_reaches_other_inputs_in_the_run_than_in_the_build_fails() {
+    let declaration = declare_targets(
+        "caller-elsewhere",
+        "suite-python.json",
+        vec![caller("set", "a_nap_set_by_the_environment", "nap")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = run(&declaration, &wheels, &[], &[("SPEED_FIXTURE_NAP", "0")]);
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
+    assert!(failed.starts_with("timed_input_unstable: "), "{report:#}");
+    assert!(report["targets"][0]["ratio"].is_null(), "{report:#}");
+}
+
+/// The compiled port's function put in place of the library's.
+#[test]
+#[ignore = "needs maturin; see the top of this file"]
+fn a_caller_is_timed_with_the_pyo3_ports_function_in_place() {
+    let declaration = declare_targets(
+        "pyo3-caller",
+        "suite.json",
+        vec![caller("two-naps", "two_naps", "nap")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("unreliable")),
+        "{err}\n{report:#}"
+    );
+    assert_eq!(report["build"]["sides"]["candidate"]["kind"], "pyo3");
+    let ratio = report["targets"][0]["ratio"]["median"].as_f64().unwrap();
+    assert!(
+        (0.05..0.2).contains(&ratio),
+        "original ÷ port is {ratio}: {report:#}"
+    );
+}

@@ -8,7 +8,7 @@ use crate::cli::Options;
 use crate::declaration::{self, Loaded};
 use crate::figures::{self, Figures, Run, Side};
 use crate::gate::{self, Gate, Load, Unreliable};
-use carcinify_diff::compare::{Outcome, compare};
+use carcinify_diff::compare::{Outcome, Relax, compare};
 use carcinify_diff::provenance::sha256_file;
 use carcinify_diff::suite::{self, SideSpec};
 use carcinify_diff::value::Value;
@@ -167,6 +167,7 @@ fn run(opts: &Options) -> Result<u8, String> {
     });
     let gate = gate.and_then(|g| g.finish(Duration::from_secs(2 * gate::EVERY)));
 
+    let no_relaxation = Relax::default();
     let mut timed = Vec::new();
     let mut targets = Vec::new();
     for ((t, what), out) in loaded
@@ -176,10 +177,26 @@ fn run(opts: &Options) -> Result<u8, String> {
         .zip(&loaded.timed)
         .zip(result["targets"].as_array().into_iter().flatten())
     {
-        let (Some(declaration::Timed::Case(case)), Some(c)) = (what, &t.case) else {
-            return Err("a refused or caller target was timed".into());
+        // A caller target compares its outputs with no relaxation, the
+        // harness's default, and is held to the calls speed build checked.
+        let (relax, case, caller, built) = match (what, &t.case, &t.caller) {
+            (Some(declaration::Timed::Case(i)), Some(c), None) => {
+                let case = &loaded.cases[*i];
+                let named = json!({"file": c.file, "id": c.id, "source": case.source});
+                (&case.relax, named, J::Null, None)
+            }
+            (Some(declaration::Timed::Caller(_)), None, Some(c)) => {
+                let named = json!({"file": c.file, "function": c.function, "fn": c.func, "replace": c.replace});
+                let built = &record["callers"][&t.name];
+                (
+                    &no_relaxation,
+                    J::Null,
+                    named,
+                    Some((c.func.as_str(), built)),
+                )
+            }
+            _ => return Err("a refused target was timed".into()),
         };
-        let case = &loaded.cases[*case];
         let runs: Vec<Run> = out["runs"]
             .as_array()
             .into_iter()
@@ -195,14 +212,15 @@ fn run(opts: &Options) -> Result<u8, String> {
                 kept_off_the_cpu: r["kept_off_the_cpu"].as_f64().unwrap_or(1.0),
             })
             .collect();
-        let (failed, difference) = check_output(out, case);
+        let (failed, difference) = check_output(out, relax, built);
         let figures = failed.is_none().then(|| figures::figures(&runs));
         let spread = |s: &Option<figures::Spread>| {
             s.as_ref().map(|s| json!({"best": s.best, "median": s.median, "worst": s.worst, "spread": s.spread}))
         };
         targets.push(json!({
             "name": t.name,
-            "case": {"file": c.file, "id": c.id, "source": case.source},
+            "case": case,
+            "caller": caller,
             "calls_per_run": t.calls_per_run,
             "failed": failed,
             "difference": difference,
@@ -319,6 +337,13 @@ fn check_wheels(dir: &Path, loaded: &Loaded) -> Result<J, String> {
 }
 
 /// Runs the driver on every target, and gives its result.
+/// A caller target as the timing driver takes it.
+pub fn caller_target(t: &declaration::Target, path: &Path) -> J {
+    let c = t.caller.as_ref();
+    json!({"name": t.name, "calls_per_run": t.calls_per_run, "caller": {
+        "path": path, "function": c.map(|c| &c.function), "fn": c.map(|c| &c.func), "replace": c.map(|c| &c.replace)}})
+}
+
 /// The plan every run of the timing driver shares: its files, each side as
 /// it imports them (a compiled side's wheel is `wheel_of` the side,
 /// unpacked into `work`), and the shared files. The driver itself, and the
@@ -443,8 +468,9 @@ fn time(
     {
         let case = match timed {
             Some(declaration::Timed::Case(c)) => &loaded.cases[*c],
-            Some(declaration::Timed::Caller(_)) => {
-                return Err("speed run does not time caller targets yet".into());
+            Some(declaration::Timed::Caller(path)) => {
+                targets.push(caller_target(t, path));
+                continue;
             }
             None => return Err("a refused target was timed".into()),
         };
@@ -555,7 +581,10 @@ pub fn drive(
 
 /// Why a target's output fails it, and the first difference: compared as
 /// carcinify diff compares, with the case's own relaxations.
-fn check_output(out: &J, case: &suite::Case) -> (Option<String>, Option<J>) {
+/// Why a timed target failed, if it did, and the first difference between
+/// the sides' outputs, if that was why. A caller target is first held to
+/// the calls of `fn` that speed build recorded and checked (`built`).
+fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<String>, Option<J>) {
     if let Some(timeout) = out["timeout"].as_str() {
         return (Some(format!("timeout: {timeout}")), None);
     }
@@ -575,6 +604,28 @@ fn check_output(out: &J, case: &suite::Case) -> (Option<String>, Option<J>) {
         let last = error.trim_end().lines().last().unwrap_or("");
         return (Some(format!("raised: {last}")), None);
     }
+    if let Some((func, built)) = built {
+        let run = &out["recorded"];
+        let lines: Vec<J> = run["lines"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|l| serde_json::from_str(l.as_str()?).ok())
+            .collect();
+        if run["calls"] != built["calls"] || J::from(lines.clone()) != built["lines"] {
+            return (
+                Some(format!(
+                    "timed_input_unstable: the caller's untimed call in this run reached {func} {} time(s) with {} input(s), where speed build recorded and checked {} with {}: {}",
+                    run["calls"],
+                    lines.len(),
+                    built["calls"],
+                    built["lines"].as_array().map_or(0, Vec::len),
+                    J::from(lines)
+                )),
+                None,
+            );
+        }
+    }
     let outcome = |side: &str| -> Result<Outcome, String> {
         let o = &out["outputs"][side];
         match o["status"].as_str() {
@@ -586,7 +637,7 @@ fn check_output(out: &J, case: &suite::Case) -> (Option<String>, Option<J>) {
         }
     };
     match (outcome("original"), outcome("port")) {
-        (Ok(a), Ok(b)) => match compare(&a, &b, &case.relax) {
+        (Ok(a), Ok(b)) => match compare(&a, &b, relax) {
             Ok(_) => (None, None),
             Err(d) => (
                 Some(format!("output_differs: at {} ({})", d.path, d.kind)),

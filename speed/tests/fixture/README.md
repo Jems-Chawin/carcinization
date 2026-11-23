@@ -20,6 +20,7 @@
   reaches `nap` or `wrong` through its own module, where carcinify speed
   puts each side's function. `two_naps` reaches the case nap-2;
   `a_nap_no_case_has` reaches nap(3), which no case has;
-  `naps_that_change` reaches nap(2) and then nap(0); `a_wrong` reaches
-  wrong-1.
+  `naps_that_change` reaches nap(2) and then nap(0);
+  `a_nap_set_by_the_environment` reaches nap(2), or the nap
+  SPEED_FIXTURE_NAP names; `a_wrong` reaches wrong-1.
 - `outside.jsonl` is a case file that no suite lists.

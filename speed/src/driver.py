@@ -74,6 +74,95 @@ def caller_spec(caller, original):
     }
 
 
+def timed_case(req, fns, out, n, name, harness, log):
+    """A direct target's timed run for a side, after one untimed call of
+    each side, so that the runs are warm, each on its own copy of the case's
+    arguments: if either call changed them, every timed call gets a fresh
+    copy, made before the run."""
+
+    def fresh():
+        """A new copy of the case's arguments, decoded again."""
+        if req["encoding"] == "typed":
+            return [harness.dec(x) for x in req["args"]], {k: harness.dec(x) for k, x in req["kwargs"].items()}
+        return json.loads(json.dumps(req["args"])), json.loads(json.dumps(req["kwargs"]))
+
+    def encoded(args, kwargs):
+        try:
+            return harness.enc((args, kwargs))
+        except Exception:  # no longer a value the format holds
+            return None
+
+    changed = False
+    for side in fns:
+        args, kwargs = fresh()
+        before = encoded(args, kwargs)
+        fns[side](*args, **kwargs)
+        changed = changed or before is None or encoded(args, kwargs) != before
+    out["arguments_changed_by_call"] = changed
+    if changed:
+        log("%s: the call changes its arguments: each call gets a fresh copy, made before its run" % name)
+    args, kwargs = fresh()
+
+    def run(side):
+        fn = fns[side]
+        # The same loop on both sides; the copies are made untimed.
+        calls = [fresh() for _ in range(n)] if changed else [(args, kwargs)] * n
+        gc.collect()
+        log("%s: gc.collect()" % name)
+        start = time.perf_counter()
+        for a, k in calls:
+            result = fn(*a, **k)
+        return (time.perf_counter() - start) / n, result
+
+    return run
+
+
+def timed_caller(caller, fns, out, n, name, measure, log):
+    """A caller target's timed run for a side, with the side's function put
+    in place before it, after one untimed call of the caller with each
+    side's: the original's recorded again, so that what is timed can be held
+    to what speed build checked."""
+    spec = caller_spec(caller, fns["original"])
+    call = measure.load(spec)
+    put_in_place(caller, fns["original"])
+    out["recorded"] = measure.record(spec)
+    put_in_place(caller, fns["port"])
+    call()
+
+    def run(side):
+        put_in_place(caller, fns[side])
+        gc.collect()
+        log("%s: gc.collect()" % name)
+        start = time.perf_counter()
+        for _ in range(n):
+            result = call()
+        return (time.perf_counter() - start) / n, result
+
+    return run
+
+
+def time_sides(out, run, plan, n, name, measure, harness, log):
+    """The sides in pairs of runs, original then port, then port then
+    original, `run(side)` timing each; decide's loop of pure computation
+    timed before and after each run; the output of each side's first timed
+    call encoded."""
+    order = []
+    for k in range(plan["runs"]):
+        order += ["original", "port"] if k % 2 == 0 else ["port", "original"]
+    kept_off = measure.calibrate()
+    for i, side in enumerate(order):
+        seconds, result = run(side)
+        log("%s: run %d %s, %d calls, timed" % (name, i + 1, side, n))
+        after = measure.calibrate()
+        out["runs"].append({"side": side, "seconds_per_call": seconds, "calls": n, "kept_off_the_cpu": max(kept_off, after)})
+        kept_off = after
+        if side not in out["outputs"]:
+            try:
+                out["outputs"][side] = {"status": "returned", "value": harness.enc(result)}
+            except harness.Unencodable as e:
+                out["outputs"][side] = {"status": "unencodable", "detail": str(e)}
+
+
 def main():
     plan = json.load(sys.stdin)
     harness = load_file(plan["harness_driver"], "carcinify_diff_driver")
@@ -108,68 +197,18 @@ def main():
             fns[side] = fn
         if out["refused"]:
             continue
-        if caller:
-            # Two untimed calls of the caller with the original in place,
-            # each recorded by decide's recorder.
-            try:
+        try:
+            if caller and plan.get("record"):
+                # Two untimed calls of the caller with the original in
+                # place, each recorded by decide's recorder.
                 spec = caller_spec(caller, fns["original"])
                 measure.load(spec)  # the caller's directory on sys.path, for its imports
                 put_in_place(caller, fns["original"])
                 out["recorded"] = [measure.record(spec), measure.record(spec)]
-            except BaseException:
-                out["error"] = traceback.format_exc()[-4000:]
-            continue
-        try:
-
-            def fresh():
-                """A new copy of the case's arguments, decoded again."""
-                if req["encoding"] == "typed":
-                    return [harness.dec(x) for x in req["args"]], {k: harness.dec(x) for k, x in req["kwargs"].items()}
-                return json.loads(json.dumps(req["args"])), json.loads(json.dumps(req["kwargs"]))
-
-            def encoded(args, kwargs):
-                try:
-                    return harness.enc((args, kwargs))
-                except Exception:  # no longer a value the format holds
-                    return None
-
-            # One untimed call on each side, so that the runs are warm, on
-            # its own copy: does the call change its arguments?
-            changed = False
-            for side in modules:
-                args, kwargs = fresh()
-                before = encoded(args, kwargs)
-                fns[side](*args, **kwargs)
-                changed = changed or before is None or encoded(args, kwargs) != before
-            out["arguments_changed_by_call"] = changed
-            if changed:
-                log("%s: the call changes its arguments: each call gets a fresh copy, made before its run" % name)
-            args, kwargs = fresh()
-            order = []
-            for k in range(plan["runs"]):
-                order += ["original", "port"] if k % 2 == 0 else ["port", "original"]
-            kept_off = measure.calibrate()
-            for i, side in enumerate(order):
-                fn = fns[side]
-                # The same loop on both sides; the copies are made untimed.
-                calls = [fresh() for _ in range(n)] if changed else [(args, kwargs)] * n
-                gc.collect()
-                log("%s: gc.collect()" % name)
-                start = time.perf_counter()
-                for a, k in calls:
-                    result = fn(*a, **k)
-                seconds = (time.perf_counter() - start) / n
-                log("%s: run %d %s, %d calls, timed" % (name, i + 1, side, n))
-                after = measure.calibrate()
-                out["runs"].append(
-                    {"side": side, "seconds_per_call": seconds, "calls": n, "kept_off_the_cpu": max(kept_off, after)}
-                )
-                kept_off = after
-                if side not in out["outputs"]:
-                    try:
-                        out["outputs"][side] = {"status": "returned", "value": harness.enc(result)}
-                    except harness.Unencodable as e:
-                        out["outputs"][side] = {"status": "unencodable", "detail": str(e)}
+            elif caller:
+                time_sides(out, timed_caller(caller, fns, out, n, name, measure, log), plan, n, name, measure, harness, log)
+            else:
+                time_sides(out, timed_case(req, fns, out, n, name, harness, log), plan, n, name, measure, harness, log)
         except BaseException:  # pyo3's PanicException is a BaseException
             out["error"] = traceback.format_exc()[-4000:]
     gil = getattr(sys, "_is_gil_enabled", lambda: True)()
