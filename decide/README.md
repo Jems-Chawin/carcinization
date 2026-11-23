@@ -138,9 +138,14 @@ called.
      module does not hold under its own name (a method, a nested
      function, a decorator without `__wrapped__`) gets no defaults, so all
      its parameters are written. A decorator that sets `__wrapped__`
-     (`functools.wraps`, `functools.lru_cache`) is looked through. A call
-     the candidate makes of itself is not recorded: it is not an input of
-     the workload.
+     (`functools.wraps`, `functools.lru_cache`) is looked through. Still,
+     `carcinify diff` refuses an `lru_cache` object as a case's function:
+     compare its recording through a function that calls it, named by the
+     measured entry's `fn`. And a call answered from a cache never reaches
+     the function's code, so it is not recorded; a cache filled before the
+     workload started (at import, say) hides those inputs. A call the
+     candidate makes of itself is not recorded: it is not an input of the
+     workload.
    - A call that holds a value the format does not cover (an array, an
      instance of a class) is written as
      `{"id": "call-4", "fn": "f", "unencodable": "numpy.ndarray"}`, named
