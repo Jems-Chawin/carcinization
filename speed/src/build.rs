@@ -61,6 +61,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
     }
     let suite_dir = loaded.suite_path.parent().unwrap_or(Path::new("/"));
     let git = tree(suite_dir, opts.allow_dirty)?;
+    refuse_out_git_sees(out, &git)?;
     let mut shared = Vec::new();
     for entry in &loaded.suite.shared {
         let path = suite_dir.join(entry);
@@ -348,6 +349,46 @@ fn callers(
         );
     }
     Ok((recorded, refused))
+}
+
+/// Refuses an `--out` inside the repository where git does not ignore it:
+/// the wheels written there would leave the tree unlike its commit, and
+/// speed run would refuse it. Checked before anything is built.
+fn refuse_out_git_sees(out: &Path, git: &carcinify_diff::provenance::Git) -> Result<(), String> {
+    let out = std::path::absolute(out).map_err(|e| format!("--out {}: {e}", out.display()))?;
+    // The nearest directory that exists, by its real path as git gives the
+    // root's, then the rest of the path.
+    let mut base = out.as_path();
+    let mut rest = Vec::new();
+    while !base.exists() {
+        rest.extend(base.file_name());
+        base = base
+            .parent()
+            .ok_or_else(|| format!("--out {}: no directory of it exists", out.display()))?;
+    }
+    let mut real = base
+        .canonicalize()
+        .map_err(|e| format!("--out {}: {e}", out.display()))?;
+    real.extend(rest.iter().rev());
+    let Ok(inside) = real.strip_prefix(&git.root) else {
+        return Ok(());
+    };
+    let ignored = !inside.as_os_str().is_empty()
+        && Command::new("git")
+            .arg("-C")
+            .arg(&git.root)
+            .args(["check-ignore", "-q", "--"])
+            .arg(inside)
+            .status()
+            .map_err(|e| format!("cannot run git: {e}"))?
+            .success();
+    if ignored {
+        return Ok(());
+    }
+    Err(format!(
+        "--out {} is inside the repository, where git does not ignore it: the wheels would leave the tree unlike its commit, and speed run would refuse it. Write them under target/ or outside the repository.",
+        out.display()
+    ))
 }
 
 /// The repository holding `dir`, refused as carcinify diff refuses it when

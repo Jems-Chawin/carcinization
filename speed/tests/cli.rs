@@ -726,9 +726,34 @@ fn speed_run_refuses_what_speed_build_did_not_build_for() {
             String::from_utf8_lossy(&out.stderr)
         );
     };
+    std::fs::write(repo.join(".gitignore"), "target/\n").unwrap();
     git(&["init", "-q"]);
     git(&["add", "."]);
     git(&["commit", "-q", "-m", "fixture"]);
+    // RUST-165: wheels written where git sees them would leave the tree
+    // unlike its commit, and speed run would refuse it: refused before
+    // anything is built. Where git ignores them, they may go.
+    for (out, refused) in [
+        (repo.join("wheels"), true),
+        (repo.join("target/wheels"), false),
+    ] {
+        let ran = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+            .args(["speed", "build"])
+            .arg(&declaration)
+            .arg("--out")
+            .arg(&out)
+            .env_remove("GATE_RUN_ID")
+            .output()
+            .unwrap();
+        let err = String::from_utf8_lossy(&ran.stderr);
+        if refused {
+            assert_eq!(ran.status.code(), Some(2), "{err}");
+            assert!(err.contains("target/ or outside the repository"), "{err}");
+            assert!(!out.exists(), "{err}");
+        } else {
+            assert_eq!(ran.status.code(), Some(0), "{err}");
+        }
+    }
     let wheels = dir.join("wheels");
     let report = dir.join("report.json");
     let speed = |step: &str, extra: &[&str]| {
