@@ -2037,6 +2037,7 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
         json!({"allocations": 101, "frees": 101, "bytes": 1600, "live_bytes": 0, "result_bytes": 0}),
         "{err}\n{counts:#}"
     );
+    assert_eq!(counts["first"]["allocations"], 102, "{counts:#}");
     assert_eq!(counts["first"]["live_bytes"], 4096, "{counts:#}");
     assert_eq!(counts["workspace_kept_bytes"], 4096, "{counts:#}");
     // fill's result alone, one int: the call is made as the caller makes
@@ -2477,6 +2478,40 @@ fn a_sides_module_that_python_would_give_the_other_side_is_refused() {
     assert_eq!(
         code, 0,
         "a shared module both import, a standard one neither shadows: {err}"
+    );
+}
+
+/// A side's lone process that never gives its result stops speed build,
+/// naming the side and the target it was calling: here a caller that ends
+/// its process when the port's nap is in place, as only the port's lone
+/// run puts it before anything is timed.
+#[test]
+fn a_lone_process_that_dies_names_its_side_and_target() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-lone-dies");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let mut callers = std::fs::read_to_string(repo.0.join("callers/callers.py")).unwrap();
+    callers += "\n\ndef dies_with_the_port():\n    if library.nap.__module__ != \"speed_orig\":\n        os._exit(3)\n    return library.naps([2])\n";
+    std::fs::write(repo.0.join("callers/callers.py"), callers).unwrap();
+    repo.commit("a caller that ends its process with the port in place");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+    "targets": [
+        {"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2},
+        caller("dies", "dies_with_the_port", "nap"),
+    ]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let _ = std::fs::remove_dir_all(&wheels);
+    let (code, err) = speed_as_given(&[
+        "build",
+        declaration.to_str().unwrap(),
+        "--out",
+        wheels.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("the port alone, in a process of its own, calling target \"dies\": "),
+        "{err}"
     );
 }
 

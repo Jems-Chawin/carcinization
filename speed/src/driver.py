@@ -516,7 +516,7 @@ def main():
                 call = measure.load({"project_root": os.path.dirname(caller["path"]), "workload_file": caller["path"], "function": caller["function"]})
                 put_in_place(caller, fns[lone])
                 with open(plan["calling"], "w") as f:
-                    f.write(lone)
+                    f.write(name)
                 call()
             elif caller and plan.get("record"):
                 # Two untimed calls of the caller with the original in
@@ -528,10 +528,11 @@ def main():
             elif plan.get("record"):
                 # One untimed call of each side, so that speed build sees
                 # what the call imports. The side is written down first, so
-                # that speed build can name it if the call never returns.
+                # that speed build can name it if the call never returns;
+                # alone, where the side is known, the target.
                 for side in fns:
                     with open(plan["calling"], "w") as f:
-                        f.write(side)
+                        f.write(name if lone else side)
                     args, kwargs = case_args(req, harness)
                     fns[side](*args, **kwargs)
             elif plan.get("count"):

@@ -672,8 +672,15 @@ fn callers(
         plan["lone"] = json!(side);
         plan["targets"] = J::Array(lone_targets.clone());
         plan["result"] = json!(path);
-        plan["calling"] = json!(work.join(format!("lone-calling-{side}")));
-        let alone = |why: String| format!("the {side} alone, in a process of its own: {why}");
+        let calling = work.join(format!("lone-calling-{side}"));
+        plan["calling"] = json!(calling);
+        // The driver writes down the target it is about to call.
+        let alone = |why: String| match std::fs::read_to_string(&calling) {
+            Ok(name) => {
+                format!("the {side} alone, in a process of its own, calling target {name:?}: {why}")
+            }
+            Err(_) => format!("the {side} alone, in a process of its own: {why}"),
+        };
         match crate::run::drive(opts, work, &driver, &plan, &path)? {
             crate::run::Driven::Result(r) => {
                 lone.insert(

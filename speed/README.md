@@ -98,7 +98,9 @@ maturin for a PyO3 port; nothing is installed.
   - the process with both sides holds it from a file neither side's path
     gives.
 
-  Rename one module, or make each side a package of its own.
+  Rename one module, or make each side a package of its own. A side's own
+  process that hangs or dies stops speed build (exit 2), naming the side
+  and the target it was calling.
 - **An installed copy of a side's module**, as `maturin develop` leaves in
   the interpreter's `site-packages`, is refused only when a side really
   imports that name and would get another file than the one it gets
@@ -128,8 +130,10 @@ maturin for a PyO3 port; nothing is installed.
   Python caller pays them, with nothing subtracted. The core's counts per
   hot path are in `carcinify structure`'s report (step six).
 - **`tools.carcinify_dirty`** is git's hash of `git diff HEAD` in the tree
-  carcinify was built from, or `clean`. Untracked files are not in it, so
-  a build with a new, untracked source file reads as clean.
+  carcinify was built from, or `clean`. Untracked files are not in it: a
+  new source file counts only through the tracked change that brings it
+  in, such as a `mod` line, so two builds that differ only in an untracked
+  file read the same.
 
 ## On Linux arm64: `ci/linux/speed.sh`
 
@@ -170,7 +174,8 @@ rest.
 ## Tests
 
 ```sh
-cargo test --locked -p carcinify-speed -p carcinify --lib --test speed
+CARCINIFY_PYTHON=$PWD/.venv/bin/python \
+  cargo test --locked -p carcinify-speed -p carcinify --lib --test speed
 CARCINIFY_PYTHON=$PWD/.venv/bin/python CARCINIFY_MATURIN=$PWD/.venv/bin/maturin \
   cargo test --locked -p carcinify --test speed -- --ignored
 ```

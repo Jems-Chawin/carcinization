@@ -134,14 +134,15 @@ every run. A pair with a run whose loop was kept off the CPU for more than
 
   Time again on a quiet machine.
 - `fail` (1): a target failed, for a reason to fix before timing again.
-  Its output differed from the original's
-  (`output_differs`) or could not be compared with it
-  (`output_not_compared`), diff would refuse the function
-  (`function_refused`),
-  a caller's inputs changed between build and run (`timed_input_unstable`),
-  the port raised or answered otherwise in a new thread, it changed its
-  arguments where the original did not, or it ran past the time limit or
-  crashed.
+  A side raised on its case (`raised`); its output differed from the
+  original's (`output_differs`) or could not be compared with it
+  (`output_not_compared`); diff would refuse the function
+  (`function_refused`); a caller's inputs changed between build and run
+  (`timed_input_unstable`); the port raised or answered otherwise in a new
+  thread (`raised_in_new_thread`, `output_differs_in_new_thread`); one
+  side changed its arguments and the other left them as they were,
+  whichever side it was (`arguments_changed_differently`); or it ran past
+  the time limit (`timeout`) or crashed (`crashed`).
 
 `speed run` exits 2 when it was refused or could not be carried out;
 `speed build` exits 1 when it refuses targets and 2 when it cannot run.
@@ -261,6 +262,6 @@ measurements.
   that runs its own threads.
 - The binding's time apart from the core's; the caller's own Python
   outside the call, which is timed but not compared; memory the allocator
-  keeps after a free; peak memory.
+  keeps after a free; the Rust side's peak memory (RSS).
 - Contention inside a virtual machine that the host's load average does
   not see, beyond what the loops around each run catch.

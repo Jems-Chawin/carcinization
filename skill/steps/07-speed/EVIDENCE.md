@@ -60,7 +60,8 @@ records of those runs are not in the repository.
   `an_installed_copy_of_the_ports_module_that_only_the_port_imports_builds`
   (a copy of the port's module, with its `dist-info`, in a scratch venv's
   `site-packages`, with a caller target declared too). The `maturin
-  develop` case itself was not run. Through a caller target:
+  develop` case itself was not run. A side's own process that dies names
+  the side and the target: `a_lone_process_that_dies_names_its_side_and_target`. Through a caller target:
   `a_module_a_side_imports_only_through_a_caller_is_refused` (the
   original's own `colorsys.py`, imported inside the function the caller
   reaches).
@@ -69,7 +70,13 @@ records of those runs are not in the repository.
 
 - **The counting allocator** in the template is the fixture's
   (`speed/tests/fixture/rs/src/lib.rs`), which the tests that need maturin
-  build and count.
+  build and count. The template's code blocks, in scratch crates against
+  the fixture's pyo3, compile with and without the feature in both export
+  forms (the audit of step 8, 2026-11-24), and in both forms for a crate
+  with its own allocator, which, copied as they are, fails with the
+  feature: "cannot define multiple global allocators" (2026-11-24). That
+  the counts do not depend on the allocator under them is reasoned: they
+  count the requests made through `GlobalAlloc`.
 - **Warm, first, workspace.** `the_ports_allocations_are_counted_warm_with_the_first_call_apart`:
   on the fixture's `fill`, the first call makes 102 allocations and keeps
   4,096 live bytes (`workspace_kept_bytes`), a warm call 101 and none
@@ -193,7 +200,9 @@ on the metal.
   - 120 operands: 3.217 and 3.223 against 3.157 and 3.148: 1.02 times,
     alike.
 
-  The predictions were written before the build.
+  C3 was predicted before H's builds (2026-11-23 22:05:54); the
+  confirmation's predictions were written before its window (00:29:23),
+  on H's kept wheels.
 - **On macOS the vectorized loop was not slower.** 2026-11-23, this tool,
   gated 23:15:18 to 23:18:39, clean: apple-m1 forced to vectorize from 4
   words and generic were alike at every size (2.33 ms both at 120
@@ -218,4 +227,5 @@ on the metal.
 - Python before 3.12; Python built without the GIL.
 - Linux x86-64, Windows, and aarch64 machines other than the one above.
 - A caller target on a real port; a real port with the counting
-  allocator; the `#[pymodule] fn` form of the export.
+  allocator; the `#[pymodule] fn` form of the export counted by speed (it
+  compiles and builds).

@@ -80,12 +80,31 @@ mod counting {
 The name and the order of the four values are what speed reads. Inside a
 `#[pymodule] mod`, as in the fixture, the function is exported as it
 stands. A module written as `#[pymodule] fn` adds it there instead, under
-the same `#[cfg]` (this form has not been tried here):
+the same `#[cfg]` (this form has been compiled and built, not yet counted
+by speed):
 
 ```rust
     #[cfg(feature = "count_allocations")]
     m.add_function(wrap_pyfunction!(_speed_allocations, m)?)?;
 ```
+
+## 4. A crate that sets its own allocator
+
+A crate can have only one `#[global_allocator]`, so a crate that already
+sets its own (mimalloc or jemalloc, say) fails to build with the feature:
+"cannot define multiple global allocators". Its own steps aside in the
+counted wheel, in one of two ways:
+
+- Put `#[cfg(not(feature = "count_allocations"))]` on its static. The
+  counted wheel then counts over `System`. The counts are those of the
+  requests the code makes, whichever allocator serves them.
+- Or wrap it: write its attribute as
+  `#[cfg_attr(not(feature = "count_allocations"), global_allocator)]`, and
+  put the static in place of `System` in `Counting`'s three calls, as in
+  `unsafe { crate::OWN.alloc(layout) }`, dropping `System` from the `use`
+  line.
+
+Either way the timed wheel keeps the crate's own allocator.
 
 Without the feature, speed times the port as before, and each target is
 flagged `counts_not_measured`, naming what to add.
