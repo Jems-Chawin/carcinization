@@ -217,6 +217,11 @@ fn quiet(attempt: &mut dyn FnMut() -> (i32, String, J)) -> (i32, String, J) {
     last
 }
 
+/// One `speed run` at a time in this test binary. Each run keeps a driver
+/// and decide's watching process computing without pause; several at once
+/// on one machine make each other's runs busy, and every retry with them.
+static TIMING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 /// `speed run`, with the report beside the declaration.
 fn run(
     declaration: &Path,
@@ -235,7 +240,9 @@ fn run(
         &report,
     ];
     args.extend_from_slice(extra);
+    let one = TIMING.lock().unwrap_or_else(|e| e.into_inner());
     let (code, err) = speed(&args, env);
+    drop(one);
     let json =
         std::fs::read_to_string(&report).map_or(J::Null, |t| serde_json::from_str(&t).unwrap());
     (code, err, json)
