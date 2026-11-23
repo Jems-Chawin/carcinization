@@ -13,8 +13,8 @@ and gives it with its spread, on each platform the users run.
 
 How far each claim here is supported is in `EVIDENCE.md`. In short: the
 tool's checks are tested on its own fixture, and it has timed one real
-port, the einsum port, in a scratch copy during one investigation; nothing
-else yet.
+port, the einsum port, twice: once in a scratch copy during one
+investigation, and once with its own declaration. Nothing else yet.
 
 ## What you hand over
 
@@ -43,8 +43,8 @@ targets. `speed/README.md` has the format.
   function that calls it, in a file in the suite's directory, and name
   the compared function it reaches (`fn`) and the attribute where each
   side's function is put (`replace`). The gain the user sees is this one:
-  on the einsum port, the search alone at 40 operands ran 26 to 28 times
-  faster on macOS, and `np.einsum_path` 6 to 7 times.
+  on the einsum port, on macOS, the search alone at 40 operands ran 31
+  times faster, and `np.einsum_path` 6.8 times.
   - Every input the caller gives the compared function has to be a case
     of the suite. `speed build` calls the caller twice with the original
     in place and records each call; a call that is not a case refuses the
@@ -52,7 +52,7 @@ targets. `speed/README.md` has the format.
     differ (`timed_input_unstable`). Add the missing case to the suite,
     run diff again, then build again.
 - **`runs`** is the number of pairs per target: each side runs that many
-  times. The investigation in `EVIDENCE.md` used 15.
+  times. The einsum port's runs in `EVIDENCE.md` used 15.
 - **`calls_per_run`** is how many calls one run times; the run's figure is
   their mean. A run shorter than about 1 ms is flagged `short_run`, since
   loop and timer overhead start to count: raise it until each run is
@@ -233,7 +233,9 @@ flags:
   crate's build script gives cfgs that differ by interpreter, such as
   pyo3's `Py_3_12`, and they would flag every pair. An option Cargo quoted
   because it holds a space, as `-C 'llvm-args=-a -b'`, is compared only up
-  to its first space. Each target apart is then
+  to its first space, and with its quote, so a link argument Cargo quoted
+  would not match the options left out and would be compared. Cargo and
+  maturin quote one only when it holds a space. Each target apart is then
   `builds_and_platforms_differ`: two builds on two platforms, and
   `--compare` cannot say which one made the difference.
 - `interpreters_differ`: the two Pythons differ in version,

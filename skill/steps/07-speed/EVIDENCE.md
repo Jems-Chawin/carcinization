@@ -44,7 +44,8 @@ records of those runs are not in the repository.
   `a_caller_refused_for_an_input_no_case_has_passes_with_the_case_added`,
   `a_caller_is_timed_with_each_sides_function_in_place`,
   `a_caller_that_reaches_other_inputs_in_the_run_than_in_the_build_fails`.
-  Caller targets have been run on the fixture only.
+  Caller targets have been run on the fixture and on one real port
+  (below).
 - **The build record holds the run.** `speed_run_refuses_wheels_that_speed_build_did_not_write`
   and `speed_run_refuses_what_speed_build_did_not_build_for`.
 - **`--out` inside the repository.** Refused before anything is built
@@ -66,7 +67,7 @@ records of those runs are not in the repository.
   original's own `colorsys.py`, imported inside the function the caller
   reaches).
 
-## The counts: tested on the fixture, not on a real port
+## The counts: tested on the fixture, read on one real port
 
 - **The counting allocator** in the template is the fixture's
   (`speed/tests/fixture/rs/src/lib.rs`), which the tests that need maturin
@@ -94,9 +95,12 @@ records of those runs are not in the repository.
   the cases `options-odd-key`, `options-nfkc-key` and `options-debug-key`.
 - **Refusals.** `a_timed_wheel_built_with_count_allocations_is_refused`;
   `a_python_port_is_not_counted`.
-- **No real port carries the allocator yet.** The einsum port's runs
-  below are all flagged `counts_not_measured`. Whether the counts read as
-  intended on real code is unknown until one does.
+- **One real port carries the allocator:** the einsum port (below), in
+  the template's `#[pymodule] mod` form. The workspace its first call
+  keeps, 2,608 bytes at 40 operands and 11,360 at 120, equals what its
+  design note gives for the two networks (`Workspace::retained_bytes`),
+  and it did not grow over 16 warm calls. The counts were the same on
+  macOS and Linux arm64. How they read on other ports is not known.
 
 ## The cold thread: tested on the fixture
 
@@ -105,16 +109,20 @@ port) and `the_cheap_call_leaves_the_pyo3_ports_workspace_to_the_first_real_call
 (PyO3), with `a_function_with_no_required_parameter_needs_speed_noop_for_its_cold_thread`.
 The fixture's first call in a thread sleeps 50 ms to make its workspace.
 At 5 ms the PyO3 test once failed under load: sleeps of 20 ms woke 2 to
-12 ms late (bd87f2e). A real port's first-call cost has not been measured
-with it.
+12 ms late (bd87f2e). On one real port, the einsum port (below), cold
+minus warm over 15 threads per platform had a median of +2.9 µs on macOS
+and +3.0 µs on Linux arm64 at 40 operands, and of −9.1 and +78.7 µs at
+120 operands, where the threads ranged from −239 to +29 µs and from −76
+to +265 µs.
 
 ## `--compare`: tested on hand-written reports, run on real ones
 
-- Ten tests on hand-written report JSON: ratios 30% apart flag and 10%
-  apart do not; the order of the two reports changes nothing; two
+- Eleven tests on hand-written report JSON: ratios 30% apart flag and
+  10% apart do not; the order of the two reports changes nothing; two
   interpreters, two commits, other measuring code, a missing target, a
   report that did not pass; three significant figures below 1, and an
-  `apart` beside the threshold; `builds_differ` and
+  `apart` beside the threshold; each build's target CPU and feature count
+  printed beside the flag; `builds_differ` and
   `builds_and_platforms_differ` for two reports that differ only in
   RUSTFLAGS, and `builds_differ` for two that differ only in the options
   rustc ran with.
@@ -131,7 +139,8 @@ with it.
   build's options added, `--compare` flags `platform_dependent` at 120 and
   270 operands and no `builds_differ` (2026-11-24).
 - **1.25 is a first value, and arbitrary.** It was not derived from data.
-  On the einsum port's reports (below), one set of flags on both platforms
+  On the einsum port's reports from the investigation (below), one set of
+  flags on both platforms
   (the apple-m1 tuning made to vectorize from 4 words) gave 1.03 apart at
   40 operands, 3.37 at 120 and 4.95 at 270.
 - On those reports, Linux's generic build with `-C no-vectorize-loops`
@@ -155,18 +164,35 @@ the gated `speed run` ended it in 1 s with 143 and no report; TERM to the
 script's PID alone ended it 62 s later, with 143 beside a complete
 report, as bash runs a trap only when its foreground command returns.
 
-## Real use: one port, in a scratch copy, during one investigation
+## Real use: one port, twice
 
-The tool has timed one real port: the einsum port of the README at the top
-of the repository, in a scratch clone with one scratch commit adding the
-cases, with three direct targets (40, 120 and 270 operands), 15 runs, and
-carcinify 0913eb5, on 2026-11-23 and 24. No caller target, and no port's
-own `speed.json`, has been run on a real port yet.
+The tool has timed one real port, the einsum port of the README at the
+top of the repository, twice:
 
-The figures `STEP.md` quotes for a caller target (26 to 28 times on the
-search at 40 operands on macOS, 6 to 7 times through `np.einsum_path`)
-are the README's, taken before this tool with the port's own timing
-script.
+- **During one investigation** (the Linux aarch64 lines below): in a
+  scratch clone with one scratch commit adding the cases, with three
+  direct targets (40, 120 and 270 operands), 15 runs, and carcinify
+  0913eb5, on 2026-11-23 and 24.
+- **With its own declaration**, on 2026-11-24: the port's own
+  `speed.json`, with two direct targets (the search at 40 and 120
+  operands) and one caller target (`np.einsum_path`, NumPy 2.5.4, each
+  side's function put in place of NumPy's `_greedy_path`); the template's
+  allocator; carcinify e6712e1, 15 runs, one gated window per platform
+  (macOS from 02:39:54, Linux arm64 in Docker from 02:51:04). Both
+  reports pass with no flag. `--compare` flags `platform_dependent` at 120
+  operands only, and `interpreters_differ` (CPython 3.12.13 and 3.13.5).
+
+The figures `STEP.md` quotes are from the second. On macOS the search
+alone at 40 operands ran 31.4 times faster, and `np.einsum_path` 6.80
+times; on Linux arm64, 28.1 and 5.85. They are in speed's setting: the
+decoded case gives each occurrence of a label a string of its own. The
+port's earlier timing script shared one string per label, which made the
+original faster; it gave 28.4 and 6.7 on macOS. That the shared strings
+are the cause was measured on macOS only, in one process timing the
+original on both settings in turn: the decoded case took 1.21 times as
+long at 120 operands, and 1.12 times at 40. Through `np.einsum_path`
+the labels are ASCII letters, which CPython keeps as one object each,
+and the tool and the script agree (6.80 and 6.7).
 
 ## The Linux aarch64 lines: one machine, one port
 
@@ -226,6 +252,7 @@ on the metal.
 
 - Python before 3.12; Python built without the GIL.
 - Linux x86-64, Windows, and aarch64 machines other than the one above.
-- A caller target on a real port; a real port with the counting
+- A second real port, for caller targets and for the counting
   allocator; the `#[pymodule] fn` form of the export counted by speed (it
-  compiles and builds).
+  compiles and builds); a crate with its own allocator counted by speed
+  (the template's two forms for it compile).
