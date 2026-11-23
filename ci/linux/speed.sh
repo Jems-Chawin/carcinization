@@ -75,8 +75,10 @@ tools=(-e CARCINIFY_PYTHON=/work/venv/bin/python -e CARCINIFY_MATURIN=/work/venv
 [ -z "${RUSTFLAGS:-}" ] || tools+=(-e RUSTFLAGS)
 speed=/work/carc/target/debug/carcinify
 # speed's own status, passed through; but 2 when the cap has ended the
-# container, where docker exec's 1 would read as speed's fail.
-ran() { docker inspect "$c" > /dev/null 2>&1 || exit 2; exit "$1"; }
+# container, where docker exec's 1 or 137 would read as speed's fail or a
+# crash. Docker still knows a container the cap has just ended, so running
+# is asked, not known.
+ran() { [ "$(docker inspect -f '{{.State.Running}}' "$c" 2> /dev/null)" = true ] || exit 2; exit "$1"; }
 docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels" || ran $?
 LOG=$log "$carc/ci/gate.sh" docker exec -e GATE_RUN_ID "${tools[@]}" "$c" \
   "$speed" speed run "$decl" --wheels "$out/wheels" --report "$out/report.json" \
