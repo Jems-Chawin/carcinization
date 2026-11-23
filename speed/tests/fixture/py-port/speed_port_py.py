@@ -2,11 +2,20 @@
 
 import os
 import signal
+import threading
 import time
 from os.path import basename  # not this module's own code
 
 
+# Each thread's workspace, made on its first nap in 5 ms, as a real port's
+# buffers take time to set up: what carcinify speed's cold thread measures.
+_thread = threading.local()
+
+
 def nap(ms):
+    if not getattr(_thread, "workspace", False):
+        time.sleep(0.005)
+        _thread.workspace = True
     if ms:
         time.sleep(10 * ms / 1000)
     return ms
@@ -40,3 +49,7 @@ def first(xs):
 
 def size(s):
     return len(s)
+
+
+def zero():
+    return 0

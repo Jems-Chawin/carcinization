@@ -98,6 +98,15 @@ pub fn figures(runs: &[Run]) -> Figures {
     }
 }
 
+/// Design §2, the cold thread: the port's first call in a new thread minus
+/// its next there, per thread as `(cold, warm)` seconds; median, lowest and
+/// highest.
+pub fn cold_minus_warm(threads: &[(f64, f64)]) -> Option<(f64, f64, f64)> {
+    let mut differences: Vec<f64> = threads.iter().map(|(cold, warm)| cold - warm).collect();
+    differences.sort_by(f64::total_cmp);
+    median(&differences).map(|m| (m, differences[0], differences[differences.len() - 1]))
+}
+
 /// The median of sorted values.
 fn median(sorted: &[f64]) -> Option<f64> {
     let n = sorted.len();
@@ -181,5 +190,18 @@ mod tests {
         // 10 calls of 0.09 ms: 0.9 ms.
         assert!(figures(&[run(O, 0.09, 0.0), run(P, 1.0, 0.0)]).short_run);
         assert!(!figures(&[run(O, 0.1, 0.0), run(P, 1.0, 0.0)]).short_run);
+    }
+
+    #[test]
+    fn cold_minus_warm_is_taken_within_each_thread() {
+        // Thread 2 ran slower all through: within each thread, 4, 5 and 6 ms.
+        let threads = [(0.009, 0.005), (0.035, 0.030), (0.010, 0.004)];
+        let (median, low, high) = cold_minus_warm(&threads).unwrap();
+        assert!(
+            (median - 0.005).abs() < 1e-12
+                && (low - 0.004).abs() < 1e-12
+                && (high - 0.006).abs() < 1e-12
+        );
+        assert_eq!(cold_minus_warm(&[]), None);
     }
 }

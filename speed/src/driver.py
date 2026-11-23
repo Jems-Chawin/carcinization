@@ -11,8 +11,10 @@ imported side by side. For each target, after one untimed call of each
 side, the sides alternate in pairs of runs, original then port, then port
 then original (ABBA). A run is `calls_per_run` calls, timed together, after
 an untimed gc.collect(); a loop of pure computation (decide's) is timed
-before and after each run. The driver judges nothing: the figures are
-carcinify speed's.
+before and after each run. Then the cold thread: in new threads, a cheap
+call into the port's module, then the port's first call there and its next,
+each timed alone. The driver judges nothing: the figures are carcinify
+speed's.
 
 The arguments are decoded, and the outputs encoded, by carcinify diff's own
 driver. Runs on Python 3.9 and later. Standard library only.
@@ -26,6 +28,7 @@ import os
 import platform
 import sys
 import sysconfig
+import threading
 import time
 import traceback
 
@@ -105,7 +108,7 @@ def timed_case(req, fns, out, n, name, harness, log):
         log("%s: the call changes its arguments: each call gets a fresh copy, made before its run" % name)
     args, kwargs = fresh()
 
-    def run(side):
+    def run(side, n=n):
         fn = fns[side]
         # The same loop on both sides; the copies are made untimed.
         calls = [fresh() for _ in range(n)] if changed else [(args, kwargs)] * n
@@ -131,7 +134,7 @@ def timed_caller(caller, fns, out, n, name, measure, log):
     put_in_place(caller, fns["port"])
     call()
 
-    def run(side):
+    def run(side, n=n):
         put_in_place(caller, fns[side])
         gc.collect()
         log("%s: gc.collect()" % name)
@@ -141,6 +144,51 @@ def timed_caller(caller, fns, out, n, name, measure, log):
         return (time.perf_counter() - start) / n, result
 
     return run
+
+
+def cold_thread(out, run, module, fn, threads, name, log):
+    """Design §2: in each of `threads` new threads, a cheap call into the
+    port's module, untimed, then the port's first call there (cold) and its
+    next (warm), each timed alone by `run`. The thread's start is not
+    timed. The cheap call is the module's _speed_noop if it exports one,
+    else the compared function with no arguments, which must raise
+    TypeError while its arguments are parsed, before its body runs."""
+    noop = getattr(module, "_speed_noop", None)
+    cold = out["cold_thread"] = {
+        "cheap_call": "_speed_noop" if noop else "the compared function with no arguments",
+        "threads": [],
+        "not_measured": None,
+    }
+
+    def cheap():
+        if noop:
+            noop()
+            return None
+        try:
+            fn()
+        except TypeError:
+            return None
+        except Exception as e:
+            return "the compared function with no arguments raised %s, not TypeError, so its body may have run and warmed the thread: export _speed_noop from the port's module" % type(e).__name__
+        return "the compared function with no arguments ran, so it would warm the thread: export _speed_noop from the port's module"
+
+    def thread():
+        try:
+            cold["not_measured"] = cheap()
+            if cold["not_measured"] is None:
+                first, _ = run("port", 1)
+                cold["threads"].append({"cold": first, "warm": run("port", 1)[0]})
+        except BaseException:  # pyo3's PanicException is a BaseException
+            cold["not_measured"] = "a call in the new thread raised:\n" + traceback.format_exc()[-2000:]
+
+    for _ in range(threads):
+        t = threading.Thread(target=thread)
+        t.start()
+        t.join()
+        if cold["not_measured"]:
+            cold["threads"] = []
+            break
+    log("%s: cold thread, %d threads" % (name, len(cold["threads"])))
 
 
 def time_sides(out, run, plan, n, name, measure, harness, log):
@@ -184,7 +232,7 @@ def main():
     for target in plan["targets"]:
         name, n, caller = target["name"], target["calls_per_run"], target.get("caller")
         req = target.get("request")
-        out = {"name": name, "runs": [], "outputs": {}, "error": None, "refused": None, "arguments_changed_by_call": None}
+        out = {"name": name, "runs": [], "outputs": {}, "error": None, "refused": None, "arguments_changed_by_call": None, "cold_thread": None}
         targets.append(out)
         # The function as carcinify diff finds it, by its rules: only the
         # module's own public functions, compiled ones in a wheel.
@@ -205,10 +253,13 @@ def main():
                 measure.load(spec)  # the caller's directory on sys.path, for its imports
                 put_in_place(caller, fns["original"])
                 out["recorded"] = [measure.record(spec), measure.record(spec)]
-            elif caller:
-                time_sides(out, timed_caller(caller, fns, out, n, name, measure, log), plan, n, name, measure, harness, log)
             else:
-                time_sides(out, timed_case(req, fns, out, n, name, harness, log), plan, n, name, measure, harness, log)
+                if caller:
+                    run = timed_caller(caller, fns, out, n, name, measure, log)
+                else:
+                    run = timed_case(req, fns, out, n, name, harness, log)
+                time_sides(out, run, plan, n, name, measure, harness, log)
+                cold_thread(out, run, modules["port"], fns["port"], plan["runs"], name, log)
         except BaseException:  # pyo3's PanicException is a BaseException
             out["error"] = traceback.format_exc()[-4000:]
     gil = getattr(sys, "_is_gil_enabled", lambda: True)()

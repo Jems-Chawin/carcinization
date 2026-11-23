@@ -39,3 +39,7 @@ def first(xs):
 
 def size(s):
     return len(s)
+
+
+def zero():
+    return 0

@@ -39,6 +39,8 @@ pub struct Timed {
     /// The share of its time the process computing beside the target's
     /// timing was kept off the CPU; `None` when no watch was kept.
     pub kept_off_beside: Option<f64>,
+    /// Why the cold thread could not be measured.
+    pub cold_not_measured: Option<String>,
 }
 
 /// The verdict, its exit status, the reasons (every target's, each by its
@@ -81,6 +83,9 @@ pub fn judge(
     for t in targets {
         if t.figures.as_ref().is_some_and(|f| f.short_run) {
             flags.push(format!("short_run: {}", t.name));
+        }
+        if let (Some(_), Some(why)) = (&t.figures, &t.cold_not_measured) {
+            flags.push(format!("cold_thread_not_measured: {}: {why}", t.name));
         }
         if t.figures.is_some() && t.kept_off_beside.is_none() {
             flags.push(format!(
@@ -270,6 +275,25 @@ fn run(opts: &Options) -> Result<u8, String> {
             .collect();
         let (failed, difference) = check_output(out, relax, built);
         let figures = failed.is_none().then(|| figures::figures(&runs));
+        let cold = &out["cold_thread"];
+        let threads: Vec<(f64, f64)> = cold["threads"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|t| {
+                (
+                    t["cold"].as_f64().unwrap_or(f64::NAN),
+                    t["warm"].as_f64().unwrap_or(f64::NAN),
+                )
+            })
+            .collect();
+        let cold_thread = (!cold.is_null()).then(|| json!({
+            "cheap_call": cold["cheap_call"],
+            "threads": threads.len(),
+            "cold_minus_warm": figures::cold_minus_warm(&threads).map(|(median, low, high)| json!({"median": median, "low": low, "high": high})),
+            "per_thread": cold["threads"],
+            "not_measured": cold["not_measured"],
+        }));
         let spread = |s: &Option<figures::Spread>| {
             s.as_ref().map(|s| json!({"best": s.best, "median": s.median, "worst": s.worst, "spread": s.spread}))
         };
@@ -286,6 +310,7 @@ fn run(opts: &Options) -> Result<u8, String> {
             "pairs": figures.as_ref().map(|f| f.pairs),
             "pairs_dropped": figures.as_ref().map(|f| f.pairs_dropped),
             "short_run": figures.as_ref().map(|f| f.short_run),
+            "cold_thread": cold_thread,
             "runs": out["runs"],
             "watched_beside": out["watched_beside"],
             "arguments_changed_by_call": out["arguments_changed_by_call"],
@@ -295,6 +320,7 @@ fn run(opts: &Options) -> Result<u8, String> {
             failed,
             figures,
             kept_off_beside: out["watched_beside"]["kept_off_the_cpu"].as_f64(),
+            cold_not_measured: cold["not_measured"].as_str().map(String::from),
         });
     }
     let (verdict, exit_status, reasons, flags) = judge(&timed, &gate);
@@ -822,6 +848,7 @@ mod tests {
                 short_run,
             }),
             kept_off_beside: Some(0.0),
+            cold_not_measured: None,
         }
     }
 

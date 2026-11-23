@@ -9,3 +9,4 @@
 {"id": "crash-1", "fn": "crash", "args": [1]}
 {"id": "first-1", "fn": "first", "args": [[1, 2, 3]]}
 {"id": "size-letters", "fn": "size", "encoding": "typed", "args": [{"t": "set", "v": [{"t": "str", "v": "a"}, {"t": "str", "v": "b"}, {"t": "str", "v": "c"}, {"t": "str", "v": "d"}, {"t": "str", "v": "e"}, {"t": "str", "v": "f"}, {"t": "str", "v": "g"}, {"t": "str", "v": "h"}]}]}
+{"id": "zero", "fn": "zero", "args": []}

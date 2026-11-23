@@ -1434,3 +1434,157 @@ fn a_side_or_a_callers_file_outside_the_repository_is_refused() {
         );
     }
 }
+
+/// Design §2, step 5: in each of `runs` new threads, a cheap call into the
+/// port's module, then the port's first call there (cold) and its next
+/// (warm), each timed alone. The fixture's port makes a workspace on a
+/// thread's first nap, in 5 ms.
+#[test]
+fn a_cold_thread_is_reported_as_cold_minus_warm_paired_per_thread() {
+    let declaration = declare(
+        "cold",
+        "suite-python.json",
+        &[("nap", "cases.jsonl", "nap-2")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("unreliable")),
+        "{err}\n{report:#}"
+    );
+    let cold = &report["targets"][0]["cold_thread"];
+    assert_eq!(
+        cold["cheap_call"], "the compared function with no arguments",
+        "{cold:#}"
+    );
+    assert_eq!(cold["threads"], 3, "{cold:#}");
+    let median = cold["cold_minus_warm"]["median"]
+        .as_f64()
+        .unwrap_or(f64::NAN);
+    assert!((0.002..0.05).contains(&median), "{median}: {cold:#}");
+}
+
+/// A call with no arguments would run a function that needs none, and warm
+/// the thread: such a port exports _speed_noop for the cheap call.
+#[test]
+fn a_function_with_no_required_parameter_needs_speed_noop_for_its_cold_thread() {
+    let declaration = declare(
+        "cold-zero",
+        "suite-python.json",
+        &[("zero", "cases.jsonl", "zero")],
+    );
+    let wheels = built(&declaration);
+    let (_, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    let flags: Vec<&str> = report["flags"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        flags
+            .iter()
+            .any(|f| f.starts_with("cold_thread_not_measured: zero: ")),
+        "{err}\n{report:#}"
+    );
+    assert!(
+        report["targets"][0]["cold_thread"]["cold_minus_warm"].is_null(),
+        "{report:#}"
+    );
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-cold-noop");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let port = repo.0.join("py-port/speed_port_py.py");
+    let text = std::fs::read_to_string(&port).unwrap();
+    std::fs::write(&port, text + "\n\ndef _speed_noop():\n    pass\n").unwrap();
+    repo.commit("the port exports _speed_noop");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "zero", "case": {"file": "cases.jsonl", "id": "zero"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let (d, w, r) = (
+        declaration.to_str().unwrap().to_string(),
+        dir.join("wheels").to_str().unwrap().to_string(),
+        dir.join("report.json").to_str().unwrap().to_string(),
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w]);
+    assert_eq!(code, 0, "{err}");
+    let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r]);
+    assert_eq!(code, 1, "unreliable, not under the gate: {err}");
+    let report = read(Path::new(&r));
+    let cold = &report["targets"][0]["cold_thread"];
+    assert_eq!(cold["cheap_call"], "_speed_noop", "{cold:#}");
+    assert!(cold["cold_minus_warm"]["median"].is_f64(), "{cold:#}");
+}
+
+/// Design §10 step 5, on the PyO3 port: the cheap call, with no arguments,
+/// raises while PyO3 parses the arguments, before the body takes the
+/// thread's workspace; the first real call takes it.
+#[test]
+#[ignore = "needs maturin; see the top of this file"]
+fn the_cheap_call_leaves_the_pyo3_ports_workspace_to_the_first_real_call() {
+    let declaration = declare(
+        "pyo3-cold",
+        "suite.json",
+        &[("nap", "cases.jsonl", "nap-2")],
+    );
+    let wheels = built(&declaration);
+    let wheel = std::fs::read_dir(&wheels)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .find(|p| p.extension().is_some_and(|e| e == "whl"))
+        .unwrap();
+    let unpacked = declaration.with_file_name("unpacked");
+    let python = std::env::var("CARCINIFY_PYTHON").unwrap_or_else(|_| "python3".into());
+    let unzip = Command::new(&python)
+        .args(["-I", "-m", "zipfile", "-e"])
+        .arg(&wheel)
+        .arg(&unpacked)
+        .status()
+        .unwrap();
+    assert!(unzip.success());
+    let script = r"
+import sys, threading
+sys.path.insert(0, sys.argv[1])
+import speed_port
+seen = []
+def thread():
+    before = speed_port.workspaces()
+    try:
+        speed_port.nap()
+    except TypeError:
+        pass
+    cheap = speed_port.workspaces()
+    speed_port.nap(0)
+    first = speed_port.workspaces()
+    speed_port.nap(0)
+    seen.append((before, cheap, first, speed_port.workspaces()))
+t = threading.Thread(target=thread)
+t.start()
+t.join()
+print(seen[0])
+";
+    let out = Command::new(&python)
+        .args(["-I", "-c", script])
+        .arg(&unpacked)
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        "(0, 0, 1, 1)",
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("unreliable")),
+        "{err}\n{report:#}"
+    );
+    let cold = &report["targets"][0]["cold_thread"];
+    let median = cold["cold_minus_warm"]["median"]
+        .as_f64()
+        .unwrap_or(f64::NAN);
+    assert!((0.002..0.05).contains(&median), "{median}: {cold:#}");
+}
