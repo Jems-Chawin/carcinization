@@ -317,6 +317,7 @@ fn run_in(
         python: opts.python.clone(),
         maturin: opts.maturin.clone(),
         hash_seed: opts.hash_seed.value,
+        recompile_crate: false,
     };
     let tracked = commit::tracked(git)?;
     let mut not_in_commit = Vec::new();

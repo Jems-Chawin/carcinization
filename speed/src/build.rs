@@ -72,6 +72,8 @@ fn build(opts: &Options) -> Result<(), Failure> {
         python: opts.python.clone(),
         maturin: opts.maturin.clone(),
         hash_seed: 0,
+        // So that Cargo compiles the crate, and prints its command line.
+        recompile_crate: true,
     };
     let mut sides = serde_json::Map::new();
     let mut wheels = Vec::new();
@@ -79,25 +81,12 @@ fn build(opts: &Options) -> Result<(), Failure> {
         ("original", &loaded.suite.original),
         ("candidate", &loaded.suite.candidate),
     ] {
-        let prepare = || {
-            python::prepare(name, spec, suite_dir, &git.root, &shared, &work, &tools)
-                .map(|(_, b)| b)
-        };
-        let mut built = prepare()?;
+        let (_, built) = python::prepare(name, spec, suite_dir, &git.root, &shared, &work, &tools)?;
         let mut side = json!({"kind": built.kind, "module": built.module});
         if let SideSpec::Pyo3 { .. } = spec {
-            let args = match rustc_args(&work, name, &built)? {
-                Some(args) => args,
-                None => {
-                    // Cargo found the crate fresh and printed no command
-                    // line for it: build the crate alone again.
-                    clean_crate(&built)?;
-                    built = prepare()?;
-                    rustc_args(&work, name, &built)?.ok_or_else(|| {
-                        format!("{name}: the build log has no command line for the crate, though it was cleaned first")
-                    })?
-                }
-            };
+            let args = rustc_args(&work, name, &built)?.ok_or_else(|| {
+                format!("{name}: the build log has no command line for the crate")
+            })?;
             let wheel = built.wheel.as_ref().ok_or("maturin made no wheel")?;
             side["wheel"] = json!({"file": wheel.file, "sha256": wheel.sha256});
             side["target"] = crate::platform::target(&args)
@@ -129,8 +118,8 @@ fn build(opts: &Options) -> Result<(), Failure> {
     Ok(())
 }
 
-/// The crate's package and library names, from Cargo.
-fn names(crate_dir: &Path) -> Result<(String, String), String> {
+/// The crate's library name, from Cargo.
+fn library(crate_dir: &Path) -> Result<String, String> {
     let manifest = crate_dir.join("Cargo.toml");
     let out = Command::new("cargo")
         .args([
@@ -163,10 +152,7 @@ fn names(crate_dir: &Path) -> Result<(String, String), String> {
         })
         .and_then(|t| t["name"].as_str())
         .ok_or_else(|| format!("{} has no library", manifest.display()))?;
-    Ok((
-        package["name"].as_str().unwrap_or_default().to_string(),
-        lib.replace('-', "_"),
-    ))
+    Ok(lib.replace('-', "_"))
 }
 
 /// The arguments Cargo gave rustc for the side's crate, from its build log.
@@ -175,34 +161,5 @@ fn rustc_args(work: &Path, name: &str, built: &Built) -> Result<Option<Vec<Strin
     let log = work.join(format!("{name}-build.log"));
     let text =
         std::fs::read_to_string(&log).map_err(|e| format!("cannot read {}: {e}", log.display()))?;
-    Ok(crate::platform::rustc_args(&text, &names(crate_dir)?.1))
-}
-
-/// Removes the crate's own build in the side's target directory, and none
-/// of its dependencies'.
-fn clean_crate(built: &Built) -> Result<(), String> {
-    let (Some(crate_dir), Some(target_dir)) = (&built.crate_dir, &built.target_dir) else {
-        return Err("no crate or target directory".into());
-    };
-    let status = Command::new("cargo")
-        .args([
-            "clean",
-            "--release",
-            "-p",
-            &names(crate_dir)?.0,
-            "--target-dir",
-        ])
-        .arg(target_dir)
-        .arg("--manifest-path")
-        .arg(crate_dir.join("Cargo.toml"))
-        .status()
-        .map_err(|e| format!("cannot run cargo clean: {e}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "cargo clean -p for {} failed ({status})",
-            crate_dir.display()
-        ))
-    }
+    Ok(crate::platform::rustc_args(&text, &library(crate_dir)?))
 }

@@ -20,6 +20,10 @@ pub struct Tools {
     pub maturin: PathBuf,
     /// `PYTHONHASHSEED` for both sides.
     pub hash_seed: u32,
+    /// Compile a PyO3 side's crate again even when Cargo would find it
+    /// fresh, its dependencies not, so that the build log holds Cargo's
+    /// command line for it (carcinify speed reads its flags there).
+    pub recompile_crate: bool,
 }
 
 /// The parts of a side's report entry that are known before it runs.
@@ -64,6 +68,32 @@ pub struct Built {
 pub struct Wheel {
     pub file: String,
     pub sha256: String,
+}
+
+/// Removes the crate's own build from the target directory, and none of its
+/// dependencies'. Cargo's output goes to `log`.
+fn clean_crate(crate_dir: &Path, target_dir: &Path, log: &std::fs::File) -> Result<(), String> {
+    let manifest = crate_dir.join("Cargo.toml");
+    let pkgid = Command::new("cargo")
+        .args(["pkgid", "--manifest-path"])
+        .arg(&manifest)
+        .output()
+        .map_err(|e| format!("cannot run cargo pkgid: {e}"))?;
+    let pkgid = String::from_utf8_lossy(&pkgid.stdout).trim().to_string();
+    let status = Command::new("cargo")
+        .args(["clean", "--release", "-p", &pkgid, "--target-dir"])
+        .arg(target_dir)
+        .arg("--manifest-path")
+        .arg(&manifest)
+        .stdout(log.try_clone().map_err(|e| e.to_string())?)
+        .stderr(log.try_clone().map_err(|e| e.to_string())?)
+        .status()
+        .map_err(|e| format!("cannot run cargo clean: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("cargo clean -p {pkgid:?} failed ({status})"))
+    }
 }
 
 fn tail(path: &Path) -> String {
@@ -222,6 +252,10 @@ pub fn prepare(
             let cleaned = build.clean_if_inputs_changed()?;
             let log_path = work.join(format!("{name}-build.log"));
             let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
+            if tools.recompile_crate {
+                // Under the lock, as the clean above.
+                clean_crate(&crate_dir, &target_dir, &log)?;
+            }
             eprintln!(
                 "carcinify diff: building {name} with maturin ({})",
                 crate_dir.display()

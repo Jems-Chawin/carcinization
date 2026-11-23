@@ -154,8 +154,9 @@ fn speed_build_writes_the_ports_wheel_its_hash_and_the_target_cpu_it_was_built_f
             .unwrap()
             .to_string()
     };
-    // Twice: the second build finds the crate fresh, and Cargo prints its
-    // command line only for a crate it compiles.
+    // Twice: Cargo prints its command line only for a crate it compiles,
+    // so the second build must compile the crate again, which Cargo would
+    // find fresh.
     for _ in 0..2 {
         let cpu = built(&[]);
         assert!(cpu.starts_with("default of "), "{cpu}");
