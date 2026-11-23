@@ -165,6 +165,12 @@ fn speed_build_of_a_python_port_writes_its_record_and_no_wheel() {
         Some(40),
         "{tools}"
     );
+    // And its uncommitted changes: "clean", or the hash of git diff HEAD.
+    let dirty = tools["carcinify_dirty"].as_str().unwrap_or_default();
+    assert!(
+        dirty == "clean" || (dirty.len() == 40 && dirty.chars().all(|c| c.is_ascii_hexdigit())),
+        "{tools}"
+    );
     assert!(
         tools["rustc"].as_str().unwrap().starts_with("rustc "),
         "{tools}"
@@ -2413,7 +2419,7 @@ fn report_on(os: &str, python: &str, target_cpu: &str, features: &str, targets: 
         "declaration_sha256": "decl-1",
         "run": {"commit": "commit-1", "dirty": false, "dirty_sha256": null, "suite_sha256": "suite-1"},
         "machine": {"os": os, "cpu": if os == "macos" { "Apple M1 Pro" } else { "Neoverse-N1" }},
-        "tools": {"os": os, "arch": "aarch64", "harness_version": "0.1.0", "embedded_sha256": "embedded-1", "carcinify_commit": "carcinify-1"},
+        "tools": {"os": os, "arch": "aarch64", "harness_version": "0.1.0", "embedded_sha256": "embedded-1", "carcinify_commit": "carcinify-1", "carcinify_dirty": "carcinify_dirty-1"},
         "python": {"version": python, "implementation": "CPython", "gil": true, "numpy": "2.3.1"},
         "build": {"sides": {"candidate": {"kind": "pyo3", "target": {"target_cpu": target_cpu, "target_features": features}}}},
         "verdict": "pass",
@@ -2813,6 +2819,7 @@ fn reports_timed_by_other_measuring_code_are_refused() {
     for (field, other) in [
         ("embedded_sha256", "embedded-2"),
         ("carcinify_commit", "carcinify-2"),
+        ("carcinify_dirty", "carcinify_dirty-2"),
     ] {
         let mut b = a.clone();
         b["tools"][field] = json!(other);

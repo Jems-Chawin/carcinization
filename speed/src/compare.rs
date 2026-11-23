@@ -60,6 +60,10 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
             "carcinify commit (tools.carcinify_commit)",
             "/tools/carcinify_commit",
         ),
+        (
+            "carcinify's uncommitted changes (tools.carcinify_dirty)",
+            "/tools/carcinify_dirty",
+        ),
     ]
     .iter()
     .filter_map(|(what, at)| {
