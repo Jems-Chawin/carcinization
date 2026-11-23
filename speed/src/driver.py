@@ -24,6 +24,7 @@ driver. Runs on Python 3.9 and later. Standard library only.
 import functools
 import gc
 import importlib
+import importlib.machinery
 import importlib.util
 import inspect
 import json
@@ -49,7 +50,8 @@ def import_side(side):
     """The side's module, from the side's own directories and nowhere else.
     They stay on sys.path, as in the process carcinify diff gives each side,
     so that what the module imports when called is found there: speed build
-    has refused any top-level name both sides provide."""
+    has refused any top-level name the two sides would find in different
+    files (see `mixed`)."""
     sys.path[:0] = side["sys_path"]
     module = importlib.import_module(side["module"])
     where = os.path.realpath(getattr(module, "__file__", None) or "")
@@ -57,6 +59,75 @@ def import_side(side):
     if not any(where.startswith(r + os.sep) for r in roots):
         raise RuntimeError("%s was loaded from %r, outside %r" % (side["module"], where, roots))
     return module
+
+
+def origin(spec):
+    """Where a module spec loads from: its file, a namespace package's
+    directories, or how the interpreter has it built in."""
+    if spec.has_location:
+        return os.path.realpath(spec.origin)
+    if spec.origin is None and spec.submodule_search_locations is not None:
+        return tuple(os.path.realpath(p) for p in spec.submodule_search_locations)
+    return spec.origin
+
+
+def found(name, path):
+    """Where `import name` finds a top-level module with `path` as
+    sys.path, as Python's import does: the interpreter's finders in order,
+    the path finder along `path`."""
+    for finder in sys.meta_path:
+        find = getattr(finder, "find_spec", None)
+        spec = find and find(name, path if finder is importlib.machinery.PathFinder else None)
+        if spec is not None:
+            return origin(spec)
+    return None
+
+
+def mixed(sides, interpreters):
+    """RUST-177: the top-level names this process gives a side otherwise
+    than the side's own path would, its directories, the shared entries and
+    then the interpreter's (`interpreters`), as Python itself resolves them.
+    Asked after both sides are imported and called, so that what a call
+    imports is in sys.modules. The names asked: every one the sides'
+    directories and the shared entries provide, and every module in
+    sys.modules from them. A name is refused when the two sides' paths give
+    two modules, or when the module this process holds is neither side's."""
+    paths = {side: [os.path.realpath(p) for p in sides[side]["sys_path"]] + interpreters for side in sides}
+    dirs = {d for side in sides for d in paths[side][: len(sides[side]["sys_path"])]}
+
+    def from_sides(where):
+        files = where if isinstance(where, tuple) else (where,)
+        return any(isinstance(f, str) and f.startswith(d + os.sep) for f in files for d in dirs)
+
+    names = set()
+    for d in dirs:
+        for entry in os.listdir(d) if os.path.isdir(d) else ():
+            name = entry if os.path.isdir(os.path.join(d, entry)) else inspect.getmodulename(entry)
+            if name and name.isidentifier():
+                names.add(name)
+    for name, module in list(sys.modules.items()):
+        spec = getattr(module, "__spec__", None)
+        if "." not in name and spec is not None and from_sides(origin(spec)):
+            names.add(name)
+
+    def show(where):
+        return "the namespace package in " + ", ".join(where) if isinstance(where, tuple) else str(where)
+
+    refused = []
+    for name in sorted(names):
+        o, p = found(name, paths["original"]), found(name, paths["port"])
+        spec = getattr(sys.modules.get(name), "__spec__", None)
+        held = origin(spec) if spec is not None else None
+        # Two namespace directories mix only once imported: that is the
+        # module held, below. A directory of data is never imported.
+        if o is not None and p is not None and o != p and not (isinstance(o, tuple) and isinstance(p, tuple)):
+            refused.append("%s (%s and %s)" % (name, show(o), show(p)))
+        elif held is not None and (o is not None or p is not None) and held not in (o, p):
+            refused.append(
+                "%s (the original's own path gives %s, the port's %s, but this process holds %s)"
+                % (name, show(o), show(p), show(held))
+            )
+    return refused
 
 
 def put_in_place(caller, fn):
@@ -382,6 +453,7 @@ def time_sides(out, run, plan, n, name, measure, harness, log):
 
 def main():
     plan = json.load(sys.stdin)
+    interpreters = list(sys.path)
     harness = load_file(plan["harness_driver"], "carcinify_diff_driver")
     measure = load_file(plan["measure"], "carcinify_decide_measure")
     harness.SHARED = harness.Shared({"shared_roots": plan["shared_roots"], "shared_hashes": plan["shared_hashes"]})
@@ -483,6 +555,8 @@ def main():
         "imported": sorted({os.path.realpath(f) for f in (getattr(m, "__file__", None) for m in list(sys.modules.values())) if f}),
         "package_dirs": sorted({os.path.realpath(sysconfig.get_paths()[k]) for k in ("purelib", "platlib")}),
     }
+    if plan.get("record"):
+        result["mixed"] = mixed(plan["sides"], interpreters)
     with open(plan["result"], "w") as f:
         json.dump(result, f)
 

@@ -160,6 +160,17 @@ fn build(opts: &Options) -> Result<(), Failure> {
     };
     let (callers, refused, ran) =
         callers(opts, &loaded, &git, &shared, &work, prepared, &wheel_of)?;
+    // RUST-177: as Python resolved each side's own path, in the drivers that
+    // imported and called both sides.
+    let mixed: BTreeSet<&str> = ran["mixed"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    if !mixed.is_empty() {
+        return Err(mixing(&mixed.into_iter().collect::<Vec<_>>()).into());
+    }
     // Refused as carcinify diff refuses them, unless --allow-dirty: then
     // the files the timing uses are recorded, and the run held to them.
     let used = untracked_used(&git, &tracked, &ran, &crate::run::callers_of(&loaded));
@@ -368,7 +379,9 @@ fn declares_feature(crate_dir: &Path, feature: &str) -> Result<bool, String> {
 /// would resolve to one side's file for both. Each side resolves a name
 /// along its own import path, its directories and then the suite's shared
 /// entries, first match wins, as Python does (RUST-171). Refused before
-/// anything is built.
+/// anything is built: the early, cheap refusal. The driver's check, which
+/// asks Python itself once both sides are imported and called, is the
+/// whole one (RUST-177).
 fn refuse_names_in_common(
     suite_dir: &Path,
     original: &SideSpec,
@@ -377,10 +390,9 @@ fn refuse_names_in_common(
 ) -> Result<(), String> {
     // What each side imports by a top-level name: a .py file, an extension
     // or a package directory, first on its import path first.
-    // shortcut: a directory without __init__.py (a namespace package) is
-    // not counted, so two such directories of one name, each with a
-    // submodule of one name, could still mix the sides; count them when a
-    // port uses namespace packages.
+    // A directory without __init__.py (a namespace package), the
+    // interpreter's own path and the modules speed's drivers import first
+    // are left to the driver's check (RUST-177).
     let names = |spec: &SideSpec| {
         let mut found: BTreeMap<String, PathBuf> = BTreeMap::new();
         let own: &[String] = match spec {
@@ -434,10 +446,17 @@ fn refuse_names_in_common(
     if common.is_empty() {
         return Ok(());
     }
-    Err(format!(
+    Err(mixing(&common))
+}
+
+/// The refusal of top-level names the two sides would import from
+/// different files, each named with its files.
+fn mixing<S: AsRef<str>>(names: &[S]) -> String {
+    let names: Vec<&str> = names.iter().map(AsRef::as_ref).collect();
+    format!(
         "the two sides would import a top-level module of one name from different files: {}. carcinify speed imports both sides into one Python process, so one side would import the other's. Rename one, or make each side a package of its own",
-        common.join(", ")
-    ))
+        names.join(", ")
+    )
 }
 
 /// Files the timing driver imported (`ran`, its result), and the callers'

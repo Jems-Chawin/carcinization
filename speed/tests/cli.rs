@@ -2248,3 +2248,119 @@ fn the_workspace_is_read_with_the_result_dropped_and_its_growth_over_warm_calls(
         "{flags:#?}"
     );
 }
+
+/// RUST-177: speed build asks Python where each side's imports come from,
+/// along each side's own path (its directories, the shared entries, then
+/// the interpreter's), after both sides are imported and called. A side's
+/// own module that shadows the standard library's, or one speed's drivers
+/// import first, is refused; a shared module both sides import, and a
+/// standard-library one neither shadows, still build.
+#[test]
+fn a_sides_module_that_python_would_give_the_other_side_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-python-resolves");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let root = repo.0.canonicalize().unwrap();
+    std::fs::create_dir_all(repo.0.join("shared")).unwrap();
+    std::fs::write(repo.0.join("shared/helper.py"), "K = 2\n").unwrap();
+    let append = |file: &str, text: &str| {
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(repo.0.join(file))
+            .unwrap();
+        std::io::Write::write_all(&mut f, text.as_bytes()).unwrap();
+    };
+    append(
+        "py/speed_orig.py",
+        "\n\ndef scale(n):\n    import colorsys, helper\n    return n * getattr(colorsys, \"K\", helper.K)\n",
+    );
+    append(
+        "py-port/speed_port_py.py",
+        "\n\ndef scale(n):\n    import colorsys, helper\n    return n * helper.K if hasattr(colorsys, \"rgb_to_hsv\") else -1\n",
+    );
+    append(
+        "cases.jsonl",
+        "{\"id\": \"scale-3\", \"fn\": \"scale\", \"args\": [3]}\n",
+    );
+    std::fs::write(repo.0.join("py/colorsys.py"), "K = 2\n").unwrap();
+    let suite = std::fs::read_to_string(repo.0.join("suite-python.json")).unwrap();
+    let suite = suite.replacen("\"cases\":", "\"shared\": [\"shared\"],\n  \"cases\":", 1);
+    std::fs::write(repo.0.join("suite-shared.json"), suite).unwrap();
+    repo.commit("the original's own colorsys.py");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-shared.json", "runs": 3,
+        "targets": [{"name": "scale", "case": {"file": "cases.jsonl", "id": "scale-3"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let build = || {
+        let _ = std::fs::remove_dir_all(&wheels);
+        speed_as_given(&[
+            "build",
+            declaration.to_str().unwrap(),
+            "--out",
+            wheels.to_str().unwrap(),
+        ])
+    };
+    let stdlib = |name: &str| {
+        let python = std::env::var("CARCINIFY_PYTHON").unwrap_or_else(|_| "python3".into());
+        let out = Command::new(python)
+            .args([
+                "-I",
+                "-c",
+                &format!("import os, {name}; print(os.path.realpath({name}.__file__))"),
+            ])
+            .output()
+            .unwrap();
+        String::from_utf8(out.stdout).unwrap().trim().to_string()
+    };
+    let (code, err) = build();
+    assert_eq!(code, 2, "{err}");
+    let both = format!(
+        "colorsys ({}/py/colorsys.py and {})",
+        root.display(),
+        stdlib("colorsys")
+    );
+    assert!(err.contains(&both), "{both}\n{err}");
+    assert!(!wheels.join("build.json").exists(), "nothing is recorded");
+
+    // A module of the name speed's drivers import first.
+    std::fs::remove_file(repo.0.join("py/colorsys.py")).unwrap();
+    std::fs::write(
+        repo.0.join("py-port/statistics.py"),
+        "\"\"\"The port's own.\"\"\"\n",
+    )
+    .unwrap();
+    repo.commit("the port's own statistics.py");
+    let (code, err) = build();
+    assert_eq!(code, 2, "{err}");
+    let both = format!(
+        "statistics ({} and {}/py-port/statistics.py)",
+        stdlib("statistics"),
+        root.display()
+    );
+    assert!(err.contains(&both), "{both}\n{err}");
+
+    // A shared module of that name: both sides' paths give it, but the
+    // process holds the one the drivers imported.
+    std::fs::rename(
+        repo.0.join("py-port/statistics.py"),
+        repo.0.join("shared/statistics.py"),
+    )
+    .unwrap();
+    repo.commit("a shared statistics.py");
+    let (code, err) = build();
+    assert_eq!(code, 2, "{err}");
+    let held = format!(
+        "statistics (the original's own path gives {root}/shared/statistics.py, the port's {root}/shared/statistics.py, but this process holds {})",
+        stdlib("statistics"),
+        root = root.display()
+    );
+    assert!(err.contains(&held), "{held}\n{err}");
+
+    std::fs::remove_file(repo.0.join("shared/statistics.py")).unwrap();
+    repo.commit("no module of the sides shadows another");
+    let (code, err) = build();
+    assert_eq!(
+        code, 0,
+        "a shared module both import, a standard one neither shadows: {err}"
+    );
+}

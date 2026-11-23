@@ -693,11 +693,10 @@ pub fn take_in(result: &mut J, ran: &Driven) {
         result["python"] = ran["python"].clone();
         result["package_dirs"] = ran["package_dirs"].clone();
     }
-    if let (Some(all), Some(these)) = (
-        result["imported"].as_array_mut(),
-        ran["imported"].as_array(),
-    ) {
-        all.extend(these.iter().cloned());
+    for key in ["imported", "mixed"] {
+        if let (Some(all), Some(these)) = (result[key].as_array_mut(), ran[key].as_array()) {
+            all.extend(these.iter().cloned());
+        }
     }
 }
 
