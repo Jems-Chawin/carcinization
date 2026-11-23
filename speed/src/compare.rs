@@ -101,6 +101,16 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
             interpreter(b)
         ));
     }
+    // RUST-187: other rustc flags make two builds, whatever the target CPU.
+    let pyo3 = |r: &J| r["build"]["sides"]["candidate"]["kind"] == "pyo3";
+    let builds_differ = (pyo3(a) || pyo3(b)) && rustflags(a) != rustflags(b);
+    if builds_differ {
+        flags.push(format!(
+            "builds_differ: {} on {la}; {} on {lb}",
+            rustflags(a),
+            rustflags(b)
+        ));
+    }
     let targets = |r: &J| r["targets"].as_array().cloned().unwrap_or_default();
     let (ta, tb) = (targets(a), targets(b));
     let mut names: Vec<&str> = ta.iter().filter_map(|t| t["name"].as_str()).collect();
@@ -129,8 +139,13 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
             apart_text(apart)
         );
         if apart > APART {
+            let what = if builds_differ {
+                "builds and platforms both differ"
+            } else {
+                "platform_dependent"
+            };
             out += &format!(
-                "  platform_dependent: {line}, over {APART}; per pair {} to {} on {la} and {} to {} on {lb}; {} on {la} and {} on {lb}\n",
+                "  {what}: {line}, over {APART}; per pair {} to {} on {la} and {} to {} on {lb}; {} on {la} and {} on {lb}\n",
                 number(loa),
                 number(hia),
                 number(lob),
@@ -223,10 +238,30 @@ fn target(r: &J) -> String {
         return "a Python port".into();
     }
     format!(
-        "target CPU {}, {} target features",
+        "target CPU {}, {} target features, {}",
         text(&side["target"]["target_cpu"]),
-        text(&side["target"]["target_features"])
+        text(&side["target"]["target_features"]),
+        rustflags(r)
     )
+}
+
+/// RUST-187: the rustc flags the port was built with, as the build
+/// recorded them from its environment.
+fn rustflags(r: &J) -> String {
+    let env = &r["tools"]["build_environment"];
+    let set: Vec<String> = [
+        "RUSTFLAGS",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CARGO_BUILD_RUSTFLAGS",
+    ]
+    .iter()
+    .filter_map(|name| env[*name].as_str().map(|v| format!("{name}={v:?}")))
+    .collect();
+    if set.is_empty() {
+        "no RUSTFLAGS".into()
+    } else {
+        set.join(", ")
+    }
 }
 
 fn text(j: &J) -> &str {

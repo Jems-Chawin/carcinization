@@ -2946,3 +2946,63 @@ fn an_interrupted_gate_says_so_and_leaves_no_sampler() {
         assert!(!left, "{signal}: a process of the gate's group was left");
     }
 }
+
+/// RUST-187: two builds of the port with other rustc flags are two
+/// builds, not one build on two platforms, as the chase's C1 (generic,
+/// no loop vectorizing) against macOS generic: builds_differ names both,
+/// and a target apart reads as builds and platforms both differing. The
+/// same flags flag nothing.
+#[test]
+fn reports_built_with_other_rustflags_are_flagged_builds_differ() {
+    let mut a = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "1",
+        json!([timed_at("x", 21.0, 20.4, 23.2)]),
+    );
+    let mut b = report_on(
+        "macos",
+        "3.12.13",
+        "generic",
+        "1",
+        json!([timed_at("x", 29.4, 29.0, 29.8)]),
+    );
+    a["tools"]["build_environment"] =
+        json!({"RUSTFLAGS": "-C target-cpu=generic -C no-vectorize-loops"});
+    b["tools"]["build_environment"] = json!({"RUSTFLAGS": "-C target-cpu=generic"});
+    let (code, out, err) = compare("speed-compare-rustflags", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    let headers: Vec<&str> = out.lines().take(2).collect();
+    assert!(
+        headers[0].contains(r#"RUSTFLAGS="-C target-cpu=generic -C no-vectorize-loops""#),
+        "{out}"
+    );
+    assert!(
+        headers[1].contains(r#"RUSTFLAGS="-C target-cpu=generic";"#),
+        "{out}"
+    );
+    let line = out
+        .lines()
+        .find(|l| l.contains("1.400 apart"))
+        .unwrap_or_default();
+    assert!(
+        line.trim_start()
+            .starts_with("builds and platforms both differ: "),
+        "{out}"
+    );
+    assert!(
+        line.contains("no-vectorize-loops"),
+        "beside the flag: {out}"
+    );
+    let differ = r#"builds_differ: RUSTFLAGS="-C target-cpu=generic -C no-vectorize-loops" on linux aarch64 (A); RUSTFLAGS="-C target-cpu=generic" on macos aarch64 (B)"#.to_string();
+    assert!(flags_in(&out).contains(&differ), "{out}");
+    b["tools"]["build_environment"] = a["tools"]["build_environment"].clone();
+    let (code, out, err) = compare("speed-compare-rustflags", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        !out.contains("builds_differ") && !out.contains("builds and platforms"),
+        "{out}"
+    );
+    assert!(out.contains("  platform_dependent: "), "{out}");
+}
