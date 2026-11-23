@@ -303,6 +303,65 @@ fn refuse_outside_commit(
     ))
 }
 
+/// Completes both sides' `init` as carcinify diff starts them: where the
+/// other side's code lives, each side's import path, whether calls are
+/// counted, and the shared files' hashes.
+pub fn complete_inits(
+    (original_cfg, original_built): (&mut side::SideConfig, &python::Built),
+    (candidate_cfg, candidate_built): (&mut side::SideConfig, &python::Built),
+    shared: &[PathBuf],
+    count_calls: bool,
+) -> Result<(), String> {
+    // Each side is told where the other's code lives, so its audit hook can
+    // report any attempt to read it.
+    let roots = |b: &python::Built| {
+        J::from(
+            b.load_roots
+                .iter()
+                .map(|p| p.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+        )
+    };
+    original_cfg.init["other_roots"] = roots(candidate_built);
+    candidate_cfg.init["other_roots"] = roots(original_built);
+    // Import path of each side: its own directories, then shared
+    // directories that stand on their own, then any directory of the other
+    // side that holds a shared entry, so that `import pkg.util` finds the
+    // other side's shared `pkg/util.py`. Everything in that directory which
+    // is not shared stays off limits: loading or opening it stops the run.
+    let side_roots = [
+        original_built.load_roots.clone(),
+        candidate_built.load_roots.clone(),
+    ]
+    .concat();
+    for (cfg, own, other) in [
+        (original_cfg, original_built, candidate_built),
+        (candidate_cfg, candidate_built, original_built),
+    ] {
+        let standalone = shared
+            .iter()
+            .filter(|e| e.is_dir() && !side_roots.iter().any(|r| e.starts_with(r)));
+        let lent = other
+            .load_roots
+            .iter()
+            .filter(|r| shared.iter().any(|e| e.starts_with(r)));
+        let path: Vec<String> = own
+            .load_roots
+            .iter()
+            .chain(standalone)
+            .chain(lent)
+            .map(|p| p.to_string_lossy().into_owned())
+            .collect();
+        cfg.init["sys_path"] = J::from(path);
+        cfg.init["count_calls"] = J::from(count_calls);
+        // Shared is by content as well as by path, so the driver is given
+        // the content of every shared file to recognise copies by.
+        cfg.init["shared_hashes"] =
+            J::from(distinct::contents(shared)?.into_keys().collect::<Vec<_>>());
+    }
+    Ok(())
+}
+
 fn run_in(
     opts: &Options,
     suite_path: &Path,
@@ -365,53 +424,12 @@ fn run_in(
     let (mut candidate_cfg, candidate_built) = prepared.pop().ok_or("no candidate")?;
     let (mut original_cfg, original_built) = prepared.pop().ok_or("no original")?;
     distinct::check_layout(&original_built, &candidate_built, &shared)?;
-    // Each side is told where the other's code lives, so its audit hook can
-    // report any attempt to read it.
-    let roots = |b: &python::Built| {
-        J::from(
-            b.load_roots
-                .iter()
-                .map(|p| p.to_string_lossy().into_owned())
-                .collect::<Vec<_>>(),
-        )
-    };
-    original_cfg.init["other_roots"] = roots(&candidate_built);
-    candidate_cfg.init["other_roots"] = roots(&original_built);
-    // Import path of each side: its own directories, then shared
-    // directories that stand on their own, then any directory of the other
-    // side that holds a shared entry, so that `import pkg.util` finds the
-    // other side's shared `pkg/util.py`. Everything in that directory which
-    // is not shared stays off limits: loading or opening it stops the run.
-    let side_roots = [
-        original_built.load_roots.clone(),
-        candidate_built.load_roots.clone(),
-    ]
-    .concat();
-    for (cfg, own, other) in [
-        (&mut original_cfg, &original_built, &candidate_built),
-        (&mut candidate_cfg, &candidate_built, &original_built),
-    ] {
-        let standalone = shared
-            .iter()
-            .filter(|e| e.is_dir() && !side_roots.iter().any(|r| e.starts_with(r)));
-        let lent = other
-            .load_roots
-            .iter()
-            .filter(|r| shared.iter().any(|e| e.starts_with(r)));
-        let path: Vec<String> = own
-            .load_roots
-            .iter()
-            .chain(standalone)
-            .chain(lent)
-            .map(|p| p.to_string_lossy().into_owned())
-            .collect();
-        cfg.init["sys_path"] = J::from(path);
-        cfg.init["count_calls"] = J::from(opts.count_calls);
-        // Shared is by content as well as by path, so the driver is given
-        // the content of every shared file to recognise copies by.
-        cfg.init["shared_hashes"] =
-            J::from(distinct::contents(&shared)?.into_keys().collect::<Vec<_>>());
-    }
+    complete_inits(
+        (&mut original_cfg, &original_built),
+        (&mut candidate_cfg, &candidate_built),
+        &shared,
+        opts.count_calls,
+    )?;
     let mut original = Side::start(original_cfg, opts.timeout)?;
     let mut candidate = Side::start(candidate_cfg, opts.timeout)?;
     // Installed packages are not checked against the commit, so project
