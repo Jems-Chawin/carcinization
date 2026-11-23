@@ -6,7 +6,7 @@ use std::process::ExitCode;
 
 /// The subcommands, in the order of the skill's steps, each with one line
 /// and its own usage text.
-const COMMANDS: [(&str, &str, &str); 4] = [
+const COMMANDS: [(&str, &str, &str); 5] = [
     (
         "decide",
         "step 1: where a workload's time goes, and whether that contradicts a decision to port",
@@ -26,6 +26,11 @@ const COMMANDS: [(&str, &str, &str); 4] = [
         "structure",
         "step 6: what the port allocates on its hot path, and what it copies",
         carcinify_structure::cli::USAGE,
+    ),
+    (
+        "speed",
+        "step 7: the port against its original, timed from the Python caller",
+        carcinify_speed::cli::USAGE,
     ),
 ];
 
@@ -57,6 +62,7 @@ fn main() -> ExitCode {
         Some("deps") => carcinify_deps::cli::main(args),
         Some("diff") => carcinify_diff::cli::main(args),
         Some("structure") => carcinify_structure::cli::main(args),
+        Some("speed") => carcinify_speed::cli::main(args),
         Some("--version" | "-V" | "version") => {
             println!("carcinify {}", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS

@@ -1,0 +1,6 @@
+{
+  "schema": "carcinify/diff/suite/1",
+  "original": {"kind": "python", "path": ["py"], "module": "speed_orig"},
+  "candidate": {"kind": "python", "path": ["py-port"], "module": "speed_port_py"},
+  "cases": ["cases.jsonl"]
+}

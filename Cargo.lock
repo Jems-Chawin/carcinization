@@ -36,6 +36,7 @@ dependencies = [
  "carcinify-decide",
  "carcinify-deps",
  "carcinify-diff",
+ "carcinify-speed",
  "carcinify-structure",
  "serde_json",
 ]
@@ -71,6 +72,11 @@ dependencies = [
 [[package]]
 name = "carcinify-speed"
 version = "0.1.0"
+dependencies = [
+ "carcinify-diff",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "carcinify-structure"

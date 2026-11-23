@@ -1,0 +1,4 @@
+{"id": "nap-2", "fn": "nap", "args": [2]}
+{"id": "nap-0", "fn": "nap", "args": [0]}
+{"id": "nap-raises", "fn": "nap", "args": [-1], "expect_raise": true}
+{"id": "wrong-1", "fn": "wrong", "args": [1]}

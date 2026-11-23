@@ -11,3 +11,6 @@ license.workspace = true
 description = "Times a port against its original from the Python caller, with the sides alternating, and judges the run's load from the host gate's log"
 
 [dependencies]
+carcinify-diff = { path = "../harness" }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"

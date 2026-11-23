@@ -1,0 +1,18 @@
+# Fixture for carcinify speed: speed_orig's nap, ten times slower on
+# purpose. A workspace of its own, as a user's crate would be.
+[package]
+name = "speed-port"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "speed_port"
+crate-type = ["cdylib"]
+test = false
+doctest = false
+
+[dependencies]
+pyo3 = "0.30.1"
+
+[workspace]

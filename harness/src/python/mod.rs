@@ -152,6 +152,9 @@ pub fn prepare(
                 "build".to_string(),
                 "--release".to_string(),
                 "--locked".to_string(),
+                // Cargo's command line for each crate it compiles goes to
+                // the build log: carcinify speed reads the flags from it.
+                "-v".to_string(),
                 "--interpreter".to_string(),
                 utf8(&tools.python)?,
                 "--manifest-path".to_string(),

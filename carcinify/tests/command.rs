@@ -16,7 +16,7 @@ fn carcinify(args: &[&str]) -> (i32, String, String) {
     )
 }
 
-const COMMANDS: [&str; 4] = ["decide", "deps", "diff", "structure"];
+const COMMANDS: [&str; 5] = ["decide", "deps", "diff", "structure", "speed"];
 
 #[test]
 fn the_command_says_what_it_is_and_exits_as_documented() {
@@ -26,7 +26,7 @@ fn the_command_says_what_it_is_and_exits_as_documented() {
         (0, concat!("carcinify ", env!("CARGO_PKG_VERSION")))
     );
 
-    // The four commands, in the order of the skill's steps, one line each.
+    // The five commands, in the order of the skill's steps, one line each.
     let (code, help, _) = carcinify(&["help"]);
     assert_eq!(code, 0);
     let at: Vec<usize> = COMMANDS
@@ -37,7 +37,7 @@ fn the_command_says_what_it_is_and_exits_as_documented() {
         })
         .collect();
     assert!(at.windows(2).all(|w| w[0] < w[1]), "{help}");
-    for (step, command) in ["step 1", "step 2", "step 3", "step 6"]
+    for (step, command) in ["step 1", "step 2", "step 3", "step 6", "step 7"]
         .iter()
         .zip(COMMANDS)
     {
@@ -100,7 +100,7 @@ fn every_test_file_of_a_tool_is_built() {
         .collect();
     let mut missing = Vec::new();
     let mut found = 0;
-    for tool in ["harness", "structure", "deps", "decide"] {
+    for tool in ["harness", "structure", "deps", "decide", "speed"] {
         let dir = here.join("..").join(tool).join("tests");
         for entry in std::fs::read_dir(&dir).unwrap().flatten() {
             let name = entry.file_name().to_string_lossy().into_owned();

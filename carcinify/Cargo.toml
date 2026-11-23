@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.100"
 publish = false
 license.workspace = true
-description = "Tools that measure each step of moving Python code to Rust behind PyO3: decide, deps, diff, structure"
+description = "Tools that measure each step of moving Python code to Rust behind PyO3: decide, deps, diff, structure, speed"
 autotests = false
 
 # The one binary. Each subcommand is a library crate beside this one; this
@@ -15,6 +15,7 @@ carcinify-decide = { path = "../decide" }
 carcinify-deps = { path = "../deps" }
 carcinify-diff = { path = "../harness" }
 carcinify-structure = { path = "../structure" }
+carcinify-speed = { path = "../speed" }
 
 [dev-dependencies]
 # The tests below read reports and build fixtures.
@@ -45,6 +46,10 @@ path = "../deps/tests/cli.rs"
 [[test]]
 name = "decide"
 path = "../decide/tests/cli.rs"
+
+[[test]]
+name = "speed"
+path = "../speed/tests/cli.rs"
 
 # This crate's own tests: the dispatcher, and that every test file of a tool
 # is listed above.
