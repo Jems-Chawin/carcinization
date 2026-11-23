@@ -11,7 +11,9 @@
 # does, when it cannot run: its own steps failed. GATE_EVERY,
 # GATE_READINGS and GATE_LIMIT pass to ci/gate.sh, for checking this script.
 # RUSTFLAGS, when set, passes to speed build, so that the port can be built
-# for another target CPU.
+# for another target CPU. The container ends after CAP_SECONDS (default
+# 7200), as run.sh caps a run, the gate's wait included; one left by a
+# killed script ends then.
 #
 # carcinify is built from this repository's commit, and <repo> is cloned at
 # its commit, both inside the container: the harness builds in the crate's
@@ -47,7 +49,7 @@ c=carcinify-speed-$$
 mounts=(-v "$carc:/carc:ro" -v "$repo:/src:ro" -v "$out:$out" -v "$logdir:/gate:ro")
 case $decl in "$repo"/*) ;; *) mounts+=(-v "$decl:$decl:ro") ;; esac
 docker run -d --rm --name "$c" --platform linux/arm64 --entrypoint sleep "${mounts[@]}" \
-  carcinify-ci:linux-arm64 infinity > /dev/null
+  carcinify-ci:linux-arm64 "${CAP_SECONDS:-7200}" > /dev/null
 # Not failing here: under the ERR trap, a container already gone would turn
 # speed's status into 2.
 trap 'docker rm -f "$c" > /dev/null || true' EXIT
@@ -69,10 +71,12 @@ docker exec "$c" bash -euc '
 tools=(-e CARCINIFY_PYTHON=/work/venv/bin/python -e CARCINIFY_MATURIN=/work/venv/bin/maturin)
 [ -z "${RUSTFLAGS:-}" ] || tools+=(-e RUSTFLAGS)
 speed=/work/carc/target/debug/carcinify
-# speed's own statuses, passed through.
-docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels" || exit $?
+# speed's own status, passed through; but 2 when the cap has ended the
+# container, where docker exec's 1 would read as speed's fail.
+ran() { docker inspect "$c" > /dev/null 2>&1 || exit 2; exit "$1"; }
+docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels" || ran $?
 # Not an earlier run's report read as this one's.
 rm -f "$out/report.json"
 LOG=$log "$carc/ci/gate.sh" docker exec -e GATE_RUN_ID "${tools[@]}" "$c" \
   "$speed" speed run "$decl" --wheels "$out/wheels" --report "$out/report.json" \
-  --load-log "/gate/$(basename "$log")" || exit $?
+  --load-log "/gate/$(basename "$log")" || ran $?

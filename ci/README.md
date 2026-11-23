@@ -195,6 +195,9 @@ LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
   The script refuses an `<out>` inside `<repo>` or holding it.
 - It exits with speed's status, or with 2, as speed does when it cannot
   run, when one of its own steps fails.
+- The container ends after `CAP_SECONDS` (default 7200), as `run.sh` caps
+  a run. The gate's wait counts, so give a longer cap for a long wait. A
+  container left by a killed script ends at the cap.
 - `speed build` runs first, not gated. Then this host's `ci/gate.sh` wraps a
   `docker exec` of `speed run`, which gets `GATE_RUN_ID` by name and reads
   the host's log through a read-only mount: in Docker on a Mac,
