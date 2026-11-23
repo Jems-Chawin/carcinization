@@ -1026,3 +1026,59 @@ fn a_caller_is_timed_with_the_pyo3_ports_function_in_place() {
         "original ÷ port is {ratio}: {report:#}"
     );
 }
+
+/// Design §10 step 4: the caller refused for an input no case has passes
+/// once the case is added. In a copy of the Python fixture, whose cases
+/// can be changed.
+#[test]
+fn a_caller_refused_for_an_input_no_case_has_passes_with_the_case_added() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-caller-case-added");
+    let _ = std::fs::remove_dir_all(&dir);
+    let copy = dir.join("fixture");
+    for file in [
+        "py/speed_orig.py",
+        "py-port/speed_port_py.py",
+        "callers/callers.py",
+        "callers/library.py",
+        "cases.jsonl",
+        "suite-python.json",
+    ] {
+        std::fs::create_dir_all(copy.join(file).parent().unwrap()).unwrap();
+        std::fs::copy(fixture().join(file), copy.join(file)).unwrap();
+    }
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "fixture/suite-python.json", "runs": 3,
+        "targets": [caller("no-case", "a_nap_no_case_has", "nap")]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let build = || {
+        speed(
+            &[
+                Path::new("build"),
+                &declaration,
+                Path::new("--out"),
+                &wheels,
+            ],
+            &[],
+        )
+    };
+    let (code, err) = build();
+    assert_eq!(code, 1, "{err}");
+    assert!(err.contains("timed_input_not_compared"), "{err}");
+    let cases = copy.join("cases.jsonl");
+    let mut text = std::fs::read_to_string(&cases).unwrap();
+    text.push_str("{\"id\": \"nap-3\", \"fn\": \"nap\", \"args\": [3]}\n");
+    std::fs::write(&cases, text).unwrap();
+    let (code, err) = build();
+    assert_eq!(code, 0, "{err}");
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("unreliable")),
+        "not under the gate: {err}\n{report:#}"
+    );
+    assert!(
+        report["targets"][0]["ratio"]["median"].is_f64(),
+        "{report:#}"
+    );
+}
