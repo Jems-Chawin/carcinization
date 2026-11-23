@@ -117,6 +117,13 @@ ratio, and shows how noisy the pairs were; a confidence interval for the
 median would be narrower. Quote the median with its range, the machine,
 the input and the number of runs.
 
+**A case's arguments share no objects.** The case encoding cannot say
+that two equal values are one object, so a direct target's case is decoded
+with no object shared but those CPython itself shares, such as small ints
+and one-character Latin-1 strings. A function whose speed depends on its
+arguments' identity is timed in that setting; a caller target's inputs are
+the caller's own.
+
 **Pairs dropped.** A loop of pure computation is timed before and after
 every run. A pair with a run whose loop was kept off the CPU for more than
 10% of its time is dropped, and the report counts the pairs dropped.

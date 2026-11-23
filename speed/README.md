@@ -175,6 +175,13 @@ rest.
   (`not_counted`, naming the version): CPython then keeps a frame object
   with each function after its first call, and the tool's own frames would
   be most of the figure. The Rust counts stand.
+- The case encoding cannot say that two equal values are one object. A
+  direct target's case is decoded with no object shared but those CPython
+  itself shares, such as small ints and one-character Latin-1 strings, so
+  a function whose speed depends on its arguments' identity is timed in
+  that setting. Equal strings that are different objects, for instance,
+  are compared in full in every set operation. A caller target's inputs
+  are the caller's own.
 - Only Python originals, and ports that are Python or reached through
   PyO3, have been tried.
 - What a report cannot show is listed at the end of step seven.
