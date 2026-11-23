@@ -80,7 +80,9 @@ records of those runs are not in the repository.
   two new ints leaves 3 blocks (112 bytes), a float 1, and a call whose
   temporaries are freed leaves only its result, 1 block. Before 70fd7e6 a
   pair left 2 blocks and a float none: their blocks came from free lists
-  and were never traced.
+  and were never traced. For `fill`, the pair and the float, the peak
+  equals the bytes left; before the commit that reads it ahead of the
+  second collection, every peak was 46 B above, that collection's own.
 - **Keyword names written out, or through `partial`.** The same test, with
   the cases `options-odd-key`, `options-nfkc-key` and `options-debug-key`.
 - **Refusals.** `a_timed_wheel_built_with_count_allocations_is_refused`;

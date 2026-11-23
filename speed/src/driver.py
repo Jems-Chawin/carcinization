@@ -290,17 +290,20 @@ def count(out, ready, counts, note=None):
         c["result_bytes"] = held[3] - after[3]
         return c
 
-    def traced(read):
+    def traced(read, collect=True):
         # From emptied free lists (gc.collect() empties them), so that
         # every block the call takes is a new one, traced, its result's
         # among them (RUST-178). A second collection, with the result
         # held, empties them again: the call's freed temporaries, waiting
         # there, are released, and only the result and what it holds stay.
+        # The peak is read without it, as it would add its own blocks and
+        # can only lower what is in use (RUST-194).
         call = ready()
         gc.collect()
         tracemalloc.start()
         result = call()
-        gc.collect()
+        if collect:
+            gc.collect()
         seen = read()
         tracemalloc.stop()
         del result
@@ -319,7 +322,7 @@ def count(out, ready, counts, note=None):
     growth = counts()[3] - start
     # Two more warm calls: a snapshot, and what reads it, would be in the
     # peak; the snapshot's own blocks are left out by their file.
-    peak = traced(lambda: tracemalloc.get_traced_memory()[1])
+    peak = traced(lambda: tracemalloc.get_traced_memory()[1], collect=False)
     left = traced(lambda: tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)]).traces)
     out["counts"] = {
         "first": first,

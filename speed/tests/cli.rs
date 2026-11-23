@@ -2085,6 +2085,15 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
     let left = |i: usize| &report["targets"][i]["counts"]["python"]["objects_left_to_the_caller"];
     assert_eq!(left(4)["blocks"], 3, "{report:#}");
     assert_eq!(left(5)["blocks"], 1, "{report:#}");
+    // RUST-194: the peak is read before the second collection, whose own
+    // blocks it would add: a call that frees nothing peaks at its result.
+    for i in [0, 4, 5] {
+        let python = &report["targets"][i]["counts"]["python"];
+        assert_eq!(
+            python["peak_bytes"], python["objects_left_to_the_caller"]["bytes"],
+            "{python:#}"
+        );
+    }
     assert!(what.contains("with no help from free lists"), "{what}");
     // RUST-179: a key Python would normalize (\u{fb01} read as fi) or that
     // cannot be assigned (__debug__) goes through functools.partial too.
