@@ -18,7 +18,8 @@
   too.
 - `first(xs)` returns the list's first item; the Python port pops it,
   which the original does not.
-- The ports' `nap` makes a workspace on a thread's first call, in 5 ms;
+- The ports' `nap` makes a workspace on a thread's first call, in 50 ms,
+  well above what a sleep overshoots by under load;
   the PyO3 port's `workspaces()` counts them. carcinify speed's cold
   thread measures it.
 - `zero()` has no required parameter, so a call with no arguments runs it.

@@ -1502,7 +1502,7 @@ fn a_side_or_a_callers_file_outside_the_repository_is_refused() {
 /// Design §2, step 5: in each of `runs` new threads, a cheap call into the
 /// port's module, then the port's first call there (cold) and its next
 /// (warm), each timed alone. The fixture's port makes a workspace on a
-/// thread's first nap, in 5 ms.
+/// thread's first nap, in 50 ms.
 #[test]
 fn a_cold_thread_is_reported_as_cold_minus_warm_paired_per_thread() {
     let declaration = declare(
@@ -1526,7 +1526,9 @@ fn a_cold_thread_is_reported_as_cold_minus_warm_paired_per_thread() {
     let median = cold["cold_minus_warm"]["median"]
         .as_f64()
         .unwrap_or(f64::NAN);
-    assert!((0.002..0.05).contains(&median), "{median}: {cold:#}");
+    // The fixture's first call costs 50 ms: well clear of the 20 ms sleep's
+    // overshoot under load, up to about 12 ms, which a 5 ms cost was not.
+    assert!((0.025..0.25).contains(&median), "{median}: {cold:#}");
 }
 
 /// A call with no arguments would run a function that needs none, and warm
@@ -1650,7 +1652,9 @@ print(seen[0])
     let median = cold["cold_minus_warm"]["median"]
         .as_f64()
         .unwrap_or(f64::NAN);
-    assert!((0.002..0.05).contains(&median), "{median}: {cold:#}");
+    // The fixture's first call costs 50 ms: well clear of the 20 ms sleep's
+    // overshoot under load, up to about 12 ms, which a 5 ms cost was not.
+    assert!((0.025..0.25).contains(&median), "{median}: {cold:#}");
 }
 
 /// Step 5, decision 4: a port that raises on a new thread where the

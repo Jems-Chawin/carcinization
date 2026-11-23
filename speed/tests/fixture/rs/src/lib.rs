@@ -58,7 +58,8 @@ mod speed_port {
 
     thread_local! {
         /// Whether this thread has made its workspace: on its first nap, in
-        /// 5 ms, as a real port's buffers take time to set up.
+        /// 50 ms, as a real port's buffers take time to set up; well above
+        /// what a sleep overshoots by under load (L1).
         static WORKSPACE: Cell<bool> = const { Cell::new(false) };
     }
 
@@ -67,7 +68,7 @@ mod speed_port {
     fn nap(ms: u64) -> u64 {
         WORKSPACE.with(|made| {
             if !made.get() {
-                std::thread::sleep(Duration::from_millis(5));
+                std::thread::sleep(Duration::from_millis(50));
                 WORKSPACES.fetch_add(1, Ordering::SeqCst);
                 made.set(true);
             }
