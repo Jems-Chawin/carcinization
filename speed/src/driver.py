@@ -146,7 +146,15 @@ def timed_caller(caller, fns, out, n, name, measure, log):
     return run
 
 
-def cold_thread(out, run, module, fn, threads, name, log):
+def encoded_output(harness, result):
+    """A call's output as carcinify diff's driver encodes it."""
+    try:
+        return {"status": "returned", "value": harness.enc(result)}
+    except harness.Unencodable as e:
+        return {"status": "unencodable", "detail": str(e)}
+
+
+def cold_thread(out, run, module, fn, threads, name, harness, log):
     """Design §2: in each of `threads` new threads, a cheap call into the
     port's module, untimed, then the port's first call there (cold) and its
     next (warm), each timed alone by `run`. The thread's start is not
@@ -155,13 +163,15 @@ def cold_thread(out, run, module, fn, threads, name, log):
     TypeError while its arguments are parsed, before its body runs. When
     the port raises on a new thread, the original's first call is made once
     on another: if it does not raise, the port's traceback is kept, for
-    carcinify speed to fail the target."""
+    carcinify speed to fail the target. Each output on a new thread is kept
+    encoded, for carcinify speed to compare with the original's."""
     noop = getattr(module, "_speed_noop", None)
     cold = out["cold_thread"] = {
         "cheap_call": "_speed_noop" if noop else "the compared function with no arguments",
         "threads": [],
         "not_measured": None,
         "raised_in_new_thread": None,
+        "outputs": [],
     }
     raised = []
 
@@ -185,8 +195,10 @@ def cold_thread(out, run, module, fn, threads, name, log):
             return
         if cold["not_measured"] is None:
             try:
-                first, _ = run("port", 1)
-                cold["threads"].append({"cold": first, "warm": run("port", 1)[0]})
+                first, first_result = run("port", 1)
+                after, after_result = run("port", 1)
+                cold["threads"].append({"cold": first, "warm": after})
+                cold["outputs"].append([encoded_output(harness, first_result), encoded_output(harness, after_result)])
             except BaseException:
                 raised.append(traceback.format_exc()[-4000:])
 
@@ -204,7 +216,7 @@ def cold_thread(out, run, module, fn, threads, name, log):
     for _ in range(threads):
         on_new_thread(thread)
         if cold["not_measured"] or raised:
-            cold["threads"] = []
+            cold["threads"], cold["outputs"] = [], []
             break
     if raised:
         on_new_thread(original)
@@ -231,10 +243,7 @@ def time_sides(out, run, plan, n, name, measure, harness, log):
         out["runs"].append({"side": side, "seconds_per_call": seconds, "calls": n, "kept_off_the_cpu": max(kept_off, after)})
         kept_off = after
         if side not in out["outputs"]:
-            try:
-                out["outputs"][side] = {"status": "returned", "value": harness.enc(result)}
-            except harness.Unencodable as e:
-                out["outputs"][side] = {"status": "unencodable", "detail": str(e)}
+            out["outputs"][side] = encoded_output(harness, result)
 
 
 def main():
@@ -283,7 +292,7 @@ def main():
                 else:
                     run = timed_case(req, fns, out, n, name, harness, log)
                 time_sides(out, run, plan, n, name, measure, harness, log)
-                cold_thread(out, run, modules["port"], fns["port"], plan["runs"], name, log)
+                cold_thread(out, run, modules["port"], fns["port"], plan["runs"], name, harness, log)
         except BaseException:  # pyo3's PanicException is a BaseException
             out["error"] = traceback.format_exc()[-4000:]
     gil = getattr(sys, "_is_gil_enabled", lambda: True)()

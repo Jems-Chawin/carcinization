@@ -58,6 +58,7 @@ def zero():
 # Set on the importing thread only: a new thread finds no table.
 _imported = threading.local()
 _imported.table = {"a": 1}
+_imported.factor = 2
 
 
 def lookup(key):
@@ -68,3 +69,8 @@ def main_only(n):
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("called off the main thread")
     return n
+
+
+def doubled(n):
+    # A new thread has no factor of its own: it gets the default.
+    return getattr(_imported, "factor", 1) * n

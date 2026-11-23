@@ -57,3 +57,7 @@ def main_only(n):
     if threading.current_thread() is not threading.main_thread():
         raise RuntimeError("called off the main thread")
     return n
+
+
+def doubled(n):
+    return 2 * n

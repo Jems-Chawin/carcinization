@@ -800,17 +800,19 @@ fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<St
             );
         }
     }
-    let outcome = |side: &str| -> Result<Outcome, String> {
-        let o = &out["outputs"][side];
+    let outcome = |o: &J, whose: &str| -> Result<Outcome, String> {
         match o["status"].as_str() {
             Some("returned") => Value::decode(&o["value"]).map(Outcome::Returned),
             _ => Err(format!(
-                "the {side}'s output cannot be compared: {}",
+                "the output of {whose} cannot be compared: {}",
                 o["detail"]
             )),
         }
     };
-    match (outcome("original"), outcome("port")) {
+    let original = match (
+        outcome(&out["outputs"]["original"], "the original"),
+        outcome(&out["outputs"]["port"], "the port"),
+    ) {
         (Ok(a), Ok(b)) => {
             if let Err(d) = compare(&a, &b, relax) {
                 return (
@@ -818,13 +820,39 @@ fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<St
                     serde_json::to_value(&*d).ok(),
                 );
             }
+            a
         }
         (Err(e), _) | (_, Err(e)) => return (Some(format!("output_not_compared: {e}")), None),
-    }
-    // The cold thread: what a caller sees calling from a new thread.
-    if let Some(traceback) = out["cold_thread"]["raised_in_new_thread"].as_str() {
+    };
+    // The cold thread: what a caller sees calling from a new thread, held
+    // to the original's output as the port's first output is.
+    let cold = &out["cold_thread"];
+    if let Some(traceback) = cold["raised_in_new_thread"].as_str() {
         let last = traceback.trim_end().lines().last().unwrap_or("");
         return (Some(format!("raised_in_new_thread: {last}")), None);
+    }
+    for (k, pair) in cold["outputs"].as_array().into_iter().flatten().enumerate() {
+        for (which, o) in ["first", "next"]
+            .into_iter()
+            .zip(pair.as_array().into_iter().flatten())
+        {
+            let whose = format!("the port's {which} call on new thread {}", k + 1);
+            match outcome(o, &whose).map(|b| compare(&original, &b, relax)) {
+                Ok(Ok(_)) => {}
+                Ok(Err(d)) => {
+                    return (
+                        Some(format!(
+                            "output_differs_in_new_thread: thread {}, {which} call: at {} ({})",
+                            k + 1,
+                            d.path,
+                            d.kind
+                        )),
+                        serde_json::to_value(&*d).ok(),
+                    );
+                }
+                Err(e) => return (Some(format!("output_not_compared: {e}")), None),
+            }
+        }
     }
     (None, None)
 }

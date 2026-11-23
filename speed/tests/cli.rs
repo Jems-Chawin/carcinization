@@ -1634,3 +1634,33 @@ fn a_port_that_raises_only_on_a_new_thread_fails() {
         "{flags:#?}"
     );
 }
+
+/// Step 5, decision 5: the port's outputs on a new thread are compared
+/// with the original's, as its first output is. Per-thread state that
+/// gives another answer on a fresh thread fails.
+#[test]
+fn a_port_that_answers_otherwise_on_a_new_thread_fails() {
+    let declaration = declare(
+        "new-thread-differs",
+        "suite-python.json",
+        &[
+            ("doubled", "cases.jsonl", "doubled-3"),
+            ("nap", "cases.jsonl", "nap-2"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let doubled = &report["targets"][0];
+    let failed = doubled["failed"].as_str().unwrap_or("");
+    assert!(
+        failed.starts_with("output_differs_in_new_thread: thread 1, first call: at "),
+        "{doubled:#}"
+    );
+    assert!(doubled["difference"].is_object(), "{doubled:#}");
+    assert!(report["targets"][1]["failed"].is_null(), "{report:#}");
+}

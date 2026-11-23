@@ -24,7 +24,9 @@
 - `zero()` has no required parameter, so a call with no arguments runs it.
 - The Python port's `lookup` finds its table on the importing thread
   only, so it raises on a new thread where the original does not.
-  `main_only` raises off the main thread on both sides.
+  `main_only` raises off the main thread on both sides. The port's
+  `doubled` finds its factor on the importing thread only, so it
+  answers otherwise on a new thread.
 - `crash(n)` returns n in the original; the Python port kills its own
   interpreter (SIGKILL), which leaves no crash report behind.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which
