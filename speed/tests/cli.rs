@@ -522,3 +522,27 @@ fn speed_run_times_the_pyo3_port_from_the_wheel_speed_build_wrote() {
         "original ÷ port is {ratio}: {report:#}"
     );
 }
+
+#[test]
+fn a_function_carcinify_diff_would_refuse_is_not_timed() {
+    let declaration = declare(
+        "refused-function",
+        "suite-python.json",
+        &[("basename", "cases.jsonl", "basename-a")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = run(&declaration, &wheels, &[], &[]);
+    assert_eq!(code, 1, "{err}");
+    assert_eq!(report["verdict"], "fail", "{report:#}");
+    let failed = report["targets"][0]["failed"].as_str().unwrap();
+    assert!(
+        failed.starts_with("function_refused: original: refused: 'basename' is defined in "),
+        "{failed}"
+    );
+    assert!(
+        report["targets"][0]["runs"]
+            .as_array()
+            .is_none_or(Vec::is_empty),
+        "{report:#}"
+    );
+}

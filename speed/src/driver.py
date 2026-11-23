@@ -54,6 +54,7 @@ def main():
     plan = json.load(sys.stdin)
     harness = load_file(plan["harness_driver"], "carcinify_diff_driver")
     measure = load_file(plan["measure"], "carcinify_decide_measure")
+    harness.SHARED = harness.Shared({"shared_roots": plan["shared_roots"], "shared_hashes": plan["shared_hashes"]})
     debug = open(plan["debug_log"], "a") if plan.get("debug_log") else None
 
     def log(line):
@@ -67,10 +68,20 @@ def main():
     targets = []
     for target in plan["targets"]:
         name, req, n = target["name"], target["request"], target["calls_per_run"]
-        out = {"name": name, "runs": [], "outputs": {}, "error": None}
+        out = {"name": name, "runs": [], "outputs": {}, "error": None, "refused": None}
         targets.append(out)
+        # The function as carcinify diff finds it, by its rules: only the
+        # module's own public functions, compiled ones in a wheel.
+        fns = {}
+        for side in modules:
+            fn, found = harness.resolve(modules[side], req["fn"], plan["sides"][side]["init"])
+            if fn is None:
+                out["refused"] = {"side": side, "status": found["status"], "detail": found.get("detail", "")}
+                break
+            fns[side] = fn
+        if out["refused"]:
+            continue
         try:
-            fns = {side: getattr(modules[side], req["fn"]) for side in modules}
             if req["encoding"] == "typed":
                 args = [harness.dec(x) for x in req["args"]]
                 kwargs = {k: harness.dec(x) for k, x in req["kwargs"].items()}

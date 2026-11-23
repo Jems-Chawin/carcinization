@@ -2,3 +2,4 @@
 {"id": "nap-0", "fn": "nap", "args": [0]}
 {"id": "nap-raises", "fn": "nap", "args": [-1], "expect_raise": true}
 {"id": "wrong-1", "fn": "wrong", "args": [1]}
+{"id": "basename-a", "fn": "basename", "args": ["a/b"]}

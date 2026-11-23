@@ -348,9 +348,18 @@ fn time(
             }
         };
         let sys_path: Vec<&PathBuf> = roots.iter().chain(&shared).collect();
+        // What carcinify diff's driver needs to find a function by its own
+        // rules: the side's directories, and whether it must be compiled.
+        let (require_extension, python_functions) = match spec {
+            SideSpec::Pyo3 {
+                python_functions, ..
+            } => (true, python_functions.clone()),
+            SideSpec::Python { .. } => (false, Vec::new()),
+        };
+        let init = json!({"must_load_from": roots, "require_extension": require_extension, "python_functions": python_functions});
         sides.insert(
             key.to_string(),
-            json!({"module": module, "sys_path": sys_path, "roots": roots}),
+            json!({"module": module, "sys_path": sys_path, "roots": roots, "init": init}),
         );
     }
     if sides["original"]["module"] == sides["port"]["module"] {
@@ -372,6 +381,9 @@ fn time(
         let request: J = serde_json::from_str(&request).map_err(|e| e.to_string())?;
         targets.push(json!({"name": t.name, "request": request, "calls_per_run": t.calls_per_run}));
     }
+    let shared_hashes: Vec<String> = carcinify_diff::distinct::contents(&shared)?
+        .into_keys()
+        .collect();
     // One driver process for each target, with decide's process computing
     // beside it for as long as it runs: load that begins and ends inside a
     // run falls between the loops timed before and after it.
@@ -385,6 +397,8 @@ fn time(
             "result": result_path,
             "runs": loaded.declaration.runs,
             "sides": sides,
+            "shared_roots": shared,
+            "shared_hashes": shared_hashes,
             "targets": [target],
         });
         let watch = carcinify_decide::watch::Watch::start(&opts.python);
@@ -461,6 +475,18 @@ fn drive(
 /// Why a target's output fails it, and the first difference: compared as
 /// carcinify diff compares, with the case's own relaxations.
 fn check_output(out: &J, case: &suite::Case) -> (Option<String>, Option<J>) {
+    let refused = &out["refused"];
+    if !refused.is_null() {
+        let detail = refused["detail"].as_str().unwrap_or("");
+        return (
+            Some(format!(
+                "function_refused: {}: {}: {detail}",
+                refused["side"].as_str().unwrap_or(""),
+                refused["status"].as_str().unwrap_or("")
+            )),
+            None,
+        );
+    }
     if let Some(error) = out["error"].as_str() {
         let last = error.trim_end().lines().last().unwrap_or("");
         return (Some(format!("raised: {last}")), None);

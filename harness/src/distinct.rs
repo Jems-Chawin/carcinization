@@ -53,7 +53,7 @@ fn files_under(dir: &Path, out: &mut Vec<PathBuf>) {
 
 /// Content hash -> one file with that content, for every non-empty file
 /// under the directories.
-pub(crate) fn contents(dirs: &[PathBuf]) -> Result<BTreeMap<String, PathBuf>, String> {
+pub fn contents(dirs: &[PathBuf]) -> Result<BTreeMap<String, PathBuf>, String> {
     let mut files = Vec::new();
     for dir in dirs {
         if dir.is_file() {

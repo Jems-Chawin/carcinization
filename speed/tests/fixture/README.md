@@ -8,4 +8,6 @@
   - `rs/` is the same port in Rust behind PyO3, built by maturin
     (`suite.json`).
 - `wrong(n)` returns another value in the Python port, to be caught.
+- `basename` is in both modules' namespace, imported from `os.path`: not
+  their own code, so carcinify diff refuses it as a case, and speed too.
 - `outside.jsonl` is a case file that no suite lists.

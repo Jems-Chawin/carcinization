@@ -1,6 +1,7 @@
 """A port of speed_orig, slow on purpose: nap sleeps ten times as long."""
 
 import time
+from os.path import basename  # not this module's own code
 
 
 def nap(ms):

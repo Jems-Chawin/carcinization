@@ -1,6 +1,7 @@
 """The original of carcinify speed's fixture."""
 
 import time
+from os.path import basename  # not this module's own code
 
 
 def nap(ms):
