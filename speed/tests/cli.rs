@@ -661,7 +661,7 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
     );
     // speed build calls hang once too, untimed, under the same limit.
     let wheels = declaration.with_file_name("wheels");
-    let limit = [Path::new("--timeout-secs"), Path::new("5")];
+    let limit = [Path::new("--timeout-secs"), Path::new("15")];
     let (code, err) = speed(
         &[
             &[
@@ -678,7 +678,7 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
     assert_eq!(code, 0, "{err}");
     assert!(
         err.contains(
-            "target \"hang\": the original was killed after 5 s on its case; speed run will fail it"
+            "target \"hang\": the original was killed after 15 s on its case; speed run will fail it"
         ),
         "{err}"
     );
@@ -698,7 +698,7 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
     );
     let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
     assert!(
-        failed.starts_with("timeout: no result within 5 s"),
+        failed.starts_with("timeout: no result within 15 s"),
         "{attempts}\n{report:#}"
     );
     assert!(
@@ -706,9 +706,10 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
         "{attempts}\n{report:#}"
     );
     // hang's first call alone takes 60 s, so an attempt under 60 s shows
-    // the limit cut it short. The limit applies to every target's driver:
-    // nap's, with Python's start and its calibrations, took more than 1 s
-    // on a busy machine, so the limit is 5 s.
+    // the limit cut it short. The limit applies to every target's driver,
+    // and nap has two, its timed runs' and its cold thread's; a target
+    // that times out is not retried as a busy one is. Each took more than
+    // 1 s on a busy machine, so the limit is 15 s (RUST-173).
     assert!(
         took.iter().all(|t| *t < std::time::Duration::from_secs(60)),
         "{attempts}"
