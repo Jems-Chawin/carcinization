@@ -2013,3 +2013,50 @@ fn a_timed_wheel_built_with_count_allocations_is_refused() {
         "{err}"
     );
 }
+
+/// RUST-171: a name is resolved along each side's own import path, its
+/// directories and then the suite's shared entries, first match wins. The
+/// original's own helper.py shadows the shared one the port imports, so
+/// the two sides would import different files: refused. A shared module
+/// both sides resolve to the same file stays allowed.
+#[test]
+fn a_sides_module_that_shadows_a_shared_one_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-shadowed-shared");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    std::fs::create_dir_all(repo.0.join("shared")).unwrap();
+    std::fs::write(repo.0.join("shared/helper.py"), "K = 1\n").unwrap();
+    std::fs::write(repo.0.join("py/helper.py"), "K = 2\n").unwrap();
+    let suite = std::fs::read_to_string(repo.0.join("suite-python.json")).unwrap();
+    let suite = suite.replacen("\"cases\":", "\"shared\": [\"shared\"],\n  \"cases\":", 1);
+    assert!(suite.contains("\"shared\""));
+    std::fs::write(repo.0.join("suite-shared.json"), suite).unwrap();
+    repo.commit("the original's helper.py shadows the shared one");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-shared.json", "runs": 3,
+        "targets": [{"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let _ = std::fs::remove_dir_all(&wheels);
+    let build = || {
+        speed_as_given(&[
+            "build",
+            declaration.to_str().unwrap(),
+            "--out",
+            wheels.to_str().unwrap(),
+        ])
+    };
+    let (code, err) = build();
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("helper (py/helper.py and shared/helper.py)"),
+        "{err}"
+    );
+    assert!(!wheels.exists(), "nothing is built");
+    std::fs::remove_file(repo.0.join("py/helper.py")).unwrap();
+    repo.commit("only the shared helper.py");
+    let (code, err) = build();
+    assert_eq!(
+        code, 0,
+        "a shared module both sides resolve to one file: {err}"
+    );
+}

@@ -71,7 +71,12 @@ fn build(opts: &Options) -> Result<(), Failure> {
                 .map_err(|e| format!("shared entry {}: {e}", path.display()))?,
         );
     }
-    refuse_names_in_common(suite_dir, &loaded.suite.original, &loaded.suite.candidate)?;
+    refuse_names_in_common(
+        suite_dir,
+        &loaded.suite.original,
+        &loaded.suite.candidate,
+        &loaded.suite.shared,
+    )?;
     let work = Work::new()?;
     let tools = Tools {
         python: opts.python.clone(),
@@ -354,55 +359,58 @@ fn declares_feature(crate_dir: &Path, feature: &str) -> Result<bool, String> {
 }
 
 /// carcinify speed imports both sides into one Python process (RUST-168),
-/// where a top-level module name both sides' directories provide, from two
-/// different files, would resolve to one side's file for both. Refused
-/// before anything is built.
+/// where a top-level module name the two sides resolve to different files
+/// would resolve to one side's file for both. Each side resolves a name
+/// along its own import path, its directories and then the suite's shared
+/// entries, first match wins, as Python does (RUST-171). Refused before
+/// anything is built.
 fn refuse_names_in_common(
     suite_dir: &Path,
     original: &SideSpec,
     candidate: &SideSpec,
+    shared: &[String],
 ) -> Result<(), String> {
-    // What each side gives to import by a top-level name: a .py file, an
-    // extension or a package directory, first on its path first.
+    // What each side imports by a top-level name: a .py file, an extension
+    // or a package directory, first on its import path first.
     // shortcut: a directory without __init__.py (a namespace package) is
     // not counted, so two such directories of one name, each with a
     // submodule of one name, could still mix the sides; count them when a
     // port uses namespace packages.
     let names = |spec: &SideSpec| {
         let mut found: BTreeMap<String, PathBuf> = BTreeMap::new();
-        match spec {
-            SideSpec::Python { path, .. } => {
-                for dir in path {
-                    let entries = std::fs::read_dir(suite_dir.join(dir));
-                    for entry in entries.into_iter().flatten().flatten() {
-                        let file = entry.file_name().to_string_lossy().into_owned();
-                        let name = if entry.path().is_dir() {
-                            entry
-                                .path()
-                                .join("__init__.py")
-                                .is_file()
-                                .then(|| file.clone())
-                        } else {
-                            file.split_once('.')
-                                .filter(|(_, ext)| {
-                                    matches!(ext.rsplit('.').next(), Some("py" | "so" | "pyd"))
-                                })
-                                .map(|(stem, _)| stem.to_string())
-                        };
-                        if let Some(name) = name {
-                            found
-                                .entry(name)
-                                .or_insert_with(|| Path::new(dir).join(&file));
-                        }
-                    }
-                }
-            }
+        let own: &[String] = match spec {
+            SideSpec::Python { path, .. } => path,
             SideSpec::Pyo3 { module, .. } => {
                 let top = module.split('.').next().unwrap_or(module);
                 found.insert(
                     top.to_string(),
                     PathBuf::from(format!("the compiled module {module}")),
                 );
+                &[]
+            }
+        };
+        for dir in own.iter().chain(shared) {
+            let entries = std::fs::read_dir(suite_dir.join(dir));
+            for entry in entries.into_iter().flatten().flatten() {
+                let file = entry.file_name().to_string_lossy().into_owned();
+                let name = if entry.path().is_dir() {
+                    entry
+                        .path()
+                        .join("__init__.py")
+                        .is_file()
+                        .then(|| file.clone())
+                } else {
+                    file.split_once('.')
+                        .filter(|(_, ext)| {
+                            matches!(ext.rsplit('.').next(), Some("py" | "so" | "pyd"))
+                        })
+                        .map(|(stem, _)| stem.to_string())
+                };
+                if let Some(name) = name {
+                    found
+                        .entry(name)
+                        .or_insert_with(|| Path::new(dir).join(&file));
+                }
             }
         }
         found
@@ -422,7 +430,7 @@ fn refuse_names_in_common(
         return Ok(());
     }
     Err(format!(
-        "both sides provide a top-level module named {}: carcinify speed imports both sides into one Python process, so one side would import the other's. Rename one, or make each side a package of its own",
+        "the two sides would import a top-level module of one name from different files: {}. carcinify speed imports both sides into one Python process, so one side would import the other's. Rename one, or make each side a package of its own",
         common.join(", ")
     ))
 }
