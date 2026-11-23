@@ -1,6 +1,7 @@
 """The original of carcinify speed's fixture."""
 
 import functools
+import threading
 import time
 from os.path import basename  # not this module's own code
 
@@ -43,3 +44,16 @@ def size(s):
 
 def zero():
     return 0
+
+
+TABLE = {"a": 1}
+
+
+def lookup(key):
+    return TABLE[key]
+
+
+def main_only(n):
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError("called off the main thread")
+    return n

@@ -53,3 +53,18 @@ def size(s):
 
 def zero():
     return 0
+
+
+# Set on the importing thread only: a new thread finds no table.
+_imported = threading.local()
+_imported.table = {"a": 1}
+
+
+def lookup(key):
+    return _imported.table[key]
+
+
+def main_only(n):
+    if threading.current_thread() is not threading.main_thread():
+        raise RuntimeError("called off the main thread")
+    return n

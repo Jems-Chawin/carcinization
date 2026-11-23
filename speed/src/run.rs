@@ -293,6 +293,7 @@ fn run(opts: &Options) -> Result<u8, String> {
             "cold_minus_warm": figures::cold_minus_warm(&threads).map(|(median, low, high)| json!({"median": median, "low": low, "high": high})),
             "per_thread": cold["threads"],
             "not_measured": cold["not_measured"],
+            "raised_in_new_thread": cold["raised_in_new_thread"],
         }));
         let spread = |s: &Option<figures::Spread>| {
             s.as_ref().map(|s| json!({"best": s.best, "median": s.median, "worst": s.worst, "spread": s.spread}))
@@ -810,15 +811,22 @@ fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<St
         }
     };
     match (outcome("original"), outcome("port")) {
-        (Ok(a), Ok(b)) => match compare(&a, &b, relax) {
-            Ok(_) => (None, None),
-            Err(d) => (
-                Some(format!("output_differs: at {} ({})", d.path, d.kind)),
-                serde_json::to_value(&*d).ok(),
-            ),
-        },
-        (Err(e), _) | (_, Err(e)) => (Some(format!("output_not_compared: {e}")), None),
+        (Ok(a), Ok(b)) => {
+            if let Err(d) = compare(&a, &b, relax) {
+                return (
+                    Some(format!("output_differs: at {} ({})", d.path, d.kind)),
+                    serde_json::to_value(&*d).ok(),
+                );
+            }
+        }
+        (Err(e), _) | (_, Err(e)) => return (Some(format!("output_not_compared: {e}")), None),
     }
+    // The cold thread: what a caller sees calling from a new thread.
+    if let Some(traceback) = out["cold_thread"]["raised_in_new_thread"].as_str() {
+        let last = traceback.trim_end().lines().last().unwrap_or("");
+        return (Some(format!("raised_in_new_thread: {last}")), None);
+    }
+    (None, None)
 }
 
 fn write(path: &Path, report: &J) -> Result<(), String> {

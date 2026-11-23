@@ -22,6 +22,9 @@
   the PyO3 port's `workspaces()` counts them. carcinify speed's cold
   thread measures it.
 - `zero()` has no required parameter, so a call with no arguments runs it.
+- The Python port's `lookup` finds its table on the importing thread
+  only, so it raises on a new thread where the original does not.
+  `main_only` raises off the main thread on both sides.
 - `crash(n)` returns n in the original; the Python port kills its own
   interpreter (SIGKILL), which leaves no crash report behind.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which

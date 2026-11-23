@@ -152,13 +152,18 @@ def cold_thread(out, run, module, fn, threads, name, log):
     next (warm), each timed alone by `run`. The thread's start is not
     timed. The cheap call is the module's _speed_noop if it exports one,
     else the compared function with no arguments, which must raise
-    TypeError while its arguments are parsed, before its body runs."""
+    TypeError while its arguments are parsed, before its body runs. When
+    the port raises on a new thread, the original's first call is made once
+    on another: if it does not raise, the port's traceback is kept, for
+    carcinify speed to fail the target."""
     noop = getattr(module, "_speed_noop", None)
     cold = out["cold_thread"] = {
         "cheap_call": "_speed_noop" if noop else "the compared function with no arguments",
         "threads": [],
         "not_measured": None,
+        "raised_in_new_thread": None,
     }
+    raised = []
 
     def cheap():
         if noop:
@@ -175,19 +180,38 @@ def cold_thread(out, run, module, fn, threads, name, log):
     def thread():
         try:
             cold["not_measured"] = cheap()
-            if cold["not_measured"] is None:
+        except BaseException:  # pyo3's PanicException is a BaseException
+            cold["not_measured"] = "the cheap call raised:\n" + traceback.format_exc()[-2000:]
+            return
+        if cold["not_measured"] is None:
+            try:
                 first, _ = run("port", 1)
                 cold["threads"].append({"cold": first, "warm": run("port", 1)[0]})
-        except BaseException:  # pyo3's PanicException is a BaseException
-            cold["not_measured"] = "a call in the new thread raised:\n" + traceback.format_exc()[-2000:]
+            except BaseException:
+                raised.append(traceback.format_exc()[-4000:])
 
-    for _ in range(threads):
-        t = threading.Thread(target=thread)
+    def original():
+        try:
+            run("original", 1)
+        except BaseException:
+            raised.append(None)
+
+    def on_new_thread(target):
+        t = threading.Thread(target=target)
         t.start()
         t.join()
-        if cold["not_measured"]:
+
+    for _ in range(threads):
+        on_new_thread(thread)
+        if cold["not_measured"] or raised:
             cold["threads"] = []
             break
+    if raised:
+        on_new_thread(original)
+        if len(raised) > 1:
+            cold["not_measured"] = "the port raised on a new thread, and the original raised there too:\n" + raised[0]
+        else:
+            cold["raised_in_new_thread"] = raised[0]
     log("%s: cold thread, %d threads" % (name, len(cold["threads"])))
 
 

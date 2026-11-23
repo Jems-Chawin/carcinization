@@ -1588,3 +1588,49 @@ print(seen[0])
         .unwrap_or(f64::NAN);
     assert!((0.002..0.05).contains(&median), "{median}: {cold:#}");
 }
+
+/// Step 5, decision 4: a port that raises on a new thread where the
+/// original does not fails, with the port's traceback; where the original
+/// raises too, the cold thread is not measured, a flag.
+#[test]
+fn a_port_that_raises_only_on_a_new_thread_fails() {
+    let declaration = declare(
+        "new-thread-raises",
+        "suite-python.json",
+        &[
+            ("lookup", "cases.jsonl", "lookup-a"),
+            ("main-only", "cases.jsonl", "main-only-1"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let lookup = &report["targets"][0];
+    let failed = lookup["failed"].as_str().unwrap_or("");
+    assert!(
+        failed.starts_with("raised_in_new_thread: AttributeError"),
+        "{lookup:#}"
+    );
+    let traceback = lookup["cold_thread"]["raised_in_new_thread"]
+        .as_str()
+        .unwrap_or("");
+    assert!(traceback.contains("_imported.table[key]"), "{lookup:#}");
+    assert!(report["targets"][1]["failed"].is_null(), "{report:#}");
+    let flags: Vec<&str> = report["flags"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        flags
+            .iter()
+            .any(|f| f.starts_with("cold_thread_not_measured: main-only: ")
+                && f.contains("the original raised there too")),
+        "{flags:#?}"
+    );
+}
