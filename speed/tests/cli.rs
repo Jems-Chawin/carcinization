@@ -2660,3 +2660,123 @@ fn a_report_that_did_not_pass_is_in_the_flags() {
     let (_, out, _) = compare("speed-compare-verdicts", &a, &b);
     assert_eq!(flags_in(&out), ["verdict: A unreliable"], "{out}");
 }
+
+/// RUST-180: each side alone, in a process of its own with only its own
+/// path, holds the modules it imports; two sides that each reach a module
+/// of one name through a path entry they add themselves are refused, as
+/// the one shared process would give both one file. The auditor's probe 4.
+#[test]
+fn a_module_each_side_reaches_by_its_own_path_entry_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-own-path-entry");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let root = repo.0.canonicalize().unwrap();
+    let append = |file: &str, text: &str| {
+        let mut f = std::fs::OpenOptions::new()
+            .append(true)
+            .open(repo.0.join(file))
+            .unwrap();
+        std::io::Write::write_all(&mut f, text.as_bytes()).unwrap();
+    };
+    let own_lib = "\n\nimport os as _os, sys as _sys\n\n_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), \"lib\"))\n";
+    append(
+        "py/speed_orig.py",
+        &format!("{own_lib}\n\ndef scale(n):\n    import helper\n    return n * helper.K\n"),
+    );
+    append(
+        "py-port/speed_port_py.py",
+        &format!("{own_lib}\n\ndef scale(n):\n    import helper\n    return n * helper.K // 10\n"),
+    );
+    append(
+        "cases.jsonl",
+        "{\"id\": \"scale-3\", \"fn\": \"scale\", \"args\": [3]}\n",
+    );
+    for (side, k) in [("py", 1), ("py-port", 10)] {
+        std::fs::create_dir_all(repo.0.join(side).join("lib")).unwrap();
+        std::fs::write(
+            repo.0.join(side).join("lib/helper.py"),
+            format!("K = {k}\n"),
+        )
+        .unwrap();
+    }
+    repo.commit("each side's own lib/ on sys.path, each with a helper");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "scale", "case": {"file": "cases.jsonl", "id": "scale-3"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let _ = std::fs::remove_dir_all(&wheels);
+    let (code, err) = speed_as_given(&[
+        "build",
+        declaration.to_str().unwrap(),
+        "--out",
+        wheels.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{err}");
+    let both = format!(
+        "helper ({root}/py/lib/helper.py and {root}/py-port/lib/helper.py)",
+        root = root.display()
+    );
+    assert!(err.contains(&both), "{both}\n{err}");
+}
+
+/// RUST-180 narrows RUST-177's over-refusal: an installed copy of the
+/// port's module, as `maturin develop` or `pip install -e` leaves in the
+/// interpreter's site-packages, which only the port imports, builds.
+#[test]
+fn an_installed_copy_of_the_ports_module_that_only_the_port_imports_builds() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-installed-copy-venv");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let python = std::env::var("CARCINIFY_PYTHON").unwrap_or_else(|_| "python3".into());
+    let venv = dir.join("venv");
+    let made = Command::new(&python)
+        .args(["-m", "venv", "--without-pip"])
+        .arg(&venv)
+        .output()
+        .unwrap();
+    assert!(
+        made.status.success(),
+        "{}",
+        String::from_utf8_lossy(&made.stderr)
+    );
+    let venv_python = venv.join("bin/python");
+    let out = Command::new(&venv_python)
+        .args([
+            "-c",
+            "import sysconfig; print(sysconfig.get_paths()['purelib'])",
+        ])
+        .output()
+        .unwrap();
+    let site = PathBuf::from(String::from_utf8(out.stdout).unwrap().trim());
+    std::fs::copy(
+        fixture().join("py-port/speed_port_py.py"),
+        site.join("speed_port_py.py"),
+    )
+    .unwrap();
+    let info = site.join("speed_port_py-0.1.0.dist-info");
+    std::fs::create_dir_all(&info).unwrap();
+    std::fs::write(
+        info.join("METADATA"),
+        "Metadata-Version: 2.1\nName: speed-port-py\nVersion: 0.1.0\n",
+    )
+    .unwrap();
+    std::fs::write(info.join("RECORD"), "speed_port_py.py,,\n").unwrap();
+    let declaration = declare(
+        "installed-copy",
+        "suite-python.json",
+        &[("nap", "cases.jsonl", "nap-2")],
+    );
+    let wheels = declaration.with_file_name("wheels");
+    let (code, err) = speed(
+        &[
+            Path::new("build"),
+            &declaration,
+            Path::new("--out"),
+            &wheels,
+            Path::new("--python"),
+            &venv_python,
+        ],
+        &[],
+    );
+    assert_eq!(code, 0, "only the port imports it: {err}");
+}

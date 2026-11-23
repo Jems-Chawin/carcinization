@@ -68,7 +68,8 @@ def origin(spec):
     if spec.has_location:
         return os.path.realpath(spec.origin)
     if spec.origin is None and spec.submodule_search_locations is not None:
-        return tuple(os.path.realpath(p) for p in spec.submodule_search_locations)
+        # Once each: the shared entries are on the one process's path twice.
+        return tuple(dict.fromkeys(os.path.realpath(p) for p in spec.submodule_search_locations))
     return spec.origin
 
 
@@ -91,8 +92,10 @@ def mixed(sides, interpreters):
     Asked after both sides are imported and called, so that what a call
     imports is in sys.modules. The names asked: every one the sides'
     directories and the shared entries provide, and every module in
-    sys.modules from them. A name is refused when the two sides' paths give
-    two modules, or when the module this process holds is neither side's."""
+    sys.modules from them. Each finding is tagged with its rule: (a) the
+    two sides' paths give two modules, which speed build refuses only for a
+    name both sides import alone (RUST-180); (b) the module this process
+    holds is neither side's."""
     paths = {side: [os.path.realpath(p) for p in sides[side]["sys_path"]] + interpreters for side in sides}
     dirs = {d for side in sides for d in paths[side][: len(sides[side]["sys_path"])]}
 
@@ -122,13 +125,21 @@ def mixed(sides, interpreters):
         # Two namespace directories mix only once imported: that is the
         # module held, below. A directory of data is never imported.
         if o is not None and p is not None and o != p and not (isinstance(o, tuple) and isinstance(p, tuple)):
-            refused.append("%s (%s and %s)" % (name, show(o), show(p)))
+            refused.append({"rule": "a", "name": name, "text": "%s (%s and %s)" % (name, show(o), show(p))})
         elif held is not None and (o is not None or p is not None) and held not in (o, p):
-            refused.append(
-                "%s (the original's own path gives %s, the port's %s, but this process holds %s)"
-                % (name, show(o), show(p), show(held))
-            )
+            text = "%s (the original's own path gives %s, the port's %s, but this process holds %s)"
+            refused.append({"rule": "b", "name": name, "text": text % (name, show(o), show(p), show(held))})
     return refused
+
+
+def held():
+    """Every top-level module this process holds, with where it came from
+    (RUST-180)."""
+    return {
+        name: origin(module.__spec__)
+        for name, module in list(sys.modules.items())
+        if "." not in name and getattr(module, "__spec__", None) is not None
+    }
 
 
 def put_in_place(caller, fn):
@@ -474,7 +485,9 @@ def main():
 
     seed = os.environ.get("PYTHONHASHSEED")
     log("hash seed %s (PYTHONHASHSEED=%s, hash randomization %s)" % (seed, seed, sys.flags.hash_randomization))
-    modules = {name: import_side(plan["sides"][name]) for name in ("original", "port")}
+    # With "lone" in the plan, one side alone, on its own path (RUST-180).
+    lone = plan.get("lone")
+    modules = {name: import_side(plan["sides"][name]) for name in ([lone] if lone else ("original", "port"))}
     targets = []
     for target in plan["targets"]:
         name, n, caller = target["name"], target["calls_per_run"], target.get("caller")
@@ -485,9 +498,9 @@ def main():
         # module's own public functions, compiled ones in a wheel.
         fns = {}
         for side in modules:
-            fn, found = harness.resolve(modules[side], caller["fn"] if caller else req["fn"], plan["sides"][side]["init"])
+            fn, resolved = harness.resolve(modules[side], caller["fn"] if caller else req["fn"], plan["sides"][side]["init"])
             if fn is None:
-                out["refused"] = {"side": side, "status": found["status"], "detail": found.get("detail", "")}
+                out["refused"] = {"side": side, "status": resolved["status"], "detail": resolved.get("detail", "")}
                 break
             fns[side] = fn
         if out["refused"]:
@@ -564,7 +577,14 @@ def main():
         "package_dirs": sorted({os.path.realpath(sysconfig.get_paths()[k]) for k in ("purelib", "platlib")}),
     }
     if plan.get("record"):
-        result["mixed"] = mixed(plan["sides"], interpreters)
+        result["held"] = held()
+        if lone:
+            # Where the one process's path, the port's entries first, as
+            # import_side leaves them, would find each module this side holds.
+            shared = [os.path.realpath(p) for s in ("port", "original") for p in plan["sides"][s]["sys_path"]] + interpreters
+            result["shared_gives"] = {name: found(name, shared) for name in result["held"]}
+        else:
+            result["mixed"] = mixed(plan["sides"], interpreters)
     with open(plan["result"], "w") as f:
         json.dump(result, f)
 

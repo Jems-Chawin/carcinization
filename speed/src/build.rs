@@ -160,16 +160,9 @@ fn build(opts: &Options) -> Result<(), Failure> {
     };
     let (callers, refused, ran) =
         callers(opts, &loaded, &git, &shared, &work, prepared, &wheel_of)?;
-    // RUST-177: as Python resolved each side's own path, in the drivers that
-    // imported and called both sides.
-    let mixed: BTreeSet<&str> = ran["mixed"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(J::as_str)
-        .collect();
+    let mixed = mixed_names(&ran);
     if !mixed.is_empty() {
-        return Err(mixing(&mixed.into_iter().collect::<Vec<_>>()).into());
+        return Err(mixing(&mixed).into());
     }
     // Refused as carcinify diff refuses them, unless --allow-dirty: then
     // the files the timing uses are recorded, and the run held to them.
@@ -449,6 +442,68 @@ fn refuse_names_in_common(
     Err(mixing(&common))
 }
 
+/// RUST-177 and RUST-180: the top-level names the two sides would import
+/// from different files, as Python resolved them in the drivers' result
+/// `ran`, each with its files:
+/// - the one process's own check (`mixed` in the driver), whose rule (a),
+///   two sides' paths that give two modules, stands only for a name both
+///   sides import alone;
+/// - a name both sides hold alone, from different origins;
+/// - a name a side holds alone from one origin, which the one process
+///   holds, or would find on its path, from another.
+fn mixed_names(ran: &J) -> Vec<String> {
+    let empty = serde_json::Map::new();
+    let held = |side: &str| ran["lone"][side]["held"].as_object().unwrap_or(&empty);
+    let (o, p) = (held("original"), held("port"));
+    let shown = |j: &J| match j {
+        J::String(s) => s.clone(),
+        J::Array(dirs) => format!(
+            "the namespace package in {}",
+            dirs.iter()
+                .filter_map(J::as_str)
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+        other => other.to_string(),
+    };
+    let mut found: BTreeMap<String, String> = BTreeMap::new();
+    for m in ran["mixed"].as_array().into_iter().flatten() {
+        let name = m["name"].as_str().unwrap_or_default();
+        if m["rule"] == "a" && !(o.contains_key(name) && p.contains_key(name)) {
+            continue;
+        }
+        found
+            .entry(name.into())
+            .or_insert_with(|| m["text"].as_str().unwrap_or_default().into());
+    }
+    for (name, a) in o {
+        if let Some(b) = p.get(name).filter(|b| *b != a) {
+            found
+                .entry(name.clone())
+                .or_insert_with(|| format!("{name} ({} and {})", shown(a), shown(b)));
+        }
+    }
+    let together = ran["held"].as_object().unwrap_or(&empty);
+    for (side, mine) in [("original", o), ("port", p)] {
+        for (name, a) in mine {
+            let b = together
+                .get(name)
+                .or_else(|| ran["lone"][side]["shared_gives"].get(name))
+                .filter(|b| !b.is_null() && *b != a);
+            if let Some(b) = b {
+                found.entry(name.clone()).or_insert_with(|| {
+                    format!(
+                        "{name} (the {side} alone imports {}, but in one process with the other side it gets {})",
+                        shown(a),
+                        shown(b)
+                    )
+                });
+            }
+        }
+    }
+    found.into_values().collect()
+}
+
 /// The refusal of top-level names the two sides would import from
 /// different files, each named with its files.
 fn mixing<S: AsRef<str>>(names: &[S]) -> String {
@@ -552,6 +607,7 @@ fn callers(
     // RUST-170: each direct target called once on each side, untimed, in a
     // driver of its own, so that what the call imports is seen. How the
     // call ends, a crash or a hang among them, is the run's to judge.
+    let mut completed = Vec::new();
     for (i, (t, timed)) in loaded
         .declaration
         .targets
@@ -593,9 +649,44 @@ fn callers(
                 "carcinify speed: target {:?}: {who} {failed}; speed run will fail it",
                 t.name
             );
+        } else {
+            completed.push(crate::run::case_target(t, &loaded.cases[*c], work, i)?);
         }
         crate::run::take_in(&mut result, &ran);
     }
+    // RUST-180: each side alone, in a process of its own on its own path,
+    // imported and making the same untimed calls (those that completed),
+    // to say which modules each side imports, and from where.
+    // shortcut: a caller target's calls are not made alone, as its caller's
+    // own imports belong to neither side; what a side imports only through
+    // a caller is left to the check in the drivers above; make them alone
+    // when a caller target imports per side.
+    let mut lone = serde_json::Map::new();
+    for side in ["original", "port"] {
+        let path = work.join(format!("lone-{side}.json"));
+        plan["lone"] = json!(side);
+        plan["targets"] = J::Array(completed.clone());
+        plan["result"] = json!(path);
+        plan["calling"] = json!(work.join(format!("lone-calling-{side}")));
+        let alone = |why: String| format!("the {side} alone, in a process of its own: {why}");
+        match crate::run::drive(opts, work, &driver, &plan, &path)? {
+            crate::run::Driven::Result(r) => {
+                lone.insert(
+                    side.into(),
+                    json!({"held": r["held"], "shared_gives": r["shared_gives"]}),
+                );
+            }
+            crate::run::Driven::TimedOut => {
+                return Err(alone(format!(
+                    "no result within {} s",
+                    opts.timeout.as_secs()
+                )));
+            }
+            crate::run::Driven::Crashed(why) => return Err(alone(why)),
+        }
+    }
+    plan["lone"] = J::Null;
+    result["lone"] = J::Object(lone);
     // Run with no callers too: it says what the sides import.
     if callers.is_empty() {
         return Ok((recorded, refused, result));

@@ -698,6 +698,9 @@ pub fn take_in(result: &mut J, ran: &Driven) {
             all.extend(these.iter().cloned());
         }
     }
+    if let (Some(all), Some(these)) = (result["held"].as_object_mut(), ran["held"].as_object()) {
+        all.extend(these.clone());
+    }
 }
 
 /// What a target's outputs are held to: its case's relaxations, or for a
