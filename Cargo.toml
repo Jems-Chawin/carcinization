@@ -1,5 +1,5 @@
 [workspace]
-members = ["carcinify", "harness", "structure", "deps", "decide"]
+members = ["carcinify", "harness", "structure", "deps", "decide", "speed"]
 # The worked example is its own workspace with its own Cargo.lock, as a
 # user's crate would be. Keeping it out also keeps Cargo from merging the
 # harness's serde_json features into the crate under test.

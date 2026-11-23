@@ -1,0 +1,13 @@
+[package]
+name = "carcinify-speed"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+# The files in tests/ will run the binary, as the other tools' do: they are
+# built as test targets of the carcinify crate.
+autotests = false
+license.workspace = true
+description = "Times a port against its original from the Python caller, with the sides alternating, and judges the run's load from the host gate's log"
+
+[dependencies]
