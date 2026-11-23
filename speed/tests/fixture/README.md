@@ -16,4 +16,10 @@
 - `square(n)` is cached in the original (`functools.lru_cache`): every
   timed call would be a cache hit, so carcinify diff refuses it, and speed
   too.
+- `callers/` holds caller targets: `callers.py` calls `library.py`, which
+  reaches `nap` or `wrong` through its own module, where carcinify speed
+  puts each side's function. `two_naps` reaches the case nap-2;
+  `a_nap_no_case_has` reaches nap(3), which no case has;
+  `naps_that_change` reaches nap(2) and then nap(0); `a_wrong` reaches
+  wrong-1.
 - `outside.jsonl` is a case file that no suite lists.

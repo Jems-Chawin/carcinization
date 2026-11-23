@@ -50,6 +50,30 @@ def import_side(side):
     return module
 
 
+def put_in_place(caller, fn):
+    """Puts a side's function where the caller's library calls it from."""
+    module, attribute = caller["replace"].rsplit(".", 1)
+    setattr(importlib.import_module(module), attribute, fn)
+
+
+def caller_spec(caller, original):
+    """decide's recorder's spec for the caller: its file and function, and
+    the original's function as the one whose calls are recorded."""
+    code = getattr(original, "__code__", None)
+    if code is None:
+        raise RuntimeError(
+            "the original's %s is compiled: decide's recorder sees calls of Python functions only" % caller["fn"]
+        )
+    path = caller["path"]
+    return {
+        "project_root": os.path.dirname(path),
+        "workload_file": path,
+        "function": caller["function"],
+        "candidate": {"file": code.co_filename, "function": code.co_name},
+        "args": [],
+    }
+
+
 def main():
     plan = json.load(sys.stdin)
     harness = load_file(plan["harness_driver"], "carcinify_diff_driver")
@@ -64,22 +88,36 @@ def main():
 
     seed = os.environ.get("PYTHONHASHSEED")
     log("hash seed %s (PYTHONHASHSEED=%s, hash randomization %s)" % (seed, seed, sys.flags.hash_randomization))
-    modules = {name: import_side(plan["sides"][name]) for name in ("original", "port")}
+    # Recording the caller targets needs the original alone.
+    names = ("original",) if plan.get("record") else ("original", "port")
+    modules = {name: import_side(plan["sides"][name]) for name in names}
     targets = []
     for target in plan["targets"]:
-        name, req, n = target["name"], target["request"], target["calls_per_run"]
+        name, n, caller = target["name"], target["calls_per_run"], target.get("caller")
+        req = target.get("request")
         out = {"name": name, "runs": [], "outputs": {}, "error": None, "refused": None, "arguments_changed_by_call": None}
         targets.append(out)
         # The function as carcinify diff finds it, by its rules: only the
         # module's own public functions, compiled ones in a wheel.
         fns = {}
         for side in modules:
-            fn, found = harness.resolve(modules[side], req["fn"], plan["sides"][side]["init"])
+            fn, found = harness.resolve(modules[side], caller["fn"] if caller else req["fn"], plan["sides"][side]["init"])
             if fn is None:
                 out["refused"] = {"side": side, "status": found["status"], "detail": found.get("detail", "")}
                 break
             fns[side] = fn
         if out["refused"]:
+            continue
+        if caller:
+            # Two untimed calls of the caller with the original in place,
+            # each recorded by decide's recorder.
+            try:
+                spec = caller_spec(caller, fns["original"])
+                measure.load(spec)  # the caller's directory on sys.path, for its imports
+                put_in_place(caller, fns["original"])
+                out["recorded"] = [measure.record(spec), measure.record(spec)]
+            except BaseException:
+                out["error"] = traceback.format_exc()[-4000:]
             continue
         try:
 

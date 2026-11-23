@@ -20,15 +20,26 @@ fn fixture() -> PathBuf {
 /// A declaration in a directory of its own, naming one of the fixture's
 /// suites, with each target's case file and id.
 fn declare(name: &str, suite: &str, targets: &[(&str, &str, &str)]) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("speed-{name}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
     let targets: Vec<J> = targets
         .iter()
         .map(|(target, file, id)| {
             json!({"name": target, "case": {"file": file, "id": id}, "calls_per_run": 2})
         })
         .collect();
+    declare_targets(name, suite, targets)
+}
+
+/// A caller target: the fixture's caller `function`, which reaches `func`
+/// through the library's attribute of that name.
+fn caller(name: &str, function: &str, func: &str) -> J {
+    json!({"name": name, "calls_per_run": 2, "caller": {
+        "file": "callers/callers.py", "function": function, "fn": func, "replace": format!("library.{func}")}})
+}
+
+fn declare_targets(name: &str, suite: &str, targets: Vec<J>) -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("speed-{name}"));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
     let declaration = json!({
         "schema": "carcinify/speed/declaration/1",
         "suite": fixture().join(suite),
@@ -826,5 +837,96 @@ fn a_cached_original_is_refused_as_carcinify_diff_refuses_it() {
             .as_array()
             .is_none_or(Vec::is_empty),
         "{report:#}"
+    );
+}
+
+/// Design §3: a caller is called twice, untimed, with the original in
+/// place, and each call it makes of the compared function is looked up
+/// among the suite's cases, before anything is timed.
+#[test]
+fn a_caller_is_built_with_its_calls_recorded_and_found_among_the_cases() {
+    let declaration = declare_targets(
+        "caller",
+        "suite-python.json",
+        vec![caller("two-naps", "two_naps", "nap")],
+    );
+    let wheels = built(&declaration);
+    let calls = &read(&wheels.join("build.json"))["callers"]["two-naps"];
+    // Two calls of nap(2), one input.
+    assert_eq!(calls["calls"], 2, "{calls:#}");
+    let lines = calls["lines"].as_array().unwrap();
+    assert_eq!(lines.len(), 1, "{calls:#}");
+    assert_eq!(lines[0]["fn"], "nap", "{calls:#}");
+}
+
+#[test]
+fn a_caller_that_reaches_the_function_with_an_input_no_case_has_is_refused() {
+    let declaration = declare_targets(
+        "caller-no-case",
+        "suite-python.json",
+        vec![caller("no-case", "a_nap_no_case_has", "nap")],
+    );
+    let out = declaration.with_file_name("wheels");
+    let (code, err) = speed(
+        &[Path::new("build"), &declaration, Path::new("--out"), &out],
+        &[],
+    );
+    assert_eq!(code, 1, "{err}");
+    assert!(
+        err.contains("target \"no-case\": timed_input_not_compared: "),
+        "{err}"
+    );
+    assert!(!out.join("build.json").exists());
+}
+
+#[test]
+fn a_caller_whose_two_recordings_differ_is_refused() {
+    let declaration = declare_targets(
+        "caller-unstable",
+        "suite-python.json",
+        vec![caller("changing", "naps_that_change", "nap")],
+    );
+    let out = declaration.with_file_name("wheels");
+    let (code, err) = speed(
+        &[Path::new("build"), &declaration, Path::new("--out"), &out],
+        &[],
+    );
+    assert_eq!(code, 1, "{err}");
+    assert!(
+        err.contains("target \"changing\": timed_input_unstable: "),
+        "{err}"
+    );
+}
+
+#[test]
+fn a_target_names_a_case_or_a_caller() {
+    let mut both = caller("both", "two_naps", "nap");
+    both["case"] = json!({"file": "cases.jsonl", "id": "nap-2"});
+    let mut neither = caller("neither", "two_naps", "nap");
+    neither.as_object_mut().unwrap().remove("caller");
+    let mut missing = caller("missing", "two_naps", "nap");
+    missing["caller"]["file"] = json!("callers/not-there.py");
+    let declaration = declare_targets(
+        "case-or-caller",
+        "suite-python.json",
+        vec![both, neither, missing],
+    );
+    let out = declaration.with_file_name("wheels");
+    let (code, err) = speed(
+        &[Path::new("build"), &declaration, Path::new("--out"), &out],
+        &[],
+    );
+    assert_eq!(code, 1, "{err}");
+    for name in ["both", "neither"] {
+        assert!(
+            err.contains(&format!(
+                "target \"{name}\": a target names a case or a caller, one of them"
+            )),
+            "{err}"
+        );
+    }
+    assert!(
+        err.contains("target \"missing\": the caller's file \"callers/not-there.py\" is not there"),
+        "{err}"
     );
 }

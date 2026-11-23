@@ -169,14 +169,17 @@ fn run(opts: &Options) -> Result<u8, String> {
 
     let mut timed = Vec::new();
     let mut targets = Vec::new();
-    for ((t, case), out) in loaded
+    for ((t, what), out) in loaded
         .declaration
         .targets
         .iter()
-        .zip(&loaded.target_cases)
+        .zip(&loaded.timed)
         .zip(result["targets"].as_array().into_iter().flatten())
     {
-        let case = &loaded.cases[case.ok_or("a refused target was timed")?];
+        let (Some(declaration::Timed::Case(case)), Some(c)) = (what, &t.case) else {
+            return Err("a refused or caller target was timed".into());
+        };
+        let case = &loaded.cases[*case];
         let runs: Vec<Run> = out["runs"]
             .as_array()
             .into_iter()
@@ -199,7 +202,7 @@ fn run(opts: &Options) -> Result<u8, String> {
         };
         targets.push(json!({
             "name": t.name,
-            "case": {"file": t.case.file, "id": t.case.id, "source": case.source},
+            "case": {"file": c.file, "id": c.id, "source": case.source},
             "calls_per_run": t.calls_per_run,
             "failed": failed,
             "difference": difference,
@@ -316,13 +319,16 @@ fn check_wheels(dir: &Path, loaded: &Loaded) -> Result<J, String> {
 }
 
 /// Runs the driver on every target, and gives its result.
-fn time(
+/// The plan every run of the timing driver shares: its files, each side as
+/// it imports them (a compiled side's wheel is `wheel_of` the side,
+/// unpacked into `work`), and the shared files. The driver itself, and the
+/// plan.
+pub fn plan(
     opts: &Options,
     loaded: &Loaded,
-    wheels: &Path,
-    record: &J,
     work: &Path,
-) -> Result<J, String> {
+    wheel_of: &dyn Fn(&str) -> PathBuf,
+) -> Result<(PathBuf, J), String> {
     let suite_dir = loaded.suite_path.parent().unwrap_or(Path::new("/"));
     let write_in = |dir: &str, name: &str, text: &str| -> Result<PathBuf, String> {
         let d = work.join(dir);
@@ -332,7 +338,8 @@ fn time(
     };
     // Each alone in its own directory: Python before 3.11 puts a script's
     // directory first on sys.path.
-    let driver = write_in("driver", "driver.py", DRIVER)?;
+    // Not "driver": carcinify diff writes its own driver there.
+    let driver = write_in("speed-driver", "driver.py", DRIVER)?;
     let harness = write_in("harness", "driver.py", carcinify_diff::python::DRIVER)?;
     let measure = write_in("measure", "measure.py", carcinify_decide::report::DRIVER)?;
     let canonical = |rel: &String| {
@@ -357,11 +364,7 @@ fn time(
                 path.iter().map(canonical).collect::<Result<Vec<_>, _>>()?,
             ),
             SideSpec::Pyo3 { module, .. } => {
-                let wheel = wheels.join(
-                    record["sides"][side]["wheel"]["file"]
-                        .as_str()
-                        .unwrap_or_default(),
-                );
+                let wheel = wheel_of(side);
                 let unpacked = work.join(format!("{side}-module"));
                 let unzip = Command::new(&opts.python)
                     .args(["-I", "-m", "zipfile", "-e"])
@@ -400,39 +403,64 @@ fn time(
             sides["port"]["module"]
         ));
     }
+    let shared_hashes: Vec<String> = carcinify_diff::distinct::contents(&shared)?
+        .into_keys()
+        .collect();
+    let plan = json!({
+        "harness_driver": harness,
+        "measure": measure,
+        "debug_log": opts.debug_log,
+        "runs": loaded.declaration.runs,
+        "sides": sides,
+        "shared_roots": shared,
+        "shared_hashes": shared_hashes,
+    });
+    Ok((driver, plan))
+}
+
+fn time(
+    opts: &Options,
+    loaded: &Loaded,
+    wheels: &Path,
+    record: &J,
+    work: &Path,
+) -> Result<J, String> {
+    let wheel_of = |side: &str| {
+        wheels.join(
+            record["sides"][side]["wheel"]["file"]
+                .as_str()
+                .unwrap_or_default(),
+        )
+    };
+    let (driver, base) = plan(opts, loaded, work, &wheel_of)?;
     let mut targets = Vec::new();
-    for (i, (t, case)) in loaded
+    for (i, (t, timed)) in loaded
         .declaration
         .targets
         .iter()
-        .zip(&loaded.target_cases)
+        .zip(&loaded.timed)
         .enumerate()
     {
-        let case = &loaded.cases[case.ok_or("a refused target was timed")?];
+        let case = match timed {
+            Some(declaration::Timed::Case(c)) => &loaded.cases[*c],
+            Some(declaration::Timed::Caller(_)) => {
+                return Err("speed run does not time caller targets yet".into());
+            }
+            None => return Err("a refused target was timed".into()),
+        };
         let request = suite::request(case, &work.join(format!("scratch-{i}")))?;
         let request: J = serde_json::from_str(&request).map_err(|e| e.to_string())?;
         targets.push(json!({"name": t.name, "request": request, "calls_per_run": t.calls_per_run}));
     }
-    let shared_hashes: Vec<String> = carcinify_diff::distinct::contents(&shared)?
-        .into_keys()
-        .collect();
     // One driver process for each target, with decide's process computing
     // beside it for as long as it runs: load that begins and ends inside a
     // run falls between the loops timed before and after it.
     let mut result = json!({"targets": []});
     for (i, target) in targets.into_iter().enumerate() {
         let result_path = work.join(format!("result-{i}.json"));
-        let plan = json!({
-            "harness_driver": harness,
-            "measure": measure,
-            "debug_log": opts.debug_log,
-            "result": result_path,
-            "runs": loaded.declaration.runs,
-            "sides": sides,
-            "shared_roots": shared,
-            "shared_hashes": shared_hashes,
-            "targets": [target],
-        });
+        let mut plan = base.clone();
+        plan["result"] = json!(result_path);
+        plan["targets"] = json!([target]);
         let watch = carcinify_decide::watch::Watch::start(&opts.python);
         let ran = drive(opts, work, &driver, &plan, &result_path);
         let beside = watch.finish();
@@ -461,7 +489,7 @@ fn time(
 
 /// One run of the timing driver on `plan`, and its result; `None` when it
 /// gave none within the time limit and was killed.
-fn drive(
+pub fn drive(
     opts: &Options,
     work: &Path,
     driver: &Path,

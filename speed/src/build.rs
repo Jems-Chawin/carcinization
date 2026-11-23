@@ -3,12 +3,14 @@
 //! back inside the timed window.
 
 use crate::cli::Options;
-use crate::declaration;
+use crate::declaration::{self, Loaded, Timed};
 use carcinify_diff::commit;
+use carcinify_diff::measured;
 use carcinify_diff::provenance::{git_info, sha256_bytes, sha256_file, tool_version};
 use carcinify_diff::python::{self, Built, Tools};
 use carcinify_diff::report::Tools as ToolsBlock;
-use carcinify_diff::suite::SideSpec;
+use carcinify_diff::side::{Side, SideConfig};
+use carcinify_diff::suite::{Measured, SideSpec};
 use serde_json::{Value as J, json};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
@@ -82,11 +84,13 @@ fn build(opts: &Options) -> Result<(), Failure> {
     let mut outside = Vec::new();
     let mut crate_dir = None;
     let mut wheels = Vec::new();
+    let mut prepared = Vec::new();
     for (name, spec) in [
         ("original", &loaded.suite.original),
         ("candidate", &loaded.suite.candidate),
     ] {
-        let (_, built) = python::prepare(name, spec, suite_dir, &git.root, &shared, &work, &tools)?;
+        let (cfg, built) =
+            python::prepare(name, spec, suite_dir, &git.root, &shared, &work, &tools)?;
         let mut side = json!({"kind": built.kind, "module": built.module});
         if let SideSpec::Pyo3 { .. } = spec {
             let args = rustc_args(&work, name, &built)?.ok_or_else(|| {
@@ -105,6 +109,15 @@ fn build(opts: &Options) -> Result<(), Failure> {
             crate_dir = crate_dir.or(built.crate_dir.clone());
         }
         sides.insert(name.to_string(), side);
+        prepared.push((cfg, built));
+    }
+    let wheel_of = |side: &str| {
+        let file = sides[side]["wheel"]["file"].as_str().unwrap_or_default();
+        work.join(format!("{side}-wheel")).join(file)
+    };
+    let (callers, refused) = callers(opts, &loaded, &git, &shared, &work, prepared, &wheel_of)?;
+    if !refused.is_empty() {
+        return Err(Failure::Refused(refused));
     }
     std::fs::create_dir_all(out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
     for wheel in &wheels {
@@ -120,6 +133,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
         "dirty": !git.dirty.is_empty(),
         "python": interpreter(&opts.python)?,
         "sides": sides,
+        "callers": callers,
         "tools": tools_block(opts, crate_dir.as_deref().unwrap_or(suite_dir), crate_dir.is_some(), outside)?,
     });
     let text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
@@ -127,6 +141,187 @@ fn build(opts: &Options) -> Result<(), Failure> {
         .map_err(|e| format!("cannot write {}: {e}", out.join(RECORD).display()))?;
     let _ = std::fs::remove_dir_all(&work);
     Ok(())
+}
+
+/// Design §3: each caller target called twice, untimed, with the original
+/// in place, and each call it made of the compared function looked up among
+/// the suite's cases with the harness's own measured check, the original
+/// started as carcinify diff starts it. The calls of each caller that
+/// passes, by target; why each other is refused.
+fn callers(
+    opts: &Options,
+    loaded: &Loaded,
+    git: &carcinify_diff::provenance::Git,
+    shared: &[PathBuf],
+    work: &Path,
+    prepared: Vec<(SideConfig, Built)>,
+    wheel_of: &dyn Fn(&str) -> PathBuf,
+) -> Result<(serde_json::Map<String, J>, Vec<String>), String> {
+    let mut recorded = serde_json::Map::new();
+    let mut refused = Vec::new();
+    let callers: Vec<_> = loaded
+        .declaration
+        .targets
+        .iter()
+        .zip(&loaded.timed)
+        .filter_map(|(t, timed)| match (timed, &t.caller) {
+            (Some(Timed::Caller(path)), Some(c)) => Some((t, c, path)),
+            _ => None,
+        })
+        .collect();
+    if callers.is_empty() {
+        return Ok((recorded, refused));
+    }
+    let (driver, mut plan) = crate::run::plan(opts, loaded, work, wheel_of)?;
+    let result_path = work.join("recorded.json");
+    plan["record"] = json!(true);
+    plan["result"] = json!(result_path);
+    plan["targets"] = callers
+        .iter()
+        .map(|(t, c, path)| {
+            json!({"name": t.name, "calls_per_run": t.calls_per_run,
+            "caller": {"path": path, "function": c.function, "fn": c.func, "replace": c.replace}})
+        })
+        .collect();
+    let result = crate::run::drive(opts, work, &driver, &plan, &result_path)?.ok_or_else(|| {
+        format!(
+            "the callers were not recorded within {} s",
+            opts.timeout.as_secs()
+        )
+    })?;
+    let mut prepared = prepared.into_iter();
+    let (Some((mut original, original_built)), Some((mut candidate, candidate_built))) =
+        (prepared.next(), prepared.next())
+    else {
+        return Err("both sides must be prepared".into());
+    };
+    carcinify_diff::complete_inits(
+        (&mut original, &original_built),
+        (&mut candidate, &candidate_built),
+        shared,
+        false,
+    )?;
+    let mut original = Side::start(original, opts.timeout)?;
+    let outs = result["targets"].as_array().cloned().unwrap_or_default();
+    for (i, ((t, c, _), out)) in callers.iter().zip(&outs).enumerate() {
+        let mut refuse = |why: String| refused.push(format!("target {:?}: {why}", t.name));
+        if !out["refused"].is_null() {
+            let r = &out["refused"];
+            refuse(format!(
+                "function_refused: {}: {}: {}",
+                r["side"], r["status"], r["detail"]
+            ));
+            continue;
+        }
+        if let Some(error) = out["error"].as_str() {
+            refuse(format!(
+                "the caller raised: {}",
+                error.trim_end().lines().last().unwrap_or("")
+            ));
+            continue;
+        }
+        let (first, second) = (&out["recorded"][0], &out["recorded"][1]);
+        if first != second {
+            // Each recording's calls and its first few inputs.
+            let inputs = |r: &J| {
+                let lines: Vec<&str> = r["lines"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(J::as_str)
+                    .collect();
+                let mut shown = lines.iter().take(3).copied().collect::<Vec<_>>().join("; ");
+                if lines.len() > 3 {
+                    shown += &format!("; and {} more", lines.len() - 3);
+                }
+                format!(
+                    "{} call(s): {}",
+                    r["calls"],
+                    if shown.is_empty() { "none" } else { &shown }
+                )
+            };
+            refuse(format!(
+                "timed_input_unstable: two untimed calls of the caller reached {} with other inputs: first {}; then {}",
+                c.func,
+                inputs(first),
+                inputs(second)
+            ));
+            continue;
+        }
+        let lines: Vec<&str> = first["lines"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(J::as_str)
+            .collect();
+        let file = work.join(format!("calls-{i}.jsonl"));
+        let text: String = lines.iter().map(|l| format!("{l}\n")).collect();
+        std::fs::write(&file, text).map_err(|e| format!("cannot write {}: {e}", file.display()))?;
+        let entry = Measured {
+            file: file.to_string_lossy().into_owned(),
+            func: Some(c.func.clone()),
+            not_comparable: None,
+        };
+        let files = measured::load(Path::new("/"), &[entry], &mut Default::default())?;
+        let scratch = work.join("scratch");
+        let report = measured::check(
+            &files,
+            &git.root,
+            &loaded.cases,
+            &mut original,
+            &scratch,
+            opts.timeout,
+        )?;
+        let report = report.first().ok_or("no measured report")?;
+        let line = |source: &str| {
+            let n: usize = source
+                .rsplit(':')
+                .next()
+                .and_then(|n| n.parse().ok())
+                .unwrap_or(0);
+            lines
+                .get(n.wrapping_sub(1))
+                .copied()
+                .unwrap_or(source)
+                .to_string()
+        };
+        let not_compared: Vec<String> = report
+            .missing
+            .iter()
+            .map(|m| {
+                line(&m.source)
+                    + &m.why
+                        .as_ref()
+                        .map(|w| format!(" ({w})"))
+                        .unwrap_or_default()
+            })
+            .chain(report.unencodable.iter().map(|u| {
+                format!(
+                    "{} (holds a {} the value format cannot)",
+                    line(&u.source),
+                    u.holds
+                )
+            }))
+            .chain(report.warning.map(String::from))
+            .collect();
+        if !not_compared.is_empty() {
+            refuse(format!(
+                "timed_input_not_compared: the caller reached {} with input(s) no case of the suite has: {}",
+                c.func,
+                not_compared.join("; ")
+            ));
+            continue;
+        }
+        let lines: Vec<J> = lines
+            .iter()
+            .filter_map(|l| serde_json::from_str(l).ok())
+            .collect();
+        recorded.insert(
+            t.name.clone(),
+            json!({"calls": first["calls"], "lines": lines}),
+        );
+    }
+    Ok((recorded, refused))
 }
 
 /// The repository holding `dir`, refused as carcinify diff refuses it when
