@@ -278,6 +278,17 @@ fn run(
     extra: &[&Path],
     env: &[(&str, &str)],
 ) -> (i32, String, J) {
+    timed_run(declaration, wheels, extra, env).0
+}
+
+/// `run`, and how long `speed run` itself took, without the wait for
+/// another test's run to end.
+fn timed_run(
+    declaration: &Path,
+    wheels: &Path,
+    extra: &[&Path],
+    env: &[(&str, &str)],
+) -> ((i32, String, J), std::time::Duration) {
     let report = declaration.with_file_name("report.json");
     let _ = std::fs::remove_file(&report);
     let mut args = vec![
@@ -290,11 +301,13 @@ fn run(
     ];
     args.extend_from_slice(extra);
     let one = TIMING.lock().unwrap_or_else(|e| e.into_inner());
+    let start = std::time::Instant::now();
     let (code, err) = speed(&args, env);
+    let took = start.elapsed();
     drop(one);
     let json =
         std::fs::read_to_string(&report).map_or(J::Null, |t| serde_json::from_str(&t).unwrap());
-    (code, err, json)
+    ((code, err, json), took)
 }
 
 #[test]
@@ -662,36 +675,36 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
         &[],
     );
     assert_eq!(code, 0, "{err}");
-    let start = std::time::Instant::now();
+    // Each attempt timed alone: the retries quiet() makes when the machine
+    // is busy, and the waits for other tests' runs, are not this run's.
+    let mut took = Vec::new();
     let (code, err, report) = quiet(&mut || {
-        run(
-            &declaration,
-            &wheels,
-            &[Path::new("--timeout-secs"), Path::new("5")],
-            &[],
-        )
+        let (ran, t) = timed_run(&declaration, &wheels, &limit, &[]);
+        took.push(t);
+        ran
     });
+    let attempts = format!("{} attempt(s), each taking {took:?}", took.len());
     assert_eq!(
         (code, &report["verdict"]),
         (1, &json!("fail")),
-        "{err}\n{report:#}"
+        "{attempts}\n{err}\n{report:#}"
     );
     let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
     assert!(
         failed.starts_with("timeout: no result within 5 s"),
-        "{report:#}"
+        "{attempts}\n{report:#}"
     );
     assert!(
         report["targets"][1]["ratio"]["median"].is_f64(),
-        "{report:#}"
+        "{attempts}\n{report:#}"
     );
-    // hang's first call alone takes 60 s. The limit applies to every
-    // target's driver: nap's, with Python's start and its calibrations,
-    // took more than 1 s on a busy machine, so the limit is 5 s.
+    // hang's first call alone takes 60 s, so an attempt under 60 s shows
+    // the limit cut it short. The limit applies to every target's driver:
+    // nap's, with Python's start and its calibrations, took more than 1 s
+    // on a busy machine, so the limit is 5 s.
     assert!(
-        start.elapsed() < std::time::Duration::from_secs(60),
-        "{:?}",
-        start.elapsed()
+        took.iter().all(|t| *t < std::time::Duration::from_secs(60)),
+        "{attempts}"
     );
 }
 
