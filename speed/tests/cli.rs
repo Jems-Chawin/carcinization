@@ -212,14 +212,29 @@ fn built(declaration: &Path) -> PathBuf {
     wheels
 }
 
-/// Whether every pair of some target was dropped as disturbed, or the
-/// process beside a target was kept off the CPU: the machine was too busy
-/// for the run.
-fn too_busy(report: &J) -> bool {
-    report["reasons"].as_array().into_iter().flatten().any(|r| {
-        r.as_str()
-            .is_some_and(|r| r.starts_with("every_pair_dropped") || r.starts_with("busy_beside"))
-    })
+/// Why the machine was too busy for the run, if it was: every pair of a
+/// target dropped as disturbed, or the process beside a target kept off
+/// the CPU. Read from each target's own figures: a failed run's reasons say
+/// only why it failed, though another target was disturbed.
+fn too_busy(report: &J) -> Vec<String> {
+    let mut why = Vec::new();
+    for t in report["targets"].as_array().into_iter().flatten() {
+        if !t["failed"].is_null() {
+            continue;
+        }
+        let name = t["name"].as_str().unwrap_or("?");
+        if t["ratio"].is_null() {
+            why.push(format!("{name}: every pair of runs was dropped"));
+        }
+        let beside = t["watched_beside"]["kept_off_the_cpu"].as_f64();
+        if let Some(lost) = beside.filter(|l| *l > carcinify_decide::report::BUSY_WHILE_RUNNING) {
+            why.push(format!(
+                "{name}: the process beside it was kept off the CPU for {:.0}% of its time",
+                lost * 100.0
+            ));
+        }
+    }
+    why
 }
 
 /// A run, again while the machine was too busy for it, up to five times.
@@ -229,17 +244,11 @@ fn too_busy(report: &J) -> bool {
 fn quiet(attempt: &mut dyn FnMut() -> (i32, String, J)) -> (i32, String, J) {
     let mut last = attempt();
     for n in 1..5 {
-        if !too_busy(&last.2) {
+        let why = too_busy(&last.2);
+        if why.is_empty() {
             break;
         }
         let name = std::thread::current().name().unwrap_or("?").to_string();
-        let why: Vec<&str> = last.2["reasons"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(J::as_str)
-            .filter(|r| r.starts_with("every_pair_dropped") || r.starts_with("busy_beside"))
-            .collect();
         let line = format!("{name}\tattempt {n} too busy: {}", why.join("; "));
         eprintln!("{line}");
         if let Ok(log) = std::env::var("CARCINIFY_SPEED_ATTEMPTS") {
