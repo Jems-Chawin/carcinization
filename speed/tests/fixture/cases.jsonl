@@ -15,3 +15,4 @@
 {"id": "doubled-3", "fn": "doubled", "args": [3]}
 {"id": "lazy-1", "fn": "lazy", "args": [1]}
 {"id": "fill-100", "fn": "fill", "args": [100]}
+{"id": "fill-kw-100", "fn": "fill", "kwargs": {"n": 100}}

@@ -1103,6 +1103,15 @@ fn a_caller_is_timed_with_the_pyo3_ports_function_in_place() {
         (0.05..0.2).contains(&ratio),
         "original ÷ port is {ratio}: {report:#}"
     );
+    // The counts are over the caller's whole call, and the report says so.
+    let what = report["targets"][0]["counts"]["what"]
+        .as_str()
+        .unwrap_or("");
+    assert!(
+        what.contains("the extension's alone, over the caller's whole call")
+            && what.contains("includes the caller's own objects"),
+        "{what}"
+    );
 }
 
 /// Design §10 step 4: the caller refused for an input no case has passes
@@ -1922,7 +1931,10 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
     let declaration = declare(
         "pyo3-counts",
         "suite.json",
-        &[("fill", "cases.jsonl", "fill-100")],
+        &[
+            ("fill", "cases.jsonl", "fill-100"),
+            ("fill-kw", "cases.jsonl", "fill-kw-100"),
+        ],
     );
     let wheels = built(&declaration);
     let (_, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
@@ -1954,6 +1966,15 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
         .filter(|e| e.path().extension().is_some_and(|x| x == "whl"))
         .count();
     assert_eq!(kept, 1);
+    // A positional call has no note; a keyword call's Python figure holds
+    // the interpreter's blocks for the keywords, and says so.
+    assert!(python["note"].is_null(), "{counts:#}");
+    let keywords = &report["targets"][1]["counts"]["python"]["note"];
+    assert!(
+        keywords.as_str().unwrap_or("").contains("keyword"),
+        "{report:#}"
+    );
+    assert!(!what.contains("caller target"), "{what}");
 }
 
 /// Design §10 step 6: a timed wheel built with count_allocations is
