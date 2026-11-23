@@ -155,6 +155,10 @@ rest.
   counts, so give a longer cap for a long wait.
 - `RUSTFLAGS`, when set, passes to `speed build` in the container, so that
   the port can be built for another target CPU.
+- `PIP_PACKAGES`, when set, is installed beside maturin in the container's
+  venv, for a caller that imports them, as `PIP_PACKAGES='numpy==2.5.4'`.
+  Pin exact versions: the report records NumPy's version, and no other
+  package's.
 - Exit status: speed's own; `2` also when one of the script's own steps
   failed, or the cap ended the container under speed; `130` or `143` when
   interrupted (SIGINT, SIGTERM), and if the gate had opened, its log ends

@@ -210,6 +210,10 @@ LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
 - `RUSTFLAGS`, when set, passes to `speed build` in the container, so that
   the port can be built for another target CPU, as in
   `RUSTFLAGS='-C target-cpu=apple-m1'`; `build.json` records it.
+- `PIP_PACKAGES`, when set, is installed beside maturin in the container's
+  venv, for a caller that imports them, as `PIP_PACKAGES='numpy==2.5.4'`.
+  Pin exact versions: the report records NumPy's version, and no other
+  package's.
 - The image and its rebuild rule are `run.sh`'s. Compare the report with the
   macOS one with `carcinify speed --compare`.
 

@@ -15,7 +15,9 @@
 # writes its report before the script exits 143. GATE_EVERY,
 # GATE_READINGS and GATE_LIMIT pass to ci/gate.sh, for checking this script.
 # RUSTFLAGS, when set, passes to speed build, so that the port can be built
-# for another target CPU. The container ends after CAP_SECONDS (default
+# for another target CPU. PIP_PACKAGES, when set, is installed beside
+# maturin in the container's venv, for a caller that imports them, as
+# PIP_PACKAGES='numpy==2.5.4'; pin exact versions. The container ends after CAP_SECONDS (default
 # 7200), as run.sh caps a run, the gate's wait included; one left by a
 # killed script ends then.
 #
@@ -74,7 +76,8 @@ docker exec "$c" bash -euc '
   cd /work/carc
   cargo build --locked -q -p carcinify
   python3 -m venv /work/venv
-  /work/venv/bin/pip install --quiet maturin==1.16.0' _ "$repo"
+  read -ra packages <<< "$2"
+  /work/venv/bin/pip install --quiet maturin==1.16.0 "${packages[@]}"' _ "$repo" "${PIP_PACKAGES:-}"
 tools=(-e CARCINIFY_PYTHON=/work/venv/bin/python -e CARCINIFY_MATURIN=/work/venv/bin/maturin)
 [ -z "${RUSTFLAGS:-}" ] || tools+=(-e RUSTFLAGS)
 speed=/work/carc/target/debug/carcinify
