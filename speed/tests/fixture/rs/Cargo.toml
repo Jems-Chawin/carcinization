@@ -15,4 +15,8 @@ doctest = false
 [dependencies]
 pyo3 = "0.30.1"
 
+[features]
+# carcinify speed's counted wheel: a counting allocator and its export.
+count_allocations = []
+
 [workspace]

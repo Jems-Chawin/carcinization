@@ -1879,3 +1879,116 @@ fn a_module_imported_only_when_called_is_seen_by_speed_build() {
     let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r, "--allow-dirty"]);
     assert_eq!(code, 1, "timed, not under the gate: {err}");
 }
+
+/// Design §4: a Python port has no binding whose allocations could be
+/// counted. Its counts say so, with no flag.
+#[test]
+fn a_python_port_is_not_counted() {
+    let declaration = declare(
+        "python-counts",
+        "suite-python.json",
+        &[("nap", "cases.jsonl", "nap-2")],
+    );
+    let wheels = built(&declaration);
+    let (_, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    let counts = &report["targets"][0]["counts"];
+    assert!(
+        counts["not_counted"]
+            .as_str()
+            .unwrap_or("")
+            .contains("Python"),
+        "{err}\n{counts:#}"
+    );
+    let flags: Vec<&str> = report["flags"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        !flags.iter().any(|f| f.starts_with("counts_not_measured")),
+        "{flags:#?}"
+    );
+}
+
+/// Design §10 step 6, with RUST-150: speed build counts the port's Rust
+/// allocations with a second wheel, built with count_allocations and never
+/// timed. The fixture's fill(100) makes 100 boxes and the vector that holds
+/// them, and frees them all: the warm counts are exact. Its first call also
+/// makes the 4096-byte workspace it keeps, reported apart.
+#[test]
+#[ignore = "needs maturin; see the top of this file"]
+fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
+    let declaration = declare(
+        "pyo3-counts",
+        "suite.json",
+        &[("fill", "cases.jsonl", "fill-100")],
+    );
+    let wheels = built(&declaration);
+    let (_, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    let counts = &report["targets"][0]["counts"];
+    assert_eq!(
+        counts["warm"],
+        json!({"allocations": 101, "frees": 101, "bytes": 1600, "live_bytes": 0}),
+        "{err}\n{counts:#}"
+    );
+    assert_eq!(counts["first"]["live_bytes"], 4096, "{counts:#}");
+    assert_eq!(counts["workspace_kept_bytes"], 4096, "{counts:#}");
+    // fill's result alone, one int: the call is made as the caller makes
+    // it, with nothing of the tool's left beside it.
+    let python = &counts["python"];
+    assert_eq!(
+        python["objects_left_to_the_caller"]["blocks"], 1,
+        "{counts:#}"
+    );
+    assert!(python["peak_bytes"].is_u64(), "{counts:#}");
+    let what = counts["what"].as_str().unwrap_or("");
+    assert!(
+        what.contains("nothing subtracted") && what.contains("carcinify structure"),
+        "{what}"
+    );
+    // The counted wheel is the build's own: only the timed wheel is kept.
+    let kept = std::fs::read_dir(&wheels)
+        .unwrap()
+        .flatten()
+        .filter(|e| e.path().extension().is_some_and(|x| x == "whl"))
+        .count();
+    assert_eq!(kept, 1);
+}
+
+/// Design §10 step 6: a timed wheel built with count_allocations is
+/// refused, since its counting allocator would be timed.
+#[test]
+#[ignore = "needs maturin; see the top of this file"]
+fn a_timed_wheel_built_with_count_allocations_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-counted-timed-suite");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let suite = dir.join("suite.json");
+    let cases = fixture().join("cases.jsonl");
+    let text = json!({"schema": "carcinify/diff/suite/1",
+        "original": {"kind": "python", "path": [fixture().join("py")], "module": "speed_orig"},
+        "candidate": {"kind": "pyo3", "crate": fixture().join("rs"), "module": "speed_port", "features": ["count_allocations"]},
+        "cases": [&cases]});
+    std::fs::write(&suite, text.to_string()).unwrap();
+    let declaration = declare(
+        "counted-timed",
+        suite.to_str().unwrap(),
+        &[("nap", cases.to_str().unwrap(), "nap-2")],
+    );
+    let wheels = declaration.with_file_name("wheels");
+    let (code, err) = speed(
+        &[
+            Path::new("build"),
+            &declaration,
+            Path::new("--out"),
+            &wheels,
+        ],
+        &[],
+    );
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("count_allocations") && err.contains("would be timed"),
+        "{err}"
+    );
+}

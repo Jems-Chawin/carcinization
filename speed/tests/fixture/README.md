@@ -29,6 +29,10 @@
   answers otherwise on a new thread.
 - The Python port's `lazy` imports its sibling `lazy_helper` only when
   called.
+- The PyO3 port's `fill(n)` makes n boxes in one vector, all freed: n + 1
+  allocations and 16n bytes. Its first call also makes a 4096-byte
+  workspace and keeps it. Built with the feature `count_allocations`, the
+  crate counts its allocations and exports `_speed_allocations()`.
 - `crash(n)` returns n in the original; the Python port kills its own
   interpreter (SIGKILL), which leaves no crash report behind.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which

@@ -80,3 +80,7 @@ def lazy(n):
     import lazy_helper  # a sibling module, imported only when called
 
     return lazy_helper.same(n)
+
+
+def fill(n):
+    return sum(range(n))

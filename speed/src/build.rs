@@ -111,6 +111,14 @@ fn build(opts: &Options) -> Result<(), Failure> {
             let args = rustc_args(&work, name, &built)?.ok_or_else(|| {
                 format!("{name}: the build log has no command line for the crate")
             })?;
+            if args
+                .iter()
+                .any(|a| a.contains(&format!("feature=\"{COUNTING}\"")))
+            {
+                return Err(Failure::CannotRun(format!(
+                    "{name}: the wheel to be timed was built with the feature {COUNTING}, whose counting allocator would be timed. Build it without: speed build makes its own counted wheel"
+                )));
+            }
             let wheel = built.wheel.as_ref().ok_or("maturin made no wheel")?;
             side["wheel"] = json!({"file": wheel.file, "sha256": wheel.sha256});
             side["target"] = crate::platform::target(&args)
@@ -164,6 +172,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
     if !refused.is_empty() {
         return Err(Failure::Refused(refused));
     }
+    let counts = counts(opts, &loaded, &git, &shared, &work, &tools, &wheel_of)?;
     std::fs::create_dir_all(out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
     for wheel in &wheels {
         let dest = out.join(wheel.file_name().unwrap_or_default());
@@ -181,6 +190,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
         "sides": sides,
         "callers": callers,
         "untracked_imported": untracked_imported,
+        "counts": counts,
         "tools": tools_block(opts, crate_dir.as_deref().unwrap_or(suite_dir), crate_dir.is_some(), outside)?,
     });
     let text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
@@ -214,6 +224,133 @@ impl Drop for Work {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// The feature that builds a port's counting allocator and its export,
+/// `_speed_allocations()`: allocations, frees, bytes allocated and live
+/// bytes, so far.
+const COUNTING: &str = "count_allocations";
+
+/// Design §4: what each target's call costs a Python caller in the port's
+/// Rust allocations, counted with a second wheel built with
+/// count_allocations, which is never timed. Each target in a driver of its
+/// own, whose first call of the port is the process's first.
+fn counts(
+    opts: &Options,
+    loaded: &Loaded,
+    git: &carcinify_diff::provenance::Git,
+    shared: &[PathBuf],
+    work: &Path,
+    tools: &Tools,
+    wheel_of: &dyn Fn(&str) -> PathBuf,
+) -> Result<serde_json::Map<String, J>, String> {
+    let not = |why: String| json!({ "not_counted": why });
+    let each = |why: String| {
+        let targets = loaded.declaration.targets.iter();
+        Ok(targets
+            .map(|t| (t.name.clone(), not(why.clone())))
+            .collect())
+    };
+    let suite_dir = loaded.suite_path.parent().unwrap_or(Path::new("/"));
+    let SideSpec::Pyo3 { crate_dir, .. } = &loaded.suite.candidate else {
+        return each("the port is Python: there is no binding to count".into());
+    };
+    if !declares_feature(&suite_dir.join(crate_dir), COUNTING)? {
+        return each(format!(
+            "the port's crate has no feature {COUNTING}: add it, with a counting allocator and the export _speed_allocations"
+        ));
+    }
+    let mut spec = loaded.suite.candidate.clone();
+    if let SideSpec::Pyo3 { features, .. } = &mut spec {
+        features.push(COUNTING.into());
+    }
+    let (_, built) = python::prepare("counted", &spec, suite_dir, &git.root, shared, work, tools)?;
+    let file = &built
+        .wheel
+        .as_ref()
+        .ok_or("maturin made no counted wheel")?
+        .file;
+    let wheel = work.join("counted-wheel").join(file);
+    let dir = work.join("counting");
+    let counted_wheel = |side: &str| {
+        if side == "candidate" {
+            wheel.clone()
+        } else {
+            wheel_of(side)
+        }
+    };
+    let (driver, mut plan) = crate::run::plan(opts, loaded, &dir, &counted_wheel)?;
+    plan["count"] = json!(true);
+    let mut counts = serde_json::Map::new();
+    for (i, (t, timed)) in loaded
+        .declaration
+        .targets
+        .iter()
+        .zip(&loaded.timed)
+        .enumerate()
+    {
+        plan["targets"] = json!([match timed {
+            Some(Timed::Case(c)) => crate::run::case_target(t, &loaded.cases[*c], &dir, i)?,
+            Some(Timed::Caller(path)) => crate::run::caller_target(t, path),
+            None => continue,
+        }]);
+        let path = dir.join(format!("counted-{i}.json"));
+        plan["result"] = json!(path);
+        let counted = match crate::run::drive(opts, &dir, &driver, &plan, &path)? {
+            crate::run::Driven::Result(mut ran) => {
+                let out = ran["targets"][0].take();
+                match (out["error"].as_str(), out["refused"]["detail"].as_str()) {
+                    (Some(e), _) => not(format!(
+                        "the call raised: {}",
+                        e.trim_end().lines().last().unwrap_or("")
+                    )),
+                    (_, Some(r)) => not(format!("function_refused: {r}")),
+                    _ => out["counts"].clone(),
+                }
+            }
+            crate::run::Driven::TimedOut => {
+                not(format!("no result within {} s", opts.timeout.as_secs()))
+            }
+            crate::run::Driven::Crashed(why) => not(format!("the driver crashed: {why}")),
+        };
+        counts.insert(t.name.clone(), counted);
+    }
+    Ok(counts)
+}
+
+/// Whether the crate at `crate_dir` declares `feature`, as Cargo reads its
+/// manifest.
+fn declares_feature(crate_dir: &Path, feature: &str) -> Result<bool, String> {
+    let manifest = crate_dir.join("Cargo.toml");
+    let out = Command::new("cargo")
+        .args([
+            "metadata",
+            "--no-deps",
+            "--offline",
+            "--format-version",
+            "1",
+            "--manifest-path",
+        ])
+        .arg(&manifest)
+        .output()
+        .map_err(|e| format!("cannot run cargo: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "cargo metadata {}: {}",
+            manifest.display(),
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    let metadata: J = serde_json::from_slice(&out.stdout).map_err(|e| e.to_string())?;
+    let manifest = manifest
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", manifest.display()))?;
+    Ok(metadata["packages"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|p| p["manifest_path"].as_str().map(Path::new) == Some(&manifest))
+        .any(|p| p["features"].get(feature).is_some()))
 }
 
 /// carcinify speed imports both sides into one Python process (RUST-168),
@@ -731,4 +868,19 @@ fn rustc_args(work: &Path, name: &str, built: &Built) -> Result<Option<Vec<Strin
     let text =
         std::fs::read_to_string(&log).map_err(|e| format!("cannot read {}: {e}", log.display()))?;
     Ok(crate::platform::rustc_args(&text, &library(crate_dir)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_feature_is_found_as_cargo_reads_the_manifest() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixture/rs");
+        assert_eq!(declares_feature(&fixture, COUNTING), Ok(true));
+        assert_eq!(
+            declares_feature(Path::new(env!("CARGO_MANIFEST_DIR")), COUNTING),
+            Ok(false)
+        );
+    }
 }

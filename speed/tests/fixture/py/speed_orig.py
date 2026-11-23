@@ -65,3 +65,7 @@ def doubled(n):
 
 def lazy(n):
     return n
+
+
+def fill(n):
+    return sum(range(n))

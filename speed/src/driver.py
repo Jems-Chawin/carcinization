@@ -21,6 +21,7 @@ The arguments are decoded, and the outputs encoded, by carcinify diff's own
 driver. Runs on Python 3.9 and later. Standard library only.
 """
 
+import functools
 import gc
 import importlib
 import importlib.util
@@ -33,6 +34,7 @@ import sysconfig
 import threading
 import time
 import traceback
+import tracemalloc
 
 
 def load_file(path, name):
@@ -80,6 +82,13 @@ def caller_spec(caller, original):
     }
 
 
+def case_args(req, harness):
+    """A new copy of the case's arguments, decoded again."""
+    if req["encoding"] == "typed":
+        return [harness.dec(x) for x in req["args"]], {k: harness.dec(x) for k, x in req["kwargs"].items()}
+    return json.loads(json.dumps(req["args"])), json.loads(json.dumps(req["kwargs"]))
+
+
 def timed_case(req, fns, out, n, name, harness, log):
     """A direct target's timed run for a side, after one untimed call of
     each side, so that the runs are warm, each on its own copy of the case's
@@ -87,10 +96,7 @@ def timed_case(req, fns, out, n, name, harness, log):
     either did, every timed call gets a fresh copy, made before the run."""
 
     def fresh():
-        """A new copy of the case's arguments, decoded again."""
-        if req["encoding"] == "typed":
-            return [harness.dec(x) for x in req["args"]], {k: harness.dec(x) for k, x in req["kwargs"].items()}
-        return json.loads(json.dumps(req["args"])), json.loads(json.dumps(req["kwargs"]))
+        return case_args(req, harness)
 
     def encoded(args, kwargs):
         try:
@@ -146,6 +152,52 @@ def timed_caller(caller, fns, out, n, name, measure, log):
         return (time.perf_counter() - start) / n, result
 
     return run
+
+
+def count(out, ready, counts):
+    """Design §4, in speed build: the port's Rust allocations, by the
+    counting allocator of a wheel built with count_allocations, over the
+    target's first call in this process, apart, then over a warm call, each
+    with its result still held, as by its caller. Then, by tracemalloc, the
+    Python objects a warm call leaves to its caller, and its peak.
+    `ready()` gives the next call, its arguments made."""
+    if counts is None:
+        out["counts"] = {"not_counted": "the port's module, built with count_allocations, exports no _speed_allocations"}
+        return
+    keys = ("allocations", "frees", "bytes", "live_bytes")
+
+    def counted(call):
+        gc.collect()
+        before = counts()
+        result = call()
+        after = counts()
+        del result
+        return {k: b - a for k, a, b in zip(keys, before, after)}
+
+    def traced(read):
+        call = ready()
+        gc.collect()
+        tracemalloc.start()
+        result = call()
+        seen = read()
+        tracemalloc.stop()
+        del result
+        return seen
+
+    first = counted(ready())
+    warm = counted(ready())
+    # Two more warm calls: a snapshot, and what reads it, would be in the
+    # peak; the snapshot's own blocks are left out by their file.
+    peak = traced(lambda: tracemalloc.get_traced_memory()[1])
+    left = traced(lambda: tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)]).traces)
+    out["counts"] = {
+        "first": first,
+        "warm": warm,
+        "python": {
+            "objects_left_to_the_caller": {"blocks": len(left), "bytes": sum(t.size for t in left)},
+            "peak_bytes": peak,
+        },
+    }
 
 
 def encoded_output(harness, result):
@@ -308,6 +360,27 @@ def main():
                 # One untimed call of each side, so that speed build sees
                 # what the call imports.
                 timed_case(req, fns, out, n, name, harness, log)
+            elif plan.get("count"):
+                # The counted wheel's port alone is called, and nothing
+                # before: its first call here is its first.
+                if caller:
+                    spec = caller_spec(caller, fns["original"])
+                    call = measure.load(spec)
+                    put_in_place(caller, fns["port"])
+
+                    def ready():
+                        return call
+
+                else:
+
+                    def ready():
+                        # Made before the call: f(*args, **kwargs) would
+                        # leave the interpreter a tuple and a dict of its
+                        # own, which tracemalloc would count as the call's.
+                        args, kwargs = case_args(req, harness)
+                        return functools.partial(fns["port"], *args, **kwargs)
+
+                count(out, ready, getattr(modules["port"], "_speed_allocations", None))
             else:
                 if caller:
                     run = timed_caller(caller, fns, out, n, name, measure, log)

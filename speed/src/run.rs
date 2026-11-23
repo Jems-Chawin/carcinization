@@ -41,6 +41,8 @@ pub struct Timed {
     pub kept_off_beside: Option<f64>,
     /// Why the cold thread could not be measured.
     pub cold_not_measured: Option<String>,
+    /// Why a compiled port's allocations could not be counted.
+    pub counts_not_measured: Option<String>,
 }
 
 /// The verdict, its exit status, the reasons (every target's, each by its
@@ -86,6 +88,9 @@ pub fn judge(
         }
         if let (Some(_), Some(why)) = (&t.figures, &t.cold_not_measured) {
             flags.push(format!("cold_thread_not_measured: {}: {why}", t.name));
+        }
+        if let (Some(_), Some(why)) = (&t.figures, &t.counts_not_measured) {
+            flags.push(format!("counts_not_measured: {}: {why}", t.name));
         }
         if t.figures.is_some() && t.kept_off_beside.is_none() {
             flags.push(format!(
@@ -288,6 +293,21 @@ fn run(opts: &Options) -> Result<u8, String> {
             "not_measured": cold["not_measured"],
             "raised_in_new_thread": cold["raised_in_new_thread"],
         }));
+        // Design §4 and RUST-150: speed build's counts of the port's
+        // allocations, the full call's, with nothing subtracted.
+        let counted = &record["counts"][&t.name];
+        let counts = if counted["warm"].is_object() {
+            json!({
+                "what": "the port's Rust allocations over the full call, as a Python caller pays them, with nothing subtracted; carcinify structure's report gives the core's counts per hot path",
+                "first": counted["first"],
+                "warm": counted["warm"],
+                "workspace_kept_bytes": counted["first"]["live_bytes"],
+                "python": counted["python"],
+            })
+        } else {
+            counted.clone()
+        };
+        let compiled_port = matches!(loaded.suite.candidate, SideSpec::Pyo3 { .. });
         let spread = |s: &Option<figures::Spread>| {
             s.as_ref().map(|s| json!({"best": s.best, "median": s.median, "worst": s.worst, "spread": s.spread}))
         };
@@ -305,6 +325,7 @@ fn run(opts: &Options) -> Result<u8, String> {
             "pairs_dropped": figures.as_ref().map(|f| f.pairs_dropped),
             "short_run": figures.as_ref().map(|f| f.short_run),
             "cold_thread": cold_thread,
+            "counts": counts,
             "runs": out["runs"],
             "watched_beside": out["watched_beside"],
             "arguments_changed_by_call": out["arguments_changed_by_call"],
@@ -315,6 +336,10 @@ fn run(opts: &Options) -> Result<u8, String> {
             figures,
             kept_off_beside: out["watched_beside"]["kept_off_the_cpu"].as_f64(),
             cold_not_measured: cold["not_measured"].as_str().map(String::from),
+            counts_not_measured: counted["not_counted"]
+                .as_str()
+                .filter(|_| compiled_port)
+                .map(String::from),
         });
     }
     let (verdict, exit_status, reasons, flags) = judge(&timed, &gate);
@@ -928,6 +953,7 @@ mod tests {
             }),
             kept_off_beside: Some(0.0),
             cold_not_measured: None,
+            counts_not_measured: None,
         }
     }
 
