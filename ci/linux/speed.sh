@@ -7,6 +7,8 @@
 # <speed.json>: the declaration; outside <repo>, or committed in it.
 # <out>: where wheels/ and report.json go, outside <repo>. GATE_EVERY,
 # GATE_READINGS and GATE_LIMIT pass to ci/gate.sh, for checking this script.
+# RUSTFLAGS, when set, passes to speed build, so that the port can be built
+# for another target CPU.
 #
 # carcinify is built from this repository's commit, and <repo> is cloned at
 # its commit, both inside the container: the harness builds in the crate's
@@ -39,6 +41,7 @@ docker exec "$c" bash -euc '
   cd /work/carc && cargo build --locked -q -p carcinify
   python3 -m venv /work/venv && /work/venv/bin/pip install --quiet maturin==1.16.0' _ "$repo"
 tools=(-e CARCINIFY_PYTHON=/work/venv/bin/python -e CARCINIFY_MATURIN=/work/venv/bin/maturin)
+[ -z "${RUSTFLAGS:-}" ] || tools+=(-e RUSTFLAGS)
 speed=/work/carc/target/debug/carcinify
 docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels"
 LOG=$log "$carc/ci/gate.sh" docker exec -e GATE_RUN_ID "${tools[@]}" "$c" \

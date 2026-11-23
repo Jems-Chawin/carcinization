@@ -196,6 +196,9 @@ LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
   `docker exec` of `speed run`, which gets `GATE_RUN_ID` by name and reads
   the host's log through a read-only mount: in Docker on a Mac,
   `/proc/loadavg` is the VM's load, not the Mac's.
+- `RUSTFLAGS`, when set, passes to `speed build` in the container, so that
+  the port can be built for another target CPU, as in
+  `RUSTFLAGS='-C target-cpu=apple-m1'`; `build.json` records it.
 - The image and its rebuild rule are `run.sh`'s. Compare the report with the
   macOS one with `carcinify speed --compare`.
 
