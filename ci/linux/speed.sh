@@ -8,7 +8,11 @@
 # <speed.json>: the declaration; outside <repo>, or committed in it.
 # <out>: where wheels/ and report.json go; <out> and <repo> must not hold
 # one another. The script exits with speed's status, or with 2, as speed
-# does, when it cannot run: its own steps failed. GATE_EVERY,
+# does, when it cannot run: its own steps failed, or the cap ended the
+# container under speed. Interrupted, it exits 130 or 143. Stop it by its
+# process group, with Ctrl-C or kill -TERM -<pgid>: a signal to its PID
+# alone waits for the current step, so a speed run goes on to its end and
+# writes its report before the script exits 143. GATE_EVERY,
 # GATE_READINGS and GATE_LIMIT pass to ci/gate.sh, for checking this script.
 # RUSTFLAGS, when set, passes to speed build, so that the port can be built
 # for another target CPU. The container ends after CAP_SECONDS (default

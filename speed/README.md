@@ -155,6 +155,9 @@ rest.
   failed, or the cap ended the container under speed; `130` or `143` when
   interrupted (SIGINT, SIGTERM), and if the gate had opened, its log ends
   with a line saying so.
+- Stop it by its process group: Ctrl-C, or `kill -TERM -<pgid>`. A signal
+  to its PID alone waits for the current step to end: a `speed run` goes
+  on to its end and writes its report before the script exits 143.
 
 ## Limits
 

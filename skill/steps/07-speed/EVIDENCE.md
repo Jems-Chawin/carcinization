@@ -137,7 +137,14 @@ script in the CI's container, as its commit message records:
 `RUSTFLAGS` reaching `build.json` (3e46ea2); an interrupt in the gate and
 during the build (d47484a); the script's own failures and the refusal of
 `<out>` and `<repo>` holding one another (ec90cfb); the container's cap
-(e4ec399); an earlier report removed at the start (f349034).
+(e4ec399), and a cap ending under `speed run` giving 2, not 137 (c97e750);
+an earlier report removed at the start (f349034).
+
+How to stop it rests on the audit of K1 to K3 (2026-11-24, the real
+script, a process group of its own per run): TERM to the group during
+the gated `speed run` ended it in 1 s with 143 and no report; TERM to the
+script's PID alone ended it 62 s later, with 143 beside a complete
+report, as bash runs a trap only when its foreground command returns.
 
 ## Real use: one port, in a scratch copy, during one investigation
 

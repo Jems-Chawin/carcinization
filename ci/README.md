@@ -194,7 +194,12 @@ LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
   `<repo>` or committed in it; `<out>` gets `wheels/` and `report.json`.
   The script refuses an `<out>` inside `<repo>` or holding it.
 - It exits with speed's status, or with 2, as speed does when it cannot
-  run, when one of its own steps fails.
+  run, when one of its own steps fails or the cap ends the container under
+  speed; interrupted, with 130 or 143.
+- Stop it by its process group: Ctrl-C in its terminal, or `kill -TERM
+  -<pgid>`. A signal to its PID alone waits for the current step to end,
+  so a `speed run` goes on to its end and writes its report, and only then
+  does the script exit 143.
 - The container ends after `CAP_SECONDS` (default 7200), as `run.sh` caps
   a run. The gate's wait counts, so give a longer cap for a long wait. A
   container left by a killed script ends at the cap.
