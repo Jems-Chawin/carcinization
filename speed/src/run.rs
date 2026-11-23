@@ -305,24 +305,7 @@ fn run(opts: &Options) -> Result<u8, String> {
         // Design §4 and RUST-150: speed build's counts of the port's
         // allocations, the full call's, with nothing subtracted.
         let counted = &record["counts"][&t.name];
-        let counts = if counted["warm"].is_object() {
-            let mut about = String::from(
-                "the port's Rust allocations over the full call, as a Python caller pays them, with nothing subtracted; carcinify structure's report gives the core's counts per hot path. The Python figures, by tracemalloc, start from emptied free lists: the objects a warm call leaves to its caller, and its peak, every block the call touches, with no help from free lists",
-            );
-            if t.caller.is_some() {
-                about += ". For a caller target: the Rust counts are the extension's alone, over the caller's whole call; the Python figure includes the caller's own objects";
-            }
-            json!({
-                "what": about,
-                "first": counted["first"],
-                "warm": counted["warm"],
-                "workspace_kept_bytes": counted["first"]["live_bytes"],
-                "growth_over_16_warm_calls_bytes": counted["growth"],
-                "python": counted["python"],
-            })
-        } else {
-            counted.clone()
-        };
+        let counts = report_counts(counted, t.caller.is_some());
         let compiled_port = matches!(loaded.suite.candidate, SideSpec::Pyo3 { .. });
         let spread = |s: &Option<figures::Spread>| {
             s.as_ref().map(|s| json!({"best": s.best, "median": s.median, "worst": s.worst, "spread": s.spread}))
@@ -719,6 +702,36 @@ fn held_to<'a>(
     }
 }
 
+/// A target's counts in the report, from speed build's record of them.
+fn report_counts(counted: &J, caller: bool) -> J {
+    if !counted["warm"].is_object() {
+        return counted.clone();
+    }
+    let python_counted = counted["python"]["not_counted"].is_null();
+    let mut about = String::from(
+        "the port's Rust allocations over the full call, as a Python caller pays them, with nothing subtracted; carcinify structure's report gives the core's counts per hot path. ",
+    );
+    about += if python_counted {
+        "The Python figures, by tracemalloc, start from emptied free lists: the objects a warm call leaves to its caller, and its peak, every block the call touches, with no help from free lists"
+    } else {
+        "The Python figure is not counted: python.not_counted says why"
+    };
+    if caller {
+        about += ". For a caller target: the Rust counts are the extension's alone, over the caller's whole call";
+        if python_counted {
+            about += "; the Python figure includes the caller's own objects";
+        }
+    }
+    json!({
+        "what": about,
+        "first": counted["first"],
+        "warm": counted["warm"],
+        "workspace_kept_bytes": counted["first"]["live_bytes"],
+        "growth_over_16_warm_calls_bytes": counted["growth"],
+        "python": counted["python"],
+    })
+}
+
 pub fn drive(
     opts: &Options,
     work: &Path,
@@ -964,6 +977,30 @@ fn write(path: &Path, report: &J) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The counts' `what` says what the figures beside it are: before
+    /// Python 3.11 there is no Python figure to describe (RUST-199).
+    #[test]
+    fn a_python_figure_not_counted_is_not_described() {
+        let counted = |python: J| json!({"first": {"live_bytes": 8}, "warm": {"allocations": 1}, "growth": 0, "python": python});
+        for caller in [false, true] {
+            let counts = report_counts(&counted(json!({"peak_bytes": 28})), caller);
+            assert!(counts["what"].as_str().unwrap().contains("tracemalloc"));
+            let counts = report_counts(
+                &counted(json!({"not_counted": "Python 3.10: before 3.11, ..."})),
+                caller,
+            );
+            let what = counts["what"].as_str().unwrap();
+            assert!(
+                what.contains("Rust allocations")
+                    && what.contains("The Python figure is not counted")
+                    && !what.contains("tracemalloc")
+                    && !what.contains("the Python figure includes"),
+                "{what}"
+            );
+            assert_eq!(counts["workspace_kept_bytes"], 8);
+        }
+    }
 
     /// RUST-199: before 3.11, CPython keeps a frame object with each
     /// function after its first call, and the tool's own frames would be
