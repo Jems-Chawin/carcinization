@@ -227,6 +227,10 @@ fn refuse_names_in_common(
 ) -> Result<(), String> {
     // What each side gives to import by a top-level name: a .py file, an
     // extension or a package directory, first on its path first.
+    // shortcut: a directory without __init__.py (a namespace package) is
+    // not counted, so two such directories of one name, each with a
+    // submodule of one name, could still mix the sides; count them when a
+    // port uses namespace packages.
     let names = |spec: &SideSpec| {
         let mut found: BTreeMap<String, PathBuf> = BTreeMap::new();
         match spec {
