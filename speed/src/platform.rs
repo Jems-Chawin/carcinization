@@ -55,11 +55,12 @@ pub fn rustc_args(verbose: &str, name: &str) -> Option<Vec<String>> {
 
 /// RUST-191: the options of the command Cargo ran rustc with that change
 /// the code it makes, in the command's order: each `-C` as `-C name=value`,
-/// and each `--cfg feature=…`. Those that name a hash or a path, or only
-/// link, are left out: they differ by build directory or by platform (maturin
-/// links a macOS module with arguments of its own) and change no code.
+/// and each `--cfg feature=…`. Those that name a hash or a path, only link,
+/// or say where the debug info goes are left out: they differ by build
+/// directory or by platform (maturin links a macOS module with arguments of
+/// its own, and Cargo splits its debug info, RUST-200) and change no code.
 pub fn code_options(rustc_command: &[String]) -> Vec<String> {
-    const NOT_CODE: [&str; 10] = [
+    const NOT_CODE: [&str; 11] = [
         "metadata",
         "extra-filename",
         "incremental",
@@ -70,6 +71,7 @@ pub fn code_options(rustc_command: &[String]) -> Vec<String> {
         "link-self-contained",
         "prefer-dynamic",
         "rpath",
+        "split-debuginfo",
     ];
     // Cargo puts an argument the shell would split or expand in single
     // quotes; the options read here hold no quote of their own.
@@ -381,6 +383,22 @@ mod tests {
         ]);
         assert_eq!(options(mac), c2);
         assert_eq!(options(linux), c2);
+        // A release profile with debug info: Cargo adds split-debuginfo on
+        // macOS alone, which says where the debug info goes (RUST-200).
+        let debug = |line: &str| {
+            line.replace("-C strip=debuginfo", "-C debuginfo=2")
+                .replace(
+                    "-C target-cpu=apple-m1 -C llvm-args=-force-vector-interleave=2 ",
+                    "",
+                )
+        };
+        let mac_debug = debug(mac).replace(
+            "-C debuginfo=2",
+            "-C debuginfo=2 -C split-debuginfo=unpacked",
+        );
+        let plain_debug = strings(&["-C opt-level=3", "-C embed-bitcode=no", "-C debuginfo=2"]);
+        assert_eq!(options(&mac_debug), plain_debug);
+        assert_eq!(options(&debug(linux)), plain_debug);
         // Every spelling of -C; the features, unquoted; the incremental
         // directory, the file-name hash and the linker left out.
         let other = "rustc --crate-name greedy_rs --cfg 'feature=\"default\"' --cfg docsrs -Copt-level=1 --codegen no-vectorize-loops --codegen=codegen-units=1 -C extra-filename=-5d0c -C incremental=/tmp/i -C linker=cc";
