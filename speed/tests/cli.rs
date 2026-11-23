@@ -2371,3 +2371,240 @@ fn a_sides_module_that_python_would_give_the_other_side_is_refused() {
         "a shared module both import, a standard one neither shadows: {err}"
     );
 }
+
+/// Design §10 step 7: a speed report as --compare reads it, hand-written.
+/// One commit's code, run on `os` with `python`, the port built for
+/// `target_cpu` with `features` target features.
+fn report_on(os: &str, python: &str, target_cpu: &str, features: &str, targets: J) -> J {
+    json!({
+        "schema": "carcinify/speed/report/1",
+        "declaration_sha256": "decl-1",
+        "run": {"commit": "commit-1", "dirty": false, "dirty_sha256": null, "suite_sha256": "suite-1"},
+        "machine": {"os": os, "cpu": if os == "macos" { "Apple M1 Pro" } else { "Neoverse-N1" }},
+        "tools": {"os": os, "arch": "aarch64"},
+        "python": {"version": python, "implementation": "CPython", "gil": true, "numpy": "2.3.1"},
+        "build": {"sides": {"candidate": {"kind": "pyo3", "target": {"target_cpu": target_cpu, "target_features": features}}}},
+        "verdict": "pass",
+        "targets": targets,
+    })
+}
+
+/// A target timed with the median ratio original ÷ port, and the lowest
+/// and highest of its pairs.
+fn timed_at(name: &str, median: f64, low: f64, high: f64) -> J {
+    json!({"name": name, "failed": null, "original": {"median": 2.0e-3}, "port": {"median": 2.0e-3 / median},
+        "ratio": {"median": median, "low": low, "high": high}})
+}
+
+/// `carcinify speed --compare a b`, the reports written under `name`: its
+/// exit status, standard output and standard error.
+fn compare(name: &str, a: &J, b: &J) -> (i32, String, String) {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
+    std::fs::create_dir_all(&dir).unwrap();
+    let (pa, pb) = (dir.join("a.json"), dir.join("b.json"));
+    std::fs::write(&pa, a.to_string()).unwrap();
+    std::fs::write(&pb, b.to_string()).unwrap();
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("speed")
+        .arg("--compare")
+        .args([&pa, &pb])
+        .output()
+        .unwrap();
+    (
+        out.status.code().unwrap(),
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
+/// The flag lines --compare ends with.
+fn flags_in(out: &str) -> Vec<String> {
+    out.lines()
+        .skip_while(|l| *l != "flags:")
+        .skip(1)
+        .map(|l| l.trim().to_string())
+        .collect()
+}
+
+#[test]
+fn ratios_more_than_a_quarter_apart_are_platform_dependent_and_closer_ones_are_not() {
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.0, 1.9, 2.1), timed_at("y", 2.0, 1.9, 2.1)]),
+    );
+    let b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([timed_at("x", 2.6, 2.5, 2.7), timed_at("y", 2.2, 2.1, 2.3)]),
+    );
+    let (code, out, err) = compare("speed-compare-apart", &a, &b);
+    assert_eq!(code, 0, "flags inform, they do not fail: {err}\n{out}");
+    // x: 2.6 ÷ 2.0 = 1.30, over 1.25; y: 2.2 ÷ 2.0 = 1.10.
+    assert_eq!(flags_in(&out), ["platform_dependent: x"], "{out}");
+    let beside = out
+        .lines()
+        .find(|l| l.contains("platform_dependent:") && l.contains("1.30"))
+        .unwrap_or("");
+    assert!(
+        beside.contains("1.90 to 2.10") && beside.contains("2.50 to 2.70"),
+        "both per-pair ranges: {out}"
+    );
+    // A figure is never printed without its platform.
+    for line in out.lines().filter(|l| l.contains("ratio")) {
+        assert!(
+            line.contains("macos aarch64") || line.contains("linux aarch64"),
+            "{line}"
+        );
+    }
+}
+
+#[test]
+fn the_order_of_the_two_reports_gives_the_same_flags() {
+    // 2.6 ÷ 2.0 is over 1.25 one way, and 2.0 ÷ 2.6 under it the other.
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.6, 2.5, 2.7), timed_at("y", 2.2, 2.1, 2.3)]),
+    );
+    let b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([timed_at("x", 2.0, 1.9, 2.1), timed_at("y", 2.0, 1.9, 2.1)]),
+    );
+    let (_, ab, _) = compare("speed-compare-ab", &a, &b);
+    let (_, ba, _) = compare("speed-compare-ba", &b, &a);
+    assert_eq!(flags_in(&ab), ["platform_dependent: x"], "{ab}");
+    assert_eq!(flags_in(&ab), flags_in(&ba), "{ab}\n{ba}");
+}
+
+#[test]
+fn two_interpreters_are_flagged_with_their_versions() {
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    let b = report_on(
+        "linux",
+        "3.13.5",
+        "generic",
+        "12",
+        json!([timed_at("x", 2.1, 2.0, 2.2)]),
+    );
+    let (code, out, err) = compare("speed-compare-interpreters", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    let flags = flags_in(&out);
+    assert_eq!(flags.len(), 1, "{out}");
+    assert!(flags[0].starts_with("interpreters_differ: "), "{out}");
+    assert!(
+        flags[0].contains("3.12.13") && flags[0].contains("3.13.5"),
+        "{out}"
+    );
+}
+
+/// RUST-151: beside platform_dependent, each build's target CPU and its
+/// count of target features, so that a build difference reads as one.
+#[test]
+fn each_builds_target_cpu_and_feature_count_are_printed_beside_the_flag() {
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    let b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([timed_at("x", 3.0, 2.9, 3.1)]),
+    );
+    let (_, out, _) = compare("speed-compare-target", &a, &b);
+    let beside = out
+        .lines()
+        .find(|l| l.contains("platform_dependent:") && l.contains("1.50"))
+        .unwrap_or("");
+    for fact in [
+        "apple-m1",
+        "28 target features",
+        "generic",
+        "12 target features",
+    ] {
+        assert!(beside.contains(fact), "{fact}: {out}");
+    }
+}
+
+#[test]
+fn reports_of_two_commits_are_refused() {
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    let mut b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    b["run"]["commit"] = json!("commit-2");
+    let (code, out, err) = compare("speed-compare-commits", &a, &b);
+    assert_eq!(code, 2, "{out}");
+    assert!(
+        err.contains("commit-1") && err.contains("commit-2"),
+        "{err}"
+    );
+    assert!(out.is_empty(), "{out}");
+}
+
+#[test]
+fn a_target_one_report_lacks_or_failed_is_printed_with_its_reason_and_no_flag() {
+    let mut failed = timed_at("w", 9.0, 8.0, 10.0);
+    failed["failed"] = json!("timeout: no result within 120 s\nmore");
+    failed["ratio"] = J::Null;
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([
+            timed_at("x", 2.0, 1.9, 2.1),
+            timed_at("z", 2.0, 1.9, 2.1),
+            timed_at("w", 2.0, 1.9, 2.1)
+        ]),
+    );
+    let b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([timed_at("x", 2.0, 1.9, 2.1), failed]),
+    );
+    let (code, out, err) = compare("speed-compare-missing", &a, &b);
+    assert_eq!(code, 0, "{err}\n{out}");
+    assert!(
+        out.contains("linux aarch64 (B): not in this report"),
+        "{out}"
+    );
+    assert!(
+        out.contains("linux aarch64 (B): failed: timeout: no result within 120 s"),
+        "{out}"
+    );
+    assert!(!out.contains("more"), "a reason's first line: {out}");
+    assert_eq!(flags_in(&out), ["none"], "{out}");
+}

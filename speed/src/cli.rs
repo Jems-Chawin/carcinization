@@ -9,6 +9,7 @@ pub const USAGE: &str = "\
 usage: carcinify speed build <speed.json> --out <dir> [options]
        carcinify speed run <speed.json> --wheels <dir> --report <report.json>
                            [--load-log <file>] [options]
+       carcinify speed --compare <A.json> <B.json>
 
 Times the port against its original from the Python caller, on the cases
 the declaration names, in two steps so that nothing is built while timing:
@@ -19,6 +20,13 @@ the declaration names, in two steps so that nothing is built while timing:
   run     under the gate (LOG=<file> ci/gate.sh carcinify speed run ...):
           checks the wheels against the hashes build wrote, then only times,
           and judges the run's load from the gate's log, --load-log.
+
+  --compare  two reports of one commit, each run on its own platform: each
+          target's times and ratio, every figure with its platform. Flags
+          platform_dependent when the two median ratios are more than 1.25
+          apart (a first value, and arbitrary), with both per-pair ranges
+          and each build's target CPU and feature count beside it; and
+          interpreters_differ. Refuses reports of different code.
 
 options:
   --python <path>       interpreter       [$CARCINIFY_PYTHON, else python3]
@@ -33,7 +41,8 @@ options:
                         in run, its timing, and the target fails   [120]
 
 exit status: 0 pass, with or without flags; 1 a target refused or failed,
-or the run unreliable; 2 refused, or the run could not be carried out";
+or the run unreliable; 2 refused, or the run could not be carried out.
+--compare: 0 once printed, flags or not; 2 refused";
 
 /// The `speed` subcommand: its arguments, without the program's name.
 pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
@@ -41,8 +50,9 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
     let result = match step.as_deref() {
         Some("build") => options(args).map(|o| crate::build::main(&o)),
         Some("run") => options(args).map(|o| crate::run::main(&o)),
+        Some("--compare") => crate::compare::main(args),
         _ => Err(match step {
-            Some(other) => format!("no step {other:?}: build or run"),
+            Some(other) => format!("no step {other:?}: build, run or --compare"),
             None => String::new(),
         }),
     };
