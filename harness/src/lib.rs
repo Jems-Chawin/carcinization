@@ -284,12 +284,14 @@ pub fn run(opts: &Options) -> Result<Report, String> {
     result
 }
 
-fn refuse_outside_commit(
-    opts: &Options,
+/// Refuses files that took part and that git does not track, unless
+/// `allow_dirty`.
+pub fn refuse_outside_commit(
+    allow_dirty: bool,
     git: &provenance::Git,
     files: &[commit::NotInCommit],
 ) -> Result<(), String> {
-    if files.is_empty() || opts.allow_dirty {
+    if files.is_empty() || allow_dirty {
         return Ok(());
     }
     let list: Vec<String> = files
@@ -418,7 +420,7 @@ fn run_in(
         let inputs = commit::build_inputs(git, &tracked, &built)?;
         not_in_commit.extend(inputs.not_in_commit);
         outside.extend(inputs.outside);
-        refuse_outside_commit(opts, git, &not_in_commit)?;
+        refuse_outside_commit(opts.allow_dirty, git, &not_in_commit)?;
         prepared.push((cfg, built));
     }
     let (mut candidate_cfg, candidate_built) = prepared.pop().ok_or("no candidate")?;
@@ -487,7 +489,7 @@ fn run_in(
     )?;
     not_in_commit.extend(commit::loaded(git, &tracked, &original));
     not_in_commit.extend(commit::loaded(git, &tracked, &candidate));
-    refuse_outside_commit(opts, git, &not_in_commit)?;
+    refuse_outside_commit(opts.allow_dirty, git, &not_in_commit)?;
 
     report::build(report::Parts {
         opts,

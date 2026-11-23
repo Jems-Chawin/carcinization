@@ -1077,24 +1077,13 @@ fn a_caller_is_timed_with_the_pyo3_ports_function_in_place() {
 }
 
 /// Design §10 step 4: the caller refused for an input no case has passes
-/// once the case is added. In a copy of the Python fixture, whose cases
-/// can be changed.
+/// once the case is added. In a copy of the Python fixture with a git
+/// repository of its own, whose cases can be changed.
 #[test]
 fn a_caller_refused_for_an_input_no_case_has_passes_with_the_case_added() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-caller-case-added");
     let _ = std::fs::remove_dir_all(&dir);
-    let copy = dir.join("fixture");
-    for file in [
-        "py/speed_orig.py",
-        "py-port/speed_port_py.py",
-        "callers/callers.py",
-        "callers/library.py",
-        "cases.jsonl",
-        "suite-python.json",
-    ] {
-        std::fs::create_dir_all(copy.join(file).parent().unwrap()).unwrap();
-        std::fs::copy(fixture().join(file), copy.join(file)).unwrap();
-    }
+    let repo = Repo::new(&dir.join("fixture"), &PYTHON_FIXTURE);
     let declaration = dir.join("speed.json");
     let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "fixture/suite-python.json", "runs": 3,
         "targets": [caller("no-case", "a_nap_no_case_has", "nap")]});
@@ -1114,10 +1103,11 @@ fn a_caller_refused_for_an_input_no_case_has_passes_with_the_case_added() {
     let (code, err) = build();
     assert_eq!(code, 1, "{err}");
     assert!(err.contains("timed_input_not_compared"), "{err}");
-    let cases = copy.join("cases.jsonl");
+    let cases = repo.0.join("cases.jsonl");
     let mut text = std::fs::read_to_string(&cases).unwrap();
     text.push_str("{\"id\": \"nap-3\", \"fn\": \"nap\", \"args\": [3]}\n");
     std::fs::write(&cases, text).unwrap();
+    repo.commit("the case nap-3");
     let (code, err) = build();
     assert_eq!(code, 0, "{err}");
     let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
@@ -1273,4 +1263,174 @@ fn a_caller_passing_a_set_of_strings_is_held_to_its_build_at_another_hash_seed()
     );
     let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
     assert!(failed.starts_with("timed_input_unstable: "), "{report:#}");
+}
+
+/// The Python fixture's files: both sides, the callers, the cases and the
+/// suite.
+const PYTHON_FIXTURE: [&str; 6] = [
+    "py/speed_orig.py",
+    "py-port/speed_port_py.py",
+    "callers/callers.py",
+    "callers/library.py",
+    "cases.jsonl",
+    "suite-python.json",
+];
+
+/// A git repository of its own under the tests' directory, holding copies
+/// of the fixture's `files`, committed.
+struct Repo(PathBuf);
+
+impl Repo {
+    fn new(dir: &Path, files: &[&str]) -> Repo {
+        let _ = std::fs::remove_dir_all(dir);
+        for file in files {
+            std::fs::create_dir_all(dir.join(file).parent().unwrap()).unwrap();
+            std::fs::copy(fixture().join(file), dir.join(file)).unwrap();
+        }
+        let repo = Repo(dir.to_path_buf());
+        repo.git(&["init", "-q"]);
+        repo.commit("fixture");
+        repo
+    }
+
+    fn git(&self, args: &[&str]) {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(&self.0)
+            .args([
+                "-c",
+                "user.name=test",
+                "-c",
+                "user.email=test@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+            ])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    fn commit(&self, message: &str) {
+        self.git(&["add", "."]);
+        self.git(&["commit", "-q", "-m", message]);
+    }
+}
+
+/// `carcinify speed <args>`, as given: no --allow-dirty added.
+fn speed_as_given(args: &[&str]) -> (i32, String) {
+    let out = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .arg("speed")
+        .args(args)
+        .env_remove("GATE_RUN_ID")
+        .output()
+        .unwrap();
+    (
+        out.status.code().unwrap(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
+/// RUST-167: a module the sides import from inside the repository that git
+/// does not track, here one it ignores, is refused as carcinify diff
+/// refuses it. With --allow-dirty the build records its SHA-256, and the
+/// run is held to it.
+#[test]
+fn a_module_git_ignores_is_refused_or_held_to_the_builds_copy() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-ignored-import");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let original = repo.0.join("py/speed_orig.py");
+    let text = std::fs::read_to_string(&original).unwrap();
+    std::fs::write(&original, text + "\nimport vendored  # git ignores it\n").unwrap();
+    std::fs::write(repo.0.join(".gitignore"), "py/vendored.py\n").unwrap();
+    repo.commit("import a module git ignores");
+    std::fs::write(repo.0.join("py/vendored.py"), "SCALE = 1\n").unwrap();
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let (d, w, r) = (
+        declaration.to_str().unwrap().to_string(),
+        dir.join("wheels").to_str().unwrap().to_string(),
+        dir.join("report.json").to_str().unwrap().to_string(),
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("py/vendored.py (imported by the timing driver)"),
+        "{err}"
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w, "--allow-dirty"]);
+    assert_eq!(code, 0, "{err}");
+    let built = read(&dir.join("wheels/build.json"));
+    assert!(
+        built["untracked_imported"]["py/vendored.py"].is_string(),
+        "{built:#}"
+    );
+    let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r, "--allow-dirty"]);
+    assert_eq!(code, 1, "timed, not under the gate: {err}");
+    std::fs::write(repo.0.join("py/vendored.py"), "SCALE = 10\n").unwrap();
+    let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r, "--allow-dirty"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("py/vendored.py") && err.contains("changed since speed build"),
+        "{err}"
+    );
+}
+
+/// RUST-167: what is timed must be in the repository the commit describes,
+/// as carcinify diff requires of a side's directories.
+#[test]
+fn a_side_or_a_callers_file_outside_the_repository_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-outside");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    for file in [
+        "callers/callers.py",
+        "callers/library.py",
+        "py/speed_orig.py",
+    ] {
+        std::fs::create_dir_all(dir.join(file).parent().unwrap()).unwrap();
+        std::fs::copy(fixture().join(file), dir.join(file)).unwrap();
+    }
+    let suite = std::fs::read_to_string(repo.0.join("suite-python.json")).unwrap();
+    std::fs::write(
+        repo.0.join("suite-outside.json"),
+        suite.replace("[\"py\"]", "[\"../py\"]"),
+    )
+    .unwrap();
+    repo.commit("a suite whose original is outside");
+    let mut outside_caller = caller("outside", "two_naps", "nap");
+    outside_caller["caller"]["file"] = json!("../callers/callers.py");
+    let direct =
+        json!({"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2});
+    for (name, suite, target, says) in [
+        (
+            "caller",
+            "repo/suite-python.json",
+            outside_caller,
+            "the caller's file",
+        ),
+        ("side", "repo/suite-outside.json", direct, "original: "),
+    ] {
+        let declaration = dir.join(format!("{name}.json"));
+        let text = json!({"schema": "carcinify/speed/declaration/1", "suite": suite, "runs": 3, "targets": [target]});
+        std::fs::write(&declaration, text.to_string()).unwrap();
+        let out = dir.join(format!("{name}-wheels"));
+        let (code, err) = speed_as_given(&[
+            "build",
+            declaration.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+            "--allow-dirty",
+        ]);
+        assert_eq!(code, 2, "{name}: {err}");
+        assert!(
+            err.contains(says) && err.contains("is outside the repository"),
+            "{name}: {err}"
+        );
+    }
 }

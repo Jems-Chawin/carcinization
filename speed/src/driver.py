@@ -25,6 +25,7 @@ import json
 import os
 import platform
 import sys
+import sysconfig
 import time
 import traceback
 
@@ -178,9 +179,7 @@ def main():
 
     seed = os.environ.get("PYTHONHASHSEED")
     log("hash seed %s (PYTHONHASHSEED=%s, hash randomization %s)" % (seed, seed, sys.flags.hash_randomization))
-    # Recording the caller targets needs the original alone.
-    names = ("original",) if plan.get("record") else ("original", "port")
-    modules = {name: import_side(plan["sides"][name]) for name in names}
+    modules = {name: import_side(plan["sides"][name]) for name in ("original", "port")}
     targets = []
     for target in plan["targets"]:
         name, n, caller = target["name"], target["calls_per_run"], target.get("caller")
@@ -223,6 +222,11 @@ def main():
         },
         "hash_seed": seed,
         "targets": targets,
+        # What was imported, for carcinify speed to hold to the commit, and
+        # where this interpreter keeps installed packages, which it leaves
+        # out as carcinify diff does.
+        "imported": sorted({os.path.realpath(f) for f in (getattr(m, "__file__", None) for m in list(sys.modules.values())) if f}),
+        "package_dirs": sorted({os.path.realpath(sysconfig.get_paths()[k]) for k in ("purelib", "platlib")}),
     }
     with open(plan["result"], "w") as f:
         json.dump(result, f)

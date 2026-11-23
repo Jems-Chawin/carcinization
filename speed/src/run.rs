@@ -8,6 +8,7 @@ use crate::cli::Options;
 use crate::declaration::{self, Loaded};
 use crate::figures::{self, Figures, Run, Side};
 use crate::gate::{self, Gate, Load, Unreliable};
+use carcinify_diff::commit;
 use carcinify_diff::compare::{Outcome, Relax, compare};
 use carcinify_diff::provenance::sha256_file;
 use carcinify_diff::suite::{self, SideSpec};
@@ -153,6 +154,21 @@ fn run(opts: &Options) -> Result<u8, String> {
             ));
         }
     }
+    // Files git does not track that the build used (with --allow-dirty):
+    // as they were then.
+    for (path, then) in record["untracked_imported"]
+        .as_object()
+        .into_iter()
+        .flatten()
+    {
+        let now = sha256_file(&git.root.join(path)).unwrap_or_else(|_| "none".into());
+        if Some(now.as_str()) != then.as_str() {
+            return Err(format!(
+                "{path}, which git does not track, changed since speed build (SHA-256 {} then, {now} now): run `carcinify speed build` again",
+                then.as_str().unwrap_or("")
+            ));
+        }
+    }
     // --allow-dirty allows a tree that does not match its commit, not one
     // whose changes are not the build's.
     let dirty_sha256 = crate::build::changes(&git)?;
@@ -180,6 +196,22 @@ fn run(opts: &Options) -> Result<u8, String> {
     let result = time(opts, &loaded, wheels, &record, &work);
     let _ = std::fs::remove_dir_all(&work);
     let result = result?;
+    // What the timing imported that git does not track must be what speed
+    // build saw: with --allow-dirty it recorded those files, and without
+    // it there were none.
+    let built = record["untracked_imported"].as_object();
+    let unseen: Vec<String> =
+        crate::build::untracked_used(&git, &commit::tracked(&git)?, &result, &callers_of(&loaded))
+            .into_iter()
+            .filter(|f| !built.is_some_and(|b| b.contains_key(&f.path)))
+            .map(|f| format!("{} ({})", f.path, f.role))
+            .collect();
+    if !unseen.is_empty() {
+        return Err(format!(
+            "the timing used files that git does not track and that speed build did not see:\n  {}\nCommit them, or run `carcinify speed build` again",
+            unseen.join("\n  ")
+        ));
+    }
     // At the end: the readings while the run ran, up to one more.
     let reading =
         |r: &gate::Reading| json!({"time": r.time, "epoch": r.epoch, "one_minute": r.one_minute});
@@ -361,6 +393,18 @@ fn check_wheels(dir: &Path, loaded: &Loaded) -> Result<J, String> {
 }
 
 /// Runs the driver on every target, and gives its result.
+/// The files of the declaration's callers.
+pub fn callers_of(loaded: &Loaded) -> Vec<PathBuf> {
+    loaded
+        .timed
+        .iter()
+        .filter_map(|t| match t {
+            Some(declaration::Timed::Caller(path)) => Some(path.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
 /// A caller target as the timing driver takes it.
 pub fn caller_target(t: &declaration::Target, path: &Path) -> J {
     let c = t.caller.as_ref();
@@ -505,7 +549,7 @@ fn time(
     // One driver process for each target, with decide's process computing
     // beside it for as long as it runs: load that begins and ends inside a
     // run falls between the loops timed before and after it.
-    let mut result = json!({"targets": []});
+    let mut result = json!({"targets": [], "imported": []});
     for (i, target) in targets.into_iter().enumerate() {
         let result_path = work.join(format!("result-{i}.json"));
         let mut plan = base.clone();
@@ -534,6 +578,13 @@ fn time(
         );
         if !ran["python"].is_null() {
             result["python"] = ran["python"].take();
+            result["package_dirs"] = ran["package_dirs"].take();
+        }
+        if let (Some(all), Some(these)) = (
+            result["imported"].as_array_mut(),
+            ran["imported"].as_array(),
+        ) {
+            all.extend(these.iter().cloned());
         }
         result["targets"]
             .as_array_mut()

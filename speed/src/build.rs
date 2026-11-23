@@ -12,6 +12,7 @@ use carcinify_diff::report::Tools as ToolsBlock;
 use carcinify_diff::side::{Side, SideConfig};
 use carcinify_diff::suite::{Measured, SideSpec};
 use serde_json::{Value as J, json};
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -80,6 +81,20 @@ fn build(opts: &Options) -> Result<(), Failure> {
     };
     let mut sides = serde_json::Map::new();
     let tracked = commit::tracked(&git)?;
+    // As carcinify diff requires of a side's directories: what is timed is
+    // in the repository the commit describes.
+    for (t, timed) in loaded.declaration.targets.iter().zip(&loaded.timed) {
+        if let Some(Timed::Caller(path)) = timed
+            && !path.starts_with(&git.root)
+        {
+            return Err(Failure::CannotRun(format!(
+                "target {:?}: the caller's file {} is outside the repository, so the commit would not describe it",
+                t.name,
+                path.display()
+            )));
+        }
+    }
+    let mut not_in_commit = Vec::new();
     let mut outside = Vec::new();
     let mut crate_dir = None;
     let mut wheels = Vec::new();
@@ -103,8 +118,23 @@ fn build(opts: &Options) -> Result<(), Failure> {
                 .collect();
             wheels.push(work.join(format!("{name}-wheel")).join(&wheel.file));
         }
+        for dir in built
+            .source_dirs
+            .iter()
+            .chain(&built.crate_dir)
+            .chain(&built.workspace_dir)
+        {
+            if !dir.starts_with(&git.root) {
+                return Err(Failure::CannotRun(format!(
+                    "{name}: {} is outside the repository, so the commit would not describe it",
+                    dir.display()
+                )));
+            }
+        }
+        let inputs = commit::build_inputs(&git, &tracked, &built)?;
+        not_in_commit.extend(inputs.not_in_commit);
         if built.crate_dir.is_some() {
-            outside.extend(commit::build_inputs(&git, &tracked, &built)?.outside);
+            outside.extend(inputs.outside);
             crate_dir = crate_dir.or(built.crate_dir.clone());
         }
         sides.insert(name.to_string(), side);
@@ -114,7 +144,22 @@ fn build(opts: &Options) -> Result<(), Failure> {
         let file = sides[side]["wheel"]["file"].as_str().unwrap_or_default();
         work.join(format!("{side}-wheel")).join(file)
     };
-    let (callers, refused) = callers(opts, &loaded, &git, &shared, &work, prepared, &wheel_of)?;
+    let (callers, refused, ran) =
+        callers(opts, &loaded, &git, &shared, &work, prepared, &wheel_of)?;
+    // Refused as carcinify diff refuses them, unless --allow-dirty: then
+    // the files the timing uses are recorded, and the run held to them.
+    let used = untracked_used(&git, &tracked, &ran, &crate::run::callers_of(&loaded));
+    let untracked_imported = used
+        .iter()
+        .map(|f| {
+            Ok((
+                f.path.clone(),
+                J::from(sha256_file(&git.root.join(&f.path))?),
+            ))
+        })
+        .collect::<Result<serde_json::Map<String, J>, String>>()?;
+    not_in_commit.extend(used);
+    carcinify_diff::refuse_outside_commit(opts.allow_dirty, &git, &not_in_commit)?;
     if !refused.is_empty() {
         return Err(Failure::Refused(refused));
     }
@@ -134,6 +179,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
         "python": interpreter(&opts.python)?,
         "sides": sides,
         "callers": callers,
+        "untracked_imported": untracked_imported,
         "tools": tools_block(opts, crate_dir.as_deref().unwrap_or(suite_dir), crate_dir.is_some(), outside)?,
     });
     let text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
@@ -169,6 +215,52 @@ impl Drop for Work {
     }
 }
 
+/// Files the timing driver imported (`ran`, its result), and the callers'
+/// files, from inside the repository that git does not track, by their
+/// path in it. The interpreter's installed packages are left out, as
+/// carcinify diff leaves them out, wherever its environment is.
+pub fn untracked_used(
+    git: &carcinify_diff::provenance::Git,
+    tracked: &BTreeSet<PathBuf>,
+    ran: &J,
+    callers: &[PathBuf],
+) -> Vec<commit::NotInCommit> {
+    let paths = |j: &J| -> Vec<PathBuf> {
+        j.as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(J::as_str)
+            .map(PathBuf::from)
+            .collect()
+    };
+    let packages = paths(&ran["package_dirs"]);
+    let imported = paths(&ran["imported"])
+        .into_iter()
+        .map(|p| (p, "imported by the timing driver"));
+    let mut seen = BTreeSet::new();
+    imported
+        .chain(callers.iter().map(|p| (p.clone(), "a caller's file")))
+        .filter(|(p, _)| {
+            p.starts_with(&git.root)
+                && !packages.iter().any(|d| p.starts_with(d))
+                && !tracked.contains(p)
+        })
+        .filter(|(p, _)| seen.insert(p.clone()))
+        .map(|(p, role)| commit::NotInCommit {
+            path: p
+                .strip_prefix(&git.root)
+                .unwrap_or(&p)
+                .to_string_lossy()
+                .into_owned(),
+            role: role.to_string(),
+        })
+        .collect()
+}
+
+/// The calls of each caller that passed, by target; why each other is
+/// refused; and the timing driver's result, which says what it imported.
+type Callers = (serde_json::Map<String, J>, Vec<String>, J);
+
 /// Design §3: each caller target called twice, untimed, with the original
 /// in place, and each call it made of the compared function looked up among
 /// the suite's cases with the harness's own measured check, the original
@@ -182,7 +274,7 @@ fn callers(
     work: &Path,
     prepared: Vec<(SideConfig, Built)>,
     wheel_of: &dyn Fn(&str) -> PathBuf,
-) -> Result<(serde_json::Map<String, J>, Vec<String>), String> {
+) -> Result<Callers, String> {
     let mut recorded = serde_json::Map::new();
     let mut refused = Vec::new();
     let callers: Vec<_> = loaded
@@ -195,9 +287,6 @@ fn callers(
             _ => None,
         })
         .collect();
-    if callers.is_empty() {
-        return Ok((recorded, refused));
-    }
     let (driver, mut plan) = crate::run::plan(opts, loaded, work, wheel_of)?;
     let result_path = work.join("recorded.json");
     plan["record"] = json!(true);
@@ -216,6 +305,10 @@ fn callers(
         }
         crate::run::Driven::Crashed(why) => return Err(format!("recording the callers: {why}")),
     };
+    // Run with no callers too: it says what the sides import.
+    if callers.is_empty() {
+        return Ok((recorded, refused, result));
+    }
     let mut prepared = prepared.into_iter();
     let (Some((mut original, original_built)), Some((mut candidate, candidate_built))) =
         (prepared.next(), prepared.next())
@@ -348,7 +441,7 @@ fn callers(
             json!({"calls": first["calls"], "lines": lines}),
         );
     }
-    Ok((recorded, refused))
+    Ok((recorded, refused, result))
 }
 
 /// Refuses an `--out` inside the repository where git does not ignore it:
