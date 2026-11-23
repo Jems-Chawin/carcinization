@@ -20,3 +20,7 @@ def pop_first(xs):
 
 def hang():
     time.sleep(60)
+
+
+def square(n):
+    return n * n

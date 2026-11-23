@@ -13,4 +13,7 @@
 - `pop_first(xs)` changes its argument: on one list reused, its fourth
   call would raise.
 - `hang()` takes 60 s a call, far longer than the time limit its test gives.
+- `square(n)` is cached in the original (`functools.lru_cache`): every
+  timed call would be a cache hit, so carcinify diff refuses it, and speed
+  too.
 - `outside.jsonl` is a case file that no suite lists.

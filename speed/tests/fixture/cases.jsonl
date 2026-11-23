@@ -5,3 +5,4 @@
 {"id": "basename-a", "fn": "basename", "args": ["a/b"]}
 {"id": "pop-first", "fn": "pop_first", "args": [[1, 2, 3]]}
 {"id": "hang", "fn": "hang"}
+{"id": "square-3", "fn": "square", "args": [3]}

@@ -799,3 +799,32 @@ fn speed_run_refuses_what_speed_build_did_not_build_for() {
     assert_eq!(code, 1, "unreliable, not under the gate: {err}");
     assert_eq!(read(&report)["run"]["dirty"], false);
 }
+
+/// A cached original would be timed on cache hits after the first call.
+#[test]
+fn a_cached_original_is_refused_as_carcinify_diff_refuses_it() {
+    let declaration = declare(
+        "cached",
+        "suite-python.json",
+        &[("square", "cases.jsonl", "square-3")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = run(&declaration, &wheels, &[], &[]);
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
+    assert_eq!(
+        failed,
+        "function_refused: original: refused: 'square' is a functools._lru_cache_wrapper, not a function",
+        "{report:#}"
+    );
+    assert!(
+        report["targets"][0]["runs"]
+            .as_array()
+            .is_none_or(Vec::is_empty),
+        "{report:#}"
+    );
+}

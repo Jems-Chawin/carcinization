@@ -1,5 +1,6 @@
 """The original of carcinify speed's fixture."""
 
+import functools
 import time
 from os.path import basename  # not this module's own code
 
@@ -21,3 +22,8 @@ def pop_first(xs):
 
 def hang():
     time.sleep(60)
+
+
+@functools.lru_cache(maxsize=None)
+def square(n):
+    return n * n
