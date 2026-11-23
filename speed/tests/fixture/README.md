@@ -39,7 +39,9 @@
 - `pair(n)` returns a tuple of two new ints, and `half(n)` a float: results
   of types the interpreter keeps free lists for.
 - `options(**kwargs)` counts its keyword arguments; the case
-  options-odd-key gives one whose key, a-b, cannot be written as a name.
+  options-odd-key gives one whose key, a-b, cannot be written as a name;
+  options-nfkc-key one, \ufb01, that Python would read as fi; and
+  options-debug-key one, __debug__, that cannot be assigned.
 - The PyO3 port's `blob(n)` returns an object that owns n bytes of Rust
   memory and keeps nothing; its `log_push(n)` keeps every n in a Vec that
   doubles as it fills.

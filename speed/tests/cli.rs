@@ -1946,6 +1946,8 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
             ("options", "cases.jsonl", "options-odd-key"),
             ("pair", "cases.jsonl", "pair-1000"),
             ("half", "cases.jsonl", "half-1000"),
+            ("options-nfkc", "cases.jsonl", "options-nfkc-key"),
+            ("options-debug", "cases.jsonl", "options-debug-key"),
         ],
     );
     let wheels = built(&declaration);
@@ -2005,6 +2007,16 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
     assert_eq!(left(4)["blocks"], 3, "{report:#}");
     assert_eq!(left(5)["blocks"], 1, "{report:#}");
     assert!(what.contains("with no help from free lists"), "{what}");
+    // RUST-179: a key Python would normalize (\u{fb01} read as fi) or that
+    // cannot be assigned (__debug__) goes through functools.partial too.
+    for i in [6, 7] {
+        let t = &report["targets"][i];
+        let note = t["counts"]["python"]["note"].as_str().unwrap_or("");
+        assert!(
+            t["failed"].is_null() && note.contains("functools.partial"),
+            "{t:#}"
+        );
+    }
     assert!(!what.contains("caller target"), "{what}");
 }
 

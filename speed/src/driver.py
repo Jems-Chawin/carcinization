@@ -37,6 +37,7 @@ import threading
 import time
 import traceback
 import tracemalloc
+import unicodedata
 
 
 def load_file(path, name):
@@ -230,9 +231,14 @@ def written_out(fn, args, kwargs):
     """A call of `fn` made as a caller writes it, the keyword names
     written out and the values bound, so that the call leaves the
     interpreter nothing of its own (RUST-174). Keys that cannot be written
-    as names fall back to functools.partial, which leaves a tuple and a
-    dict for a keyword call; the second value says whether it did."""
-    if not all(k.isidentifier() and not keyword.iskeyword(k) for k in kwargs):
+    as names fall back to functools.partial; the second value says whether
+    it did. That is a key that is not an identifier, a keyword, __debug__
+    (which cannot be assigned), or one Python would read as another name,
+    since source identifiers are read as NFKC (RUST-179)."""
+    def writable(k):
+        return k.isidentifier() and not keyword.iskeyword(k) and k != "__debug__" and unicodedata.normalize("NFKC", k) == k
+
+    if not all(writable(k) for k in kwargs):
         return functools.partial(fn, *args, **kwargs), True
     scope = {"f": fn}
     names = []

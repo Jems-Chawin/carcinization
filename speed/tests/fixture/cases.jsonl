@@ -23,3 +23,5 @@
 {"id": "options-odd-key", "fn": "options", "kwargs": {"a-b": 1}}
 {"id": "pair-1000", "fn": "pair", "args": [1000]}
 {"id": "half-1000", "fn": "half", "args": [1000]}
+{"id": "options-nfkc-key", "fn": "options", "kwargs": {"\ufb01": 1}}
+{"id": "options-debug-key", "fn": "options", "kwargs": {"__debug__": 1}}
