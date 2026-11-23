@@ -27,6 +27,7 @@ import importlib
 import importlib.util
 import inspect
 import json
+import keyword
 import os
 import platform
 import sys
@@ -154,13 +155,33 @@ def timed_caller(caller, fns, out, n, name, measure, log):
     return run
 
 
-def count(out, ready, counts):
+def written_out(fn, args, kwargs):
+    """A call of `fn` made as a caller writes it, the keyword names
+    written out and the values bound, so that the call leaves the
+    interpreter nothing of its own (RUST-174). Keys that cannot be written
+    as names fall back to functools.partial, which leaves a tuple and a
+    dict for a keyword call; the second value says whether it did."""
+    if not all(k.isidentifier() and not keyword.iskeyword(k) for k in kwargs):
+        return functools.partial(fn, *args, **kwargs), True
+    scope = {"f": fn}
+    names = []
+    for i, value in enumerate(args):
+        scope["a%d" % i] = value
+        names.append("a%d" % i)
+    for i, (key, value) in enumerate(kwargs.items()):
+        scope["k%d" % i] = value
+        names.append("%s=k%d" % (key, i))
+    return eval("lambda: f(%s)" % ", ".join(names), scope), False
+
+
+def count(out, ready, counts, note=None):
     """Design §4, in speed build: the port's Rust allocations, by the
     counting allocator of a wheel built with count_allocations, over the
     target's first call in this process, apart, then over a warm call, each
     with its result still held, as by its caller. Then, by tracemalloc, the
     Python objects a warm call leaves to its caller, and its peak.
-    `ready()` gives the next call, its arguments made."""
+    `ready()` gives the next call, its arguments made. `note`, if any, is
+    what the Python figure holds beside the call's own."""
     if counts is None:
         out["counts"] = {"not_counted": "the port's module, built with count_allocations, exports no _speed_allocations"}
         return
@@ -177,6 +198,11 @@ def count(out, ready, counts):
     def traced(read):
         call = ready()
         gc.collect()
+        # One untraced call between: gc.collect() empties the interpreter's
+        # free lists, so the traced call's freed temporaries would wait on
+        # them, traced, as if left to the caller (RUST-174). After a call
+        # they hold its temporaries again, as in a caller's steady state.
+        ready()()
         tracemalloc.start()
         result = call()
         seen = read()
@@ -198,6 +224,8 @@ def count(out, ready, counts):
             "peak_bytes": peak,
         },
     }
+    if note:
+        out["counts"]["python"]["note"] = note
 
 
 def encoded_output(harness, result):
@@ -396,16 +424,16 @@ def main():
                     def ready():
                         return call
 
+                    note = None
                 else:
 
                     def ready():
-                        # Made before the call: f(*args, **kwargs) would
-                        # leave the interpreter a tuple and a dict of its
-                        # own, which tracemalloc would count as the call's.
-                        args, kwargs = case_args(req, harness)
-                        return functools.partial(fns["port"], *args, **kwargs)
+                        return written_out(fns["port"], *case_args(req, harness))[0]
 
-                count(out, ready, getattr(modules["port"], "_speed_allocations", None))
+                    note = None
+                    if written_out(fns["port"], *case_args(req, harness))[1]:
+                        note = "the case's keyword names cannot all be written as names, so the call goes through functools.partial: the figure includes the blocks the interpreter keeps for such a keyword call"
+                count(out, ready, getattr(modules["port"], "_speed_allocations", None), note)
             else:
                 if caller:
                     run = timed_caller(caller, fns, out, n, name, measure, log)

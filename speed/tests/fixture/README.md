@@ -35,6 +35,7 @@
   allocations and 16n bytes. Its first call also makes a 4096-byte
   workspace and keeps it. Built with the feature `count_allocations`, the
   crate counts its allocations and exports `_speed_allocations()`.
+- `temp(n)` makes a Python tuple and a dict, drops both, and returns n.
 - `crash(n)` returns n in the original; the Python port kills its own
   interpreter (SIGKILL), which leaves no crash report behind.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which

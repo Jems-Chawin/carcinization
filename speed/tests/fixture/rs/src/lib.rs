@@ -86,6 +86,17 @@ mod speed_port {
         std::hint::black_box(&boxes).iter().map(|b| **b).sum()
     }
 
+    /// n, after making a Python tuple and a dict and dropping both: what a
+    /// binding does on its way, which the caller is not left with.
+    #[pyfunction]
+    fn temp(py: Python<'_>, n: usize) -> PyResult<usize> {
+        let tuple = pyo3::types::PyTuple::new(py, [n, n])?;
+        let dict = pyo3::types::PyDict::new(py);
+        dict.set_item("n", n)?;
+        drop((tuple, dict));
+        Ok(n)
+    }
+
     /// Allocations, frees, bytes allocated and live bytes, so far.
     #[cfg(feature = "count_allocations")]
     #[pyfunction]

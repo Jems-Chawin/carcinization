@@ -1942,6 +1942,7 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
         &[
             ("fill", "cases.jsonl", "fill-100"),
             ("fill-kw", "cases.jsonl", "fill-kw-100"),
+            ("temp", "cases.jsonl", "temp-1000"),
         ],
     );
     let wheels = built(&declaration);
@@ -1974,14 +1975,21 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
         .filter(|e| e.path().extension().is_some_and(|x| x == "whl"))
         .count();
     assert_eq!(kept, 1);
-    // A positional call has no note; a keyword call's Python figure holds
-    // the interpreter's blocks for the keywords, and says so.
-    assert!(python["note"].is_null(), "{counts:#}");
-    let keywords = &report["targets"][1]["counts"]["python"]["note"];
-    assert!(
-        keywords.as_str().unwrap_or("").contains("keyword"),
+    // RUST-174: a keyword call is made as a caller writes it, and leaves
+    // what the positional one leaves, with no note.
+    let keywords = &report["targets"][1]["counts"]["python"];
+    assert_eq!(
+        keywords["objects_left_to_the_caller"], python["objects_left_to_the_caller"],
         "{report:#}"
     );
+    assert!(
+        python["note"].is_null() && keywords["note"].is_null(),
+        "{report:#}"
+    );
+    // RUST-174: the call's freed temporaries, a tuple and a dict, are not
+    // left to the caller: temp(1000) leaves its int alone.
+    let temp = &report["targets"][2]["counts"]["python"]["objects_left_to_the_caller"];
+    assert_eq!(temp["blocks"], 1, "{report:#}");
     assert!(!what.contains("caller target"), "{what}");
 }
 

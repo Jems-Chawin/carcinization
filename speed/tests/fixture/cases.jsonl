@@ -17,3 +17,4 @@
 {"id": "fill-100", "fn": "fill", "args": [100]}
 {"id": "fill-kw-100", "fn": "fill", "kwargs": {"n": 100}}
 {"id": "fails-1", "fn": "fails", "args": [1]}
+{"id": "temp-1000", "fn": "temp", "args": [1000]}

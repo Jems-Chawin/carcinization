@@ -303,20 +303,12 @@ fn run(opts: &Options) -> Result<u8, String> {
             if t.caller.is_some() {
                 about += ". For a caller target: the Rust counts are the extension's alone, over the caller's whole call; the Python figure includes the caller's own objects";
             }
-            let mut python = counted["python"].clone();
-            if let Some(declaration::Timed::Case(i)) = what
-                && has_keywords(&loaded.cases[*i])
-            {
-                python["note"] = json!(
-                    "the case calls with keyword arguments: the figure includes the blocks the interpreter keeps for a keyword call"
-                );
-            }
             json!({
                 "what": about,
                 "first": counted["first"],
                 "warm": counted["warm"],
                 "workspace_kept_bytes": counted["first"]["live_bytes"],
-                "python": python,
+                "python": counted["python"],
             })
         } else {
             counted.clone()
@@ -462,17 +454,6 @@ pub fn callers_of(loaded: &Loaded) -> Vec<PathBuf> {
             _ => None,
         })
         .collect()
-}
-
-/// Whether the case calls with keyword arguments.
-fn has_keywords(case: &suite::Case) -> bool {
-    match &case.input {
-        suite::Input::Plain { kwargs, .. } => {
-            serde_json::from_str::<serde_json::Map<String, J>>(kwargs.get())
-                .is_ok_and(|k| !k.is_empty())
-        }
-        suite::Input::Typed { kwargs, .. } => !kwargs.is_empty(),
-    }
 }
 
 /// A direct target as the timing driver takes it: its case's request, as

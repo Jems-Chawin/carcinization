@@ -73,3 +73,9 @@ def fill(n):
 
 def fails(n):
     return n
+
+
+def temp(n):
+    pair, named = (n, n), {"n": n}
+    del pair, named
+    return n
