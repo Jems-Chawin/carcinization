@@ -324,8 +324,13 @@ fn counts(
 }
 
 /// Whether the crate at `crate_dir` declares `feature`, as Cargo reads its
-/// manifest.
+/// manifest. The directory is made canonical first, as the harness makes a
+/// crate's: Cargo names the manifest as it was given, and it is compared
+/// with the canonical one (RUST-176).
 fn declares_feature(crate_dir: &Path, feature: &str) -> Result<bool, String> {
+    let crate_dir = crate_dir
+        .canonicalize()
+        .map_err(|e| format!("{}: {e}", crate_dir.display()))?;
     let manifest = crate_dir.join("Cargo.toml");
     let out = Command::new("cargo")
         .args([
@@ -918,5 +923,20 @@ mod tests {
             declares_feature(Path::new(env!("CARGO_MANIFEST_DIR")), COUNTING),
             Ok(false)
         );
+    }
+
+    /// RUST-176: a crate reached through a symlink, as under macOS's /tmp.
+    #[cfg(unix)]
+    #[test]
+    fn a_feature_is_found_through_a_symlinked_path() {
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixture/rs");
+        let dir = std::env::temp_dir().join(format!("speed-unit-symlink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let linked = dir.join("crate");
+        std::os::unix::fs::symlink(&fixture, &linked).unwrap();
+        let found = declares_feature(&linked, COUNTING);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(found, Ok(true));
     }
 }
