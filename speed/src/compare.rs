@@ -67,14 +67,18 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
     let (la, lb) = (label(a, "A"), label(b, "B"));
     let mut out = String::new();
     let mut flags = Vec::new();
-    for (r, l) in [(a, &la), (b, &lb)] {
+    for (r, l, which) in [(a, &la, "A"), (b, &lb, "B")] {
+        let verdict = text(&r["verdict"]);
         out += &format!(
-            "{l}: {}; {}; {}; verdict {}\n",
+            "{l}: {}; {}; {}; verdict {verdict}\n",
             text(&r["machine"]["cpu"]),
             interpreter(r),
             build(r),
-            text(&r["verdict"])
         );
+        // So that "none" is never printed under a report that did not pass.
+        if !matches!(verdict, "pass" | "pass_with_flags") {
+            flags.push(format!("verdict: {which} {verdict}"));
+        }
     }
     if interpreter(a) != interpreter(b) {
         flags.push(format!(

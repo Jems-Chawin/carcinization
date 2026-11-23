@@ -2608,3 +2608,35 @@ fn a_target_one_report_lacks_or_failed_is_printed_with_its_reason_and_no_flag() 
     assert!(!out.contains("more"), "a reason's first line: {out}");
     assert_eq!(flags_in(&out), ["none"], "{out}");
 }
+
+/// A report that did not pass is in the closing flags, so that "none" is
+/// never printed under it.
+#[test]
+fn a_report_that_did_not_pass_is_in_the_flags() {
+    let mut a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    a["verdict"] = json!("unreliable");
+    let mut b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    b["verdict"] = json!("fail");
+    let (code, out, err) = compare("speed-compare-verdicts", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        flags_in(&out),
+        ["verdict: A unreliable", "verdict: B fail"],
+        "{out}"
+    );
+    b["verdict"] = json!("pass_with_flags");
+    let (_, out, _) = compare("speed-compare-verdicts", &a, &b);
+    assert_eq!(flags_in(&out), ["verdict: A unreliable"], "{out}");
+}
