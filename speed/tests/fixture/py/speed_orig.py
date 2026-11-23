@@ -79,3 +79,15 @@ def temp(n):
     pair, named = (n, n), {"n": n}
     del pair, named
     return n
+
+
+def blob(n):
+    return bytes(n)
+
+
+_log = []
+
+
+def log_push(n):
+    _log.append(n)
+    return n

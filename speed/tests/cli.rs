@@ -1950,7 +1950,7 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
     let counts = &report["targets"][0]["counts"];
     assert_eq!(
         counts["warm"],
-        json!({"allocations": 101, "frees": 101, "bytes": 1600, "live_bytes": 0}),
+        json!({"allocations": 101, "frees": 101, "bytes": 1600, "live_bytes": 0, "result_bytes": 0}),
         "{err}\n{counts:#}"
     );
     assert_eq!(counts["first"]["live_bytes"], 4096, "{counts:#}");
@@ -2199,4 +2199,52 @@ fn speed_build_says_which_sides_untimed_call_failed() {
         "{err}"
     );
     assert!(!err.contains("target \"nap\""), "{err}");
+}
+
+/// RUST-175: the workspace and its growth are read with the result
+/// dropped. blob(1000) returns an object that owns 1,000 bytes and keeps
+/// nothing: no workspace and no growth, and its 1,000 bytes are reported as
+/// the result's. log_push(1) keeps every value in a Vec that doubles: its
+/// live bytes grow over 16 warm calls, and the report flags it.
+#[test]
+#[ignore = "needs maturin; see the top of this file"]
+fn the_workspace_is_read_with_the_result_dropped_and_its_growth_over_warm_calls() {
+    let declaration = declare(
+        "pyo3-growth",
+        "suite.json",
+        &[
+            ("blob", "cases.jsonl", "blob-1000"),
+            ("log-push", "cases.jsonl", "log-push-1"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let (_, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    let blob = &report["targets"][0]["counts"];
+    assert_eq!(blob["workspace_kept_bytes"], 0, "{err}\n{blob:#}");
+    assert_eq!(blob["growth_over_16_warm_calls_bytes"], 0, "{blob:#}");
+    assert_eq!(blob["warm"]["result_bytes"], 1000, "{blob:#}");
+    let log_push = &report["targets"][1]["counts"];
+    assert!(
+        log_push["growth_over_16_warm_calls_bytes"]
+            .as_i64()
+            .unwrap_or(0)
+            > 0,
+        "{log_push:#}"
+    );
+    let flags: Vec<&str> = report["flags"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        flags
+            .iter()
+            .any(|f| f.starts_with("workspace_grows: log-push: ")),
+        "{flags:#?}"
+    );
+    assert!(
+        !flags.iter().any(|f| f.starts_with("workspace_grows: blob")),
+        "{flags:#?}"
+    );
 }

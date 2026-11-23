@@ -188,12 +188,18 @@ def count(out, ready, counts, note=None):
     keys = ("allocations", "frees", "bytes", "live_bytes")
 
     def counted(call):
+        # Read with the result dropped (RUST-175): Rust memory the result
+        # owns is the result's, not a workspace the port keeps.
         gc.collect()
         before = counts()
         result = call()
-        after = counts()
+        held = counts()
         del result
-        return {k: b - a for k, a, b in zip(keys, before, after)}
+        gc.collect()
+        after = counts()
+        c = {k: b - a for k, a, b in zip(keys, before, after)}
+        c["result_bytes"] = held[3] - after[3]
+        return c
 
     def traced(read):
         call = ready()
@@ -212,6 +218,15 @@ def count(out, ready, counts, note=None):
 
     first = counted(ready())
     warm = counted(ready())
+    # Growth over 16 more warm calls, each result dropped: one warm call
+    # can miss a Vec that doubles only now and then (RUST-175).
+    gc.collect()
+    start = counts()[3]
+    for _ in range(16):
+        result = ready()()
+        del result
+    gc.collect()
+    growth = counts()[3] - start
     # Two more warm calls: a snapshot, and what reads it, would be in the
     # peak; the snapshot's own blocks are left out by their file.
     peak = traced(lambda: tracemalloc.get_traced_memory()[1])
@@ -219,6 +234,7 @@ def count(out, ready, counts, note=None):
     out["counts"] = {
         "first": first,
         "warm": warm,
+        "growth": growth,
         "python": {
             "objects_left_to_the_caller": {"blocks": len(left), "bytes": sum(t.size for t in left)},
             "peak_bytes": peak,

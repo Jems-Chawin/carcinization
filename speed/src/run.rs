@@ -43,6 +43,9 @@ pub struct Timed {
     pub cold_not_measured: Option<String>,
     /// Why a compiled port's allocations could not be counted.
     pub counts_not_measured: Option<String>,
+    /// How far the port's live Rust bytes moved over 16 warm calls, when
+    /// they moved.
+    pub workspace_grows: Option<i64>,
 }
 
 /// The verdict, its exit status, the reasons (every target's, each by its
@@ -91,6 +94,12 @@ pub fn judge(
         }
         if let (Some(_), Some(why)) = (&t.figures, &t.counts_not_measured) {
             flags.push(format!("counts_not_measured: {}: {why}", t.name));
+        }
+        if let (Some(_), Some(growth)) = (&t.figures, t.workspace_grows) {
+            flags.push(format!(
+                "workspace_grows: {}: the port's live Rust bytes changed by {growth} over 16 warm calls, each result dropped: a workspace that keeps growing, or a leak",
+                t.name
+            ));
         }
         if t.figures.is_some() && t.kept_off_beside.is_none() {
             flags.push(format!(
@@ -308,6 +317,7 @@ fn run(opts: &Options) -> Result<u8, String> {
                 "first": counted["first"],
                 "warm": counted["warm"],
                 "workspace_kept_bytes": counted["first"]["live_bytes"],
+                "growth_over_16_warm_calls_bytes": counted["growth"],
                 "python": counted["python"],
             })
         } else {
@@ -346,6 +356,7 @@ fn run(opts: &Options) -> Result<u8, String> {
                 .as_str()
                 .filter(|_| compiled_port)
                 .map(String::from),
+            workspace_grows: counted["growth"].as_i64().filter(|g| *g != 0),
         });
     }
     let (verdict, exit_status, reasons, flags) = judge(&timed, &gate);
@@ -960,7 +971,24 @@ mod tests {
             kept_off_beside: Some(0.0),
             cold_not_measured: None,
             counts_not_measured: None,
+            workspace_grows: None,
         }
+    }
+
+    #[test]
+    fn live_bytes_that_move_over_warm_calls_are_flagged_and_still_ones_are_not() {
+        let mut grows = timed("a", None, Some((1.0, 1.0, 1.0)), false);
+        grows.workspace_grows = Some(224);
+        let (verdict, _, _, flags) = judge(
+            &[grows, timed("b", None, Some((1.0, 1.0, 1.0)), false)],
+            &quiet(),
+        );
+        assert_eq!(verdict, "pass_with_flags");
+        assert_eq!(flags.len(), 1, "{flags:?}");
+        assert!(
+            flags[0].starts_with("workspace_grows: a: the port's live Rust bytes changed by 224"),
+            "{flags:?}"
+        );
     }
 
     fn quiet() -> Result<Load, Unreliable> {

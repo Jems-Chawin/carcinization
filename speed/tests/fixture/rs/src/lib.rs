@@ -97,6 +97,28 @@ mod speed_port {
         Ok(n)
     }
 
+    /// A result that owns Rust memory, which nothing else keeps.
+    #[pyclass]
+    struct Blob {
+        _bytes: Vec<u8>,
+    }
+
+    /// n bytes, owned by the result alone.
+    #[pyfunction]
+    fn blob(n: usize) -> Blob {
+        Blob { _bytes: vec![0; n] }
+    }
+
+    /// Every value log_push is given, kept: a workspace that grows.
+    static LOG: std::sync::Mutex<Vec<u64>> = std::sync::Mutex::new(Vec::new());
+
+    /// n, after keeping it in LOG, whose Vec doubles as it fills.
+    #[pyfunction]
+    fn log_push(n: u64) -> u64 {
+        LOG.lock().unwrap_or_else(|e| e.into_inner()).push(n);
+        n
+    }
+
     /// Allocations, frees, bytes allocated and live bytes, so far.
     #[cfg(feature = "count_allocations")]
     #[pyfunction]
