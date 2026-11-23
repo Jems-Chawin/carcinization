@@ -656,16 +656,21 @@ fn callers(
     }
     // RUST-180: each side alone, in a process of its own on its own path,
     // imported and making the same untimed calls (those that completed),
-    // to say which modules each side imports, and from where.
-    // shortcut: a caller target's calls are not made alone, as its caller's
-    // own imports belong to neither side; what a side imports only through
-    // a caller is left to the check in the drivers above; make them alone
-    // when a caller target imports per side.
+    // to say which modules each side imports, and from where. The callers
+    // too, each with the side put in place (RUST-190): their own imports
+    // show on both sides from one file, which never refuses by itself.
+    let recorded_outs = result["targets"].as_array().cloned().unwrap_or_default();
+    let alone_too = callers
+        .iter()
+        .zip(&recorded_outs)
+        .filter(|(_, out)| out["error"].is_null() && out["refused"].is_null())
+        .map(|((t, _, path), _)| crate::run::caller_target(t, path));
+    let lone_targets: Vec<J> = completed.into_iter().chain(alone_too).collect();
     let mut lone = serde_json::Map::new();
     for side in ["original", "port"] {
         let path = work.join(format!("lone-{side}.json"));
         plan["lone"] = json!(side);
-        plan["targets"] = J::Array(completed.clone());
+        plan["targets"] = J::Array(lone_targets.clone());
         plan["result"] = json!(path);
         plan["calling"] = json!(work.join(format!("lone-calling-{side}")));
         let alone = |why: String| format!("the {side} alone, in a process of its own: {why}");
@@ -704,8 +709,7 @@ fn callers(
         false,
     )?;
     let mut original = Side::start(original, opts.timeout)?;
-    let outs = result["targets"].as_array().cloned().unwrap_or_default();
-    for (i, ((t, c, _), out)) in callers.iter().zip(&outs).enumerate() {
+    for (i, ((t, c, _), out)) in callers.iter().zip(&recorded_outs).enumerate() {
         let mut refuse = |why: String| refused.push(format!("target {:?}: {why}", t.name));
         if !out["refused"].is_null() {
             let r = &out["refused"];

@@ -59,9 +59,11 @@ records of those runs are not in the repository.
   own `helper.py` over a shared one); and
   `an_installed_copy_of_the_ports_module_that_only_the_port_imports_builds`
   (a copy of the port's module, with its `dist-info`, in a scratch venv's
-  `site-packages`). The `maturin develop` case itself was not run. The
-  limit for caller targets in speed's README is the shortcut comment in
-  `src/build.rs`.
+  `site-packages`, with a caller target declared too). The `maturin
+  develop` case itself was not run. Through a caller target:
+  `a_module_a_side_imports_only_through_a_caller_is_refused` (the
+  original's own `colorsys.py`, imported inside the function the caller
+  reaches).
 
 ## The counts: tested on the fixture, not on a real port
 

@@ -506,7 +506,16 @@ def main():
         if out["refused"]:
             continue
         try:
-            if caller and plan.get("record"):
+            if caller and lone:
+                # One untimed call of the caller with this side alone in
+                # place, so that what it imports only through the caller is
+                # held alone too (RUST-190).
+                call = measure.load({"project_root": os.path.dirname(caller["path"]), "workload_file": caller["path"], "function": caller["function"]})
+                put_in_place(caller, fns[lone])
+                with open(plan["calling"], "w") as f:
+                    f.write(lone)
+                call()
+            elif caller and plan.get("record"):
                 # Two untimed calls of the caller with the original in
                 # place, each recorded by decide's recorder.
                 spec = caller_spec(caller, fns["original"])

@@ -2414,6 +2414,54 @@ fn a_sides_module_that_python_would_give_the_other_side_is_refused() {
     );
 }
 
+/// RUST-190: a module a side imports only through a caller target's calls
+/// is held by each side alone too, as a direct target's is. The original's
+/// own colorsys.py, imported inside nap, which the caller reaches: alone,
+/// the port gets the standard library's; in one process, the original's.
+#[test]
+fn a_module_a_side_imports_only_through_a_caller_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-caller-colorsys");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let root = repo.0.canonicalize().unwrap();
+    for side in ["py/speed_orig.py", "py-port/speed_port_py.py"] {
+        let text = std::fs::read_to_string(repo.0.join(side)).unwrap();
+        let text = text.replacen("def nap(ms):\n", "def nap(ms):\n    import colorsys\n", 1);
+        std::fs::write(repo.0.join(side), text).unwrap();
+    }
+    std::fs::write(repo.0.join("py/colorsys.py"), "K = 2\n").unwrap();
+    repo.commit("the original's own colorsys.py, imported inside nap");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [caller("two-naps", "two_naps", "nap")]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let _ = std::fs::remove_dir_all(&wheels);
+    let (code, err) = speed_as_given(&[
+        "build",
+        declaration.to_str().unwrap(),
+        "--out",
+        wheels.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{err}");
+    let python = std::env::var("CARCINIFY_PYTHON").unwrap_or_else(|_| "python3".into());
+    let out = Command::new(python)
+        .args([
+            "-I",
+            "-c",
+            "import os, colorsys; print(os.path.realpath(colorsys.__file__))",
+        ])
+        .output()
+        .unwrap();
+    let stdlib = String::from_utf8(out.stdout).unwrap();
+    let both = format!(
+        "colorsys ({}/py/colorsys.py and {})",
+        root.display(),
+        stdlib.trim()
+    );
+    assert!(err.contains(&both), "{both}\n{err}");
+    assert!(!wheels.join("build.json").exists(), "nothing is recorded");
+}
+
 /// Design §10 step 7: a speed report as --compare reads it, hand-written.
 /// One commit's code, run on `os` with `python`, the port built for
 /// `target_cpu` with `features` target features.
@@ -2783,10 +2831,14 @@ fn an_installed_copy_of_the_ports_module_that_only_the_port_imports_builds() {
     )
     .unwrap();
     std::fs::write(info.join("RECORD"), "speed_port_py.py,,\n").unwrap();
-    let declaration = declare(
+    // A caller target too: its calls are made by each side alone (RUST-190).
+    let declaration = declare_targets(
         "installed-copy",
         "suite-python.json",
-        &[("nap", "cases.jsonl", "nap-2")],
+        vec![
+            json!({"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}),
+            caller("two-naps", "two_naps", "nap"),
+        ],
     );
     let wheels = declaration.with_file_name("wheels");
     let (code, err) = speed(

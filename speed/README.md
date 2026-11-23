@@ -162,9 +162,6 @@ rest.
   and later.
 - Only Python originals, and ports that are Python or reached through
   PyO3, have been tried.
-- A caller target's calls are made only in the process with both sides,
-  not in each side's own: a module a side imports only through a caller
-  is checked there alone.
 - What a report cannot show is listed at the end of step seven.
 
 ## Tests
