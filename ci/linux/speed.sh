@@ -41,6 +41,9 @@ if [[ $o == "$r"* || $r == "$o"* ]]; then
   echo "$0: <out> $out and <repo> $repo hold one another; give an <out> outside <repo>" >&2
   exit 2
 fi
+# Not an earlier run's report read as this one's, however this one ends.
+# After the refusal above, so that it never removes a file in <repo>.
+rm -f "$out/report.json"
 log=$LOG
 touch "$log"
 logdir=$(cd "$(dirname "$log")" && pwd)
@@ -75,8 +78,6 @@ speed=/work/carc/target/debug/carcinify
 # container, where docker exec's 1 would read as speed's fail.
 ran() { docker inspect "$c" > /dev/null 2>&1 || exit 2; exit "$1"; }
 docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels" || ran $?
-# Not an earlier run's report read as this one's.
-rm -f "$out/report.json"
 LOG=$log "$carc/ci/gate.sh" docker exec -e GATE_RUN_ID "${tools[@]}" "$c" \
   "$speed" speed run "$decl" --wheels "$out/wheels" --report "$out/report.json" \
   --load-log "/gate/$(basename "$log")" || ran $?
