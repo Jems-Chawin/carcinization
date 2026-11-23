@@ -110,10 +110,11 @@ port) and `the_cheap_call_leaves_the_pyo3_ports_workspace_to_the_first_real_call
 The fixture's first call in a thread sleeps 50 ms to make its workspace.
 At 5 ms the PyO3 test once failed under load: sleeps of 20 ms woke 2 to
 12 ms late (bd87f2e). On one real port, the einsum port (below), cold
-minus warm over 15 threads per platform had a median of +2.9 µs on macOS
-and +3.0 µs on Linux arm64 at 40 operands, and of −9.1 and +78.7 µs at
-120 operands, where the threads ranged from −239 to +29 µs and from −76
-to +265 µs.
+minus warm over 15 threads per platform had these medians, macOS then
+Linux arm64. For the search alone: +2.9 and +3.0 µs at 40 operands; −9.1
+and +78.7 µs at 120, where the threads ranged from −239 to +29 µs and
+from −76 to +265 µs. Through `np.einsum_path` at 40 operands, +19.7 and
++47.0 µs.
 
 ## `--compare`: tested on hand-written reports, run on real ones
 

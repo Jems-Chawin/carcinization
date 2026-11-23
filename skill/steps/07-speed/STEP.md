@@ -231,11 +231,15 @@ flags:
 
   No other `--cfg` is compared, from a configuration file either: a
   crate's build script gives cfgs that differ by interpreter, such as
-  pyo3's `Py_3_12`, and they would flag every pair. An option Cargo quoted
-  because it holds a space, as `-C 'llvm-args=-a -b'`, is compared only up
-  to its first space, and with its quote, so a link argument Cargo quoted
-  would not match the options left out and would be compared. Cargo and
-  maturin quote one only when it holds a space. Each target apart is then
+  pyo3's `Py_3_12`, and they would flag every pair. Cargo's command is
+  read word by word, split at spaces. A word in single quotes is read
+  without them, so maturin's macOS
+  `-C 'link-args=-Wl,-install_name,@rpath/…'` is left out with the other
+  link options. An option that holds a space is
+  read only up to it, its opening quote kept: `-C 'llvm-args=-a -b'` is
+  compared as `-C 'llvm-args=-a`, and a link option written so is
+  compared too, since its name, quote and all, is not among those left
+  out. Each target apart is then
   `builds_and_platforms_differ`: two builds on two platforms, and
   `--compare` cannot say which one made the difference.
 - `interpreters_differ`: the two Pythons differ in version,
