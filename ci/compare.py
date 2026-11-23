@@ -12,7 +12,8 @@ What is compared, row by row:
            is a difference
   example  the exit status and the first group of facts (verdict, counts)
            equal to the expected ones
-  tree     a clean checkout before the run, and no change in it after
+  tree     a clean checkout before the run, no change in it after, and
+           the same commit checked out at both ends
 
 What is not compared, and why:
 
@@ -100,10 +101,11 @@ def main():
         if kind == "tree":
             seen.add(("tree", ""))
             compared += 1
-            # Clean before as well: a tree committed while the run went on
-            # is clean at the end, and is not what ran.
-            if row[1] != "0 change(s) before the run, 0 after":
-                problems.append("the checkout was not clean before the run, or the run changed it: " + row[1])
+            # Clean before as well, and the same commit at the end: a tree
+            # committed while the run went on is clean at the end, and is
+            # not what ran.
+            if row[1] != "0 change(s) before the run, 0 after; HEAD unchanged":
+                problems.append("the checkout was not clean before the run, the run changed it, or a commit landed during it: " + row[1])
             continue
         row += [""] * (4 - len(row))
         key, facts, status = (kind, row[1]), row[2], row[3]

@@ -17,7 +17,8 @@
 # beside ci/expected.tsv, and the exit status is 0 only if every check and
 # suite passed with the expected number of tests, every example ended with
 # the expected exit status, verdict and counts, the release build worked
-# and the tree was clean before the run and unchanged after it. 1 otherwise.
+# and the tree was clean before the run, unchanged after it, and at the same
+# commit. 1 otherwise.
 set -u
 checkout=$(cd "$1" && pwd)
 mkdir -p "$2"
@@ -29,10 +30,12 @@ py=$CARCINIFY_PYTHON
 results=$out/results.tsv
 : > "$results"
 now() { date +%s; }
-# What git sees in the checkout, by line, at the start and at the end.
+# What git sees in the checkout, by line, and its commit, at the start and
+# at the end.
 record_tree() {
   git status --porcelain > "$out/tree-$1.txt"
-  echo "tree $1 the run: $(wc -l < "$out/tree-$1.txt" | tr -d ' ') change(s)"
+  git rev-parse HEAD > "$out/head-$1.txt"
+  echo "tree $1 the run: $(wc -l < "$out/tree-$1.txt" | tr -d ' ') change(s), HEAD $(cat "$out/head-$1.txt")"
   sed 's/^/  /' "$out/tree-$1.txt"
 }
 record_tree before
@@ -182,6 +185,8 @@ if [ "${RUN_LIVE:-0}" = 1 ]; then
 fi
 
 record_tree after
-printf 'tree\t%s change(s) before the run, %s after\n' \
-  "$(wc -l < "$out/tree-before.txt" | tr -d ' ')" "$(wc -l < "$out/tree-after.txt" | tr -d ' ')" | tee -a "$results"
+head_before=$(cat "$out/head-before.txt") head_after=$(cat "$out/head-after.txt")
+if [ "$head_before" = "$head_after" ]; then heads="HEAD unchanged"; else heads="HEAD $head_before at the start, $head_after at the end"; fi
+printf 'tree\t%s change(s) before the run, %s after; %s\n' \
+  "$(wc -l < "$out/tree-before.txt" | tr -d ' ')" "$(wc -l < "$out/tree-after.txt" | tr -d ' ')" "$heads" | tee -a "$results"
 finish

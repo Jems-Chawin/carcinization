@@ -88,17 +88,23 @@ class Tree(unittest.TestCase):
     OK = results("3 passed, 0 failed, 1 ignored", "exit 0")
 
     def test_a_tree_clean_before_and_unchanged_after_passes(self):
-        code, out = compare(self.OK + "tree\t0 change(s) before the run, 0 after\n", "", busy_allowed=False)
+        code, out = compare(self.OK + "tree\t0 change(s) before the run, 0 after; HEAD unchanged\n", "", busy_allowed=False)
         self.assertEqual(code, 0, out)
 
     def test_a_tree_dirty_before_the_run_fails_though_clean_after(self):
         # Committed while the run went on: clean at the end, not what ran.
-        code, out = compare(self.OK + "tree\t1 change(s) before the run, 0 after\n", "", busy_allowed=False)
+        code, out = compare(self.OK + "tree\t1 change(s) before the run, 0 after; HEAD unchanged\n", "", busy_allowed=False)
         self.assertEqual(code, 1, out)
         self.assertIn("1 change(s) before the run", out)
 
+    def test_a_commit_made_during_the_run_fails_though_the_tree_is_clean_at_both_ends(self):
+        row = "tree\t0 change(s) before the run, 0 after; HEAD aaaa at the start, bbbb at the end\n"
+        code, out = compare(self.OK + row, "", busy_allowed=False)
+        self.assertEqual(code, 1, out)
+        self.assertIn("HEAD aaaa at the start, bbbb at the end", out)
+
     def test_a_tree_changed_by_the_run_fails(self):
-        code, out = compare(self.OK + "tree\t0 change(s) before the run, 2 after\n", "", busy_allowed=False)
+        code, out = compare(self.OK + "tree\t0 change(s) before the run, 2 after; HEAD unchanged\n", "", busy_allowed=False)
         self.assertEqual(code, 1, out)
 
 
