@@ -180,4 +180,23 @@ VENV_IN_TREE=1 ci/linux/run.sh linux/arm64 venv-in-tree
 - A run that has not finished after `CAP_SECONDS` (default 7200) is stopped
   from outside the container. A run under emulation has hung without this.
 
+### carcinify speed on Linux arm64
+
+```sh
+LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
+```
+
+- `<repo>` holds the suite: this repository or a port's own, mounted
+  read-only and cloned at its commit, at its own path inside the container,
+  so that the declaration's paths hold. carcinify is built from this
+  repository's commit, as above. `<speed.json>` is outside `<repo>` or
+  committed in it; `<out>`, outside `<repo>`, gets `wheels/` and
+  `report.json`.
+- `speed build` runs first, not gated. Then this host's `ci/gate.sh` wraps a
+  `docker exec` of `speed run`, which gets `GATE_RUN_ID` by name and reads
+  the host's log through a read-only mount: in Docker on a Mac,
+  `/proc/loadavg` is the VM's load, not the Mac's.
+- The image and its rebuild rule are `run.sh`'s. Compare the report with the
+  macOS one with `carcinify speed --compare`.
+
 Results from the runs made so far are in `RESULTS.md`.
