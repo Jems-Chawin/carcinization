@@ -283,7 +283,8 @@ def cold_thread(out, run, module, fn, threads, name, harness, log):
         t.start()
         t.join()
 
-    for _ in range(threads):
+    for k in range(threads):
+        log("%s: cold thread %d starts" % (name, k + 1))
         on_new_thread(thread)
         if cold["not_measured"] or raised:
             cold["threads"], cold["outputs"] = [], []
@@ -297,16 +298,22 @@ def cold_thread(out, run, module, fn, threads, name, harness, log):
     log("%s: cold thread, %d threads" % (name, len(cold["threads"])))
 
 
+def abba(runs):
+    """The sides' order over `runs` pairs: original then port, then port
+    then original."""
+    order = []
+    for k in range(runs):
+        order += ["original", "port"] if k % 2 == 0 else ["port", "original"]
+    return order
+
+
 def time_sides(out, run, plan, n, name, measure, harness, log):
     """The sides in pairs of runs, original then port, then port then
     original, `run(side)` timing each; decide's loop of pure computation
     timed before and after each run; the output of each side's first timed
     call encoded."""
-    order = []
-    for k in range(plan["runs"]):
-        order += ["original", "port"] if k % 2 == 0 else ["port", "original"]
     kept_off = measure.calibrate()
-    for i, side in enumerate(order):
+    for i, side in enumerate(abba(plan["runs"])):
         seconds, result = run(side)
         log("%s: run %d %s, %d calls, timed" % (name, i + 1, side, n))
         after = measure.calibrate()
@@ -387,6 +394,11 @@ def main():
                 else:
                     run = timed_case(req, fns, out, n, name, harness, log)
                 if plan.get("cold"):
+                    # Warmed as the timing driver's runs warmed its process
+                    # (RUST-172): the same runs, in the same order, untimed.
+                    for i, side in enumerate(abba(plan["runs"])):
+                        run(side)
+                        log("%s: run %d %s, %d calls, untimed" % (name, i + 1, side, n))
                     cold_thread(out, run, modules["port"], fns["port"], plan["runs"], name, harness, log)
                 else:
                     time_sides(out, run, plan, n, name, measure, harness, log)

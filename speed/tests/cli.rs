@@ -493,13 +493,14 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     );
     assert!(nap["port"]["median"].as_f64().unwrap() > 0.02, "{nap:#}");
     // The debug log: the hash seed, then for each target an untimed
-    // gc.collect() before each run, the runs in ABBA order.
+    // gc.collect() before each timed run, the runs in ABBA order. The cold
+    // thread's driver repeats them untimed (RUST-172), tested apart.
     let text = std::fs::read_to_string(&debug).unwrap();
     let lines: Vec<&str> = text.lines().collect();
     assert!(lines[0].starts_with("hash seed 1234"), "{text}");
     let runs: Vec<&str> = lines
         .iter()
-        .filter(|l| l.starts_with("nap: run "))
+        .filter(|l| l.starts_with("nap: run ") && l.ends_with(", timed"))
         .map(|l| l.split_whitespace().nth(3).unwrap())
         .collect();
     assert_eq!(
@@ -517,7 +518,7 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     for (i, l) in lines
         .iter()
         .enumerate()
-        .filter(|(_, l)| l.contains(": run "))
+        .filter(|(_, l)| l.contains(": run ") && l.ends_with(", timed"))
     {
         assert!(lines[i - 1].ends_with(": gc.collect()"), "{text}");
         assert!(l.contains(", 2 calls, timed"), "{text}");
@@ -2059,4 +2060,53 @@ fn a_sides_module_that_shadows_a_shared_one_is_refused() {
         code, 0,
         "a shared module both sides resolve to one file: {err}"
     );
+}
+
+/// RUST-172: the cold thread's driver warms its process as the timing
+/// driver's runs warmed theirs: before the first thread, the same runs,
+/// untimed, in the same ABBA order.
+#[test]
+fn the_cold_threads_process_is_warmed_by_the_timed_runs_order() {
+    let declaration = declare(
+        "cold-warmed",
+        "suite-python.json",
+        &[("nap", "cases.jsonl", "nap-2")],
+    );
+    let wheels = built(&declaration);
+    let log = declaration.with_file_name("debug.log");
+    let (_, err, report) = quiet(&mut || {
+        let _ = std::fs::remove_file(&log);
+        run(
+            &declaration,
+            &wheels,
+            &[Path::new("--debug-log"), &log],
+            &[],
+        )
+    });
+    assert!(
+        report["targets"][0]["failed"].is_null(),
+        "{err}\n{report:#}"
+    );
+    let log = std::fs::read_to_string(&log).unwrap();
+    let before_threads = log.split("nap: cold thread 1 starts").next().unwrap();
+    let sides = |how: &str| -> Vec<String> {
+        before_threads
+            .lines()
+            .filter(|l| l.starts_with("nap: run ") && l.ends_with(how))
+            .map(|l| {
+                l.split(' ')
+                    .nth(3)
+                    .unwrap_or("")
+                    .trim_end_matches(',')
+                    .to_string()
+            })
+            .collect()
+    };
+    let timed = sides(", timed");
+    assert_eq!(
+        timed,
+        ["original", "port", "port", "original", "original", "port"],
+        "{log}"
+    );
+    assert_eq!(sides(", untimed"), timed, "{log}");
 }
