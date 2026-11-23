@@ -153,6 +153,18 @@ fn speed_build_of_a_python_port_writes_its_record_and_no_wheel() {
     let exe = Path::new(env!("CARGO_BIN_EXE_carcinify"));
     assert_eq!(tools["harness_sha256"], sha256_file(exe).unwrap());
     assert_eq!(tools["driver_sha256"].as_str().map(str::len), Some(64));
+    // RUST-181: the measuring code, the three embedded Python files hashed
+    // together, and the commit carcinify was built from.
+    assert_eq!(
+        tools["embedded_sha256"].as_str().map(str::len),
+        Some(64),
+        "{tools}"
+    );
+    assert_eq!(
+        tools["carcinify_commit"].as_str().map(str::len),
+        Some(40),
+        "{tools}"
+    );
     assert!(
         tools["rustc"].as_str().unwrap().starts_with("rustc "),
         "{tools}"
@@ -2401,7 +2413,7 @@ fn report_on(os: &str, python: &str, target_cpu: &str, features: &str, targets: 
         "declaration_sha256": "decl-1",
         "run": {"commit": "commit-1", "dirty": false, "dirty_sha256": null, "suite_sha256": "suite-1"},
         "machine": {"os": os, "cpu": if os == "macos" { "Apple M1 Pro" } else { "Neoverse-N1" }},
-        "tools": {"os": os, "arch": "aarch64"},
+        "tools": {"os": os, "arch": "aarch64", "harness_version": "0.1.0", "embedded_sha256": "embedded-1", "carcinify_commit": "carcinify-1"},
         "python": {"version": python, "implementation": "CPython", "gil": true, "numpy": "2.3.1"},
         "build": {"sides": {"candidate": {"kind": "pyo3", "target": {"target_cpu": target_cpu, "target_features": features}}}},
         "verdict": "pass",
@@ -2779,4 +2791,40 @@ fn an_installed_copy_of_the_ports_module_that_only_the_port_imports_builds() {
         &[],
     );
     assert_eq!(code, 0, "only the port imports it: {err}");
+}
+
+/// RUST-181: two reports timed by other measuring code are refused, as two
+/// commits are: their difference would not be the platforms'.
+#[test]
+fn reports_timed_by_other_measuring_code_are_refused() {
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([timed_at("x", 2.0, 1.9, 2.1)]),
+    );
+    let (code, out, err) = compare("speed-compare-same-code", &a, &a);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        out.lines().take(2).all(|l| l.contains("carcinify 0.1.0")),
+        "{out}"
+    );
+    for (field, other) in [
+        ("embedded_sha256", "embedded-2"),
+        ("carcinify_commit", "carcinify-2"),
+    ] {
+        let mut b = a.clone();
+        b["tools"][field] = json!(other);
+        let (code, out, err) = compare("speed-compare-other-code", &a, &b);
+        assert_eq!(code, 2, "{field}: {out}");
+        assert!(
+            err.contains(field) && err.contains(&other[..other.len() - 1]),
+            "{err}"
+        );
+        assert!(
+            err.contains(other) && err.contains(&format!("{}1", &other[..other.len() - 1])),
+            "{err}"
+        );
+    }
 }

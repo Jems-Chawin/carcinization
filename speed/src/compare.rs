@@ -51,6 +51,15 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
         ("dirty state (dirty_sha256)", "/run/dirty_sha256"),
         ("declaration (declaration_sha256)", "/declaration_sha256"),
         ("suite (suite_sha256)", "/run/suite_sha256"),
+        // RUST-181: other measuring code is not a platform difference.
+        (
+            "measuring code (tools.embedded_sha256)",
+            "/tools/embedded_sha256",
+        ),
+        (
+            "carcinify commit (tools.carcinify_commit)",
+            "/tools/carcinify_commit",
+        ),
     ]
     .iter()
     .filter_map(|(what, at)| {
@@ -70,10 +79,11 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
     for (r, l, which) in [(a, &la, "A"), (b, &lb, "B")] {
         let verdict = text(&r["verdict"]);
         out += &format!(
-            "{l}: {}; {}; {}; verdict {verdict}\n",
+            "{l}: {}; {}; {}; carcinify {}; verdict {verdict}\n",
             text(&r["machine"]["cpu"]),
             interpreter(r),
             build(r),
+            text(&r["tools"]["harness_version"]),
         );
         // So that "none" is never printed under a report that did not pass.
         if !matches!(verdict, "pass" | "pass_with_flags") {

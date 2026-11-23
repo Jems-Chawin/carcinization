@@ -972,7 +972,19 @@ fn tools_block(
         os: std::env::consts::OS,
         arch: std::env::consts::ARCH,
     };
-    serde_json::to_value(&block).map_err(|e| e.to_string())
+    let mut block = serde_json::to_value(&block).map_err(|e| e.to_string())?;
+    // RUST-181: the measuring code, for --compare to hold two reports to:
+    // the three Python files compiled in, hashed together, and the commit
+    // carcinify was built from.
+    let embedded = [
+        crate::run::DRIVER,
+        carcinify_diff::python::DRIVER,
+        carcinify_decide::report::DRIVER,
+    ]
+    .join("\0");
+    block["embedded_sha256"] = json!(sha256_bytes(embedded.as_bytes()));
+    block["carcinify_commit"] = json!(env!("CARCINIFY_SOURCE_COMMIT"));
+    Ok(block)
 }
 
 /// The crate's library name, from Cargo.
