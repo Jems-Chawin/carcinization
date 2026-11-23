@@ -3001,6 +3001,16 @@ fn reports_built_with_other_rustflags_are_flagged_builds_differ() {
     );
     let differ = r#"builds_differ: RUSTFLAGS="-C target-cpu=generic -C no-vectorize-loops" on linux aarch64 (A); RUSTFLAGS="-C target-cpu=generic" on macos aarch64 (B)"#.to_string();
     assert!(flags_in(&out).contains(&differ), "{out}");
+    // The closing list cannot name the platform as the cause either (L2).
+    let flags = flags_in(&out);
+    assert!(
+        flags.contains(&"builds_and_platforms_differ: x".to_string()),
+        "{out}"
+    );
+    assert!(
+        !flags.iter().any(|f| f.starts_with("platform_dependent")),
+        "{out}"
+    );
     b["tools"]["build_environment"] = a["tools"]["build_environment"].clone();
     let (code, out, err) = compare("speed-compare-rustflags", &a, &b);
     assert_eq!(code, 0, "{err}");
@@ -3009,4 +3019,8 @@ fn reports_built_with_other_rustflags_are_flagged_builds_differ() {
         "{out}"
     );
     assert!(out.contains("  platform_dependent: "), "{out}");
+    assert!(
+        flags_in(&out).contains(&"platform_dependent: x".to_string()),
+        "{out}"
+    );
 }

@@ -139,10 +139,14 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
             apart_text(apart)
         );
         if apart > APART {
-            let what = if builds_differ {
-                "builds and platforms both differ"
+            // With two builds, the platform cannot be named as the cause.
+            let (what, flag) = if builds_differ {
+                (
+                    "builds and platforms both differ",
+                    "builds_and_platforms_differ",
+                )
             } else {
-                "platform_dependent"
+                ("platform_dependent", "platform_dependent")
             };
             out += &format!(
                 "  {what}: {line}, over {APART}; per pair {} to {} on {la} and {} to {} on {lb}; {} on {la} and {} on {lb}\n",
@@ -153,7 +157,7 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
                 target(a),
                 target(b)
             );
-            flags.push(format!("platform_dependent: {name}"));
+            flags.push(format!("{flag}: {name}"));
         } else {
             out += &format!("  {line}, within {APART}\n");
         }

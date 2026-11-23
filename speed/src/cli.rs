@@ -25,7 +25,9 @@ the declaration names, in two steps so that nothing is built while timing:
           target's times and ratio, every figure with its platform. Flags
           platform_dependent when the two median ratios are more than 1.25
           apart (a first value, and arbitrary), with both per-pair ranges
-          and each build's target CPU and feature count beside it; and
+          and each build's target CPU, feature count and RUSTFLAGS beside
+          it; builds_differ when the RUSTFLAGS differ, and then
+          builds_and_platforms_differ in place of platform_dependent; and
           interpreters_differ. Refuses reports of different code.
 
 options:
