@@ -9,7 +9,7 @@ use crate::declaration::{self, Loaded};
 use crate::figures::{self, Figures, Run, Side};
 use crate::gate::{self, Gate, Load, Unreliable};
 use carcinify_diff::compare::{Outcome, compare};
-use carcinify_diff::provenance::{sha256_bytes, sha256_file};
+use carcinify_diff::provenance::sha256_file;
 use carcinify_diff::suite::{self, SideSpec};
 use carcinify_diff::value::Value;
 use serde_json::{Value as J, json};
@@ -87,7 +87,20 @@ fn run(opts: &Options) -> Result<u8, String> {
         write(report_path, &report)?;
         return Ok(1);
     }
-    let record = check_wheels(wheels, &loaded)?;
+    let mut record = check_wheels(wheels, &loaded)?;
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let sha256 = sha256_file(&exe)?;
+    if record["tools"]["harness_sha256"] != sha256.as_str() {
+        return Err(format!(
+            "this carcinify ({sha256}) is another carcinify than the one that ran speed build ({}): run `carcinify speed build` again with this one",
+            record["tools"]["harness_sha256"]
+        ));
+    }
+    // The build's tools block is the report's.
+    let tools = record
+        .as_object_mut()
+        .and_then(|r| r.remove("tools"))
+        .unwrap_or_default();
     // At the start: the gate this run is under, by its log.
     let gate = match &opts.load_log {
         None => Err(Unreliable::NoGate(
@@ -163,7 +176,6 @@ fn run(opts: &Options) -> Result<u8, String> {
                 .collect()
         })
         .unwrap_or_default();
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let facts = |f: Vec<crate::platform::Fact>| -> J {
         f.into_iter()
             .map(|(k, v)| (k.to_string(), J::String(v)))
@@ -175,11 +187,7 @@ fn run(opts: &Options) -> Result<u8, String> {
         "exit_status": exit_status,
         "reasons": reasons,
         "flags": flags,
-        "tools": {
-            "carcinify_version": env!("CARGO_PKG_VERSION"),
-            "carcinify_sha256": sha256_file(&exe)?,
-            "driver_sha256": sha256_bytes(DRIVER.as_bytes()),
-        },
+        "tools": tools,
         "declaration_sha256": sha256_file(&opts.declaration)?,
         "machine": facts(crate::platform::machine()),
         "build": record,

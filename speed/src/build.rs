@@ -4,8 +4,10 @@
 
 use crate::cli::Options;
 use crate::declaration;
-use carcinify_diff::provenance::{git_info, sha256_file};
+use carcinify_diff::commit;
+use carcinify_diff::provenance::{git_info, sha256_bytes, sha256_file, tool_version};
 use carcinify_diff::python::{self, Built, Tools};
+use carcinify_diff::report::Tools as ToolsBlock;
 use carcinify_diff::suite::SideSpec;
 use serde_json::{Value as J, json};
 use std::path::{Path, PathBuf};
@@ -76,6 +78,9 @@ fn build(opts: &Options) -> Result<(), Failure> {
         recompile_crate: true,
     };
     let mut sides = serde_json::Map::new();
+    let tracked = commit::tracked(&git)?;
+    let mut outside = Vec::new();
+    let mut crate_dir = None;
     let mut wheels = Vec::new();
     for (name, spec) in [
         ("original", &loaded.suite.original),
@@ -95,6 +100,10 @@ fn build(opts: &Options) -> Result<(), Failure> {
                 .collect();
             wheels.push(work.join(format!("{name}-wheel")).join(&wheel.file));
         }
+        if built.crate_dir.is_some() {
+            outside.extend(commit::build_inputs(&git, &tracked, &built)?.outside);
+            crate_dir = crate_dir.or(built.crate_dir.clone());
+        }
         sides.insert(name.to_string(), side);
     }
     std::fs::create_dir_all(out).map_err(|e| format!("cannot create {}: {e}", out.display()))?;
@@ -110,12 +119,43 @@ fn build(opts: &Options) -> Result<(), Failure> {
         "commit": git.commit,
         "dirty": !git.dirty.is_empty(),
         "sides": sides,
+        "tools": tools_block(opts, crate_dir.as_deref().unwrap_or(suite_dir), crate_dir.is_some(), outside)?,
     });
     let text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
     std::fs::write(out.join(RECORD), text + "\n")
         .map_err(|e| format!("cannot write {}: {e}", out.join(RECORD).display()))?;
     let _ = std::fs::remove_dir_all(&work);
     Ok(())
+}
+
+/// carcinify diff's tools block, for this binary and the build it made:
+/// the tools asked where the crate is, as diff asks them.
+fn tools_block(
+    opts: &Options,
+    dir: &Path,
+    built: bool,
+    mut outside: Vec<carcinify_diff::report::FileHash>,
+) -> Result<J, String> {
+    outside.sort_by(|a, b| a.path.cmp(&b.path));
+    outside.dedup_by(|a, b| a.path == b.path);
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let block = ToolsBlock {
+        harness_version: env!("CARGO_PKG_VERSION"),
+        harness_sha256: sha256_file(&exe)?,
+        driver_sha256: sha256_bytes(crate::run::DRIVER.as_bytes()),
+        rustc: tool_version(Path::new("rustc"), &["--version"], dir),
+        cargo: tool_version(Path::new("cargo"), &["--version"], dir),
+        maturin: built.then(|| tool_version(&opts.maturin, &["--version"], dir)),
+        cargo_config_outside_repository: outside,
+        build_environment: if built {
+            commit::build_environment()
+        } else {
+            Default::default()
+        },
+        os: std::env::consts::OS,
+        arch: std::env::consts::ARCH,
+    };
+    serde_json::to_value(&block).map_err(|e| e.to_string())
 }
 
 /// The crate's library name, from Cargo.

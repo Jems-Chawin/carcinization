@@ -131,6 +131,24 @@ fn speed_build_of_a_python_port_writes_its_record_and_no_wheel() {
     assert_eq!(record["sides"]["original"]["kind"], "python");
     assert_eq!(record["sides"]["candidate"]["kind"], "python");
     assert!(record["sides"]["candidate"]["wheel"].is_null(), "{record}");
+    // carcinify diff's tools block, for the binary that built.
+    let tools = &record["tools"];
+    let exe = Path::new(env!("CARGO_BIN_EXE_carcinify"));
+    assert_eq!(tools["harness_sha256"], sha256_file(exe).unwrap());
+    assert_eq!(tools["driver_sha256"].as_str().map(str::len), Some(64));
+    assert!(
+        tools["rustc"].as_str().unwrap().starts_with("rustc "),
+        "{tools}"
+    );
+    assert!(
+        tools["cargo"].as_str().unwrap().starts_with("cargo "),
+        "{tools}"
+    );
+    assert!(
+        tools["maturin"].is_null(),
+        "nothing was built with maturin: {tools}"
+    );
+    assert_eq!(tools["os"], std::env::consts::OS);
 }
 
 #[test]
@@ -149,6 +167,8 @@ fn speed_build_writes_the_ports_wheel_its_hash_and_the_target_cpu_it_was_built_f
         assert_eq!(candidate["kind"], "pyo3");
         let wheel = out.join(candidate["wheel"]["file"].as_str().unwrap());
         assert_eq!(candidate["wheel"]["sha256"], sha256_file(&wheel).unwrap());
+        let maturin = record["tools"]["maturin"].as_str().unwrap().to_string();
+        assert!(maturin.starts_with("maturin 1.16"), "{maturin}");
         candidate["target"]["target_cpu"]
             .as_str()
             .unwrap()
@@ -245,6 +265,15 @@ fn speed_run_refuses_wheels_that_speed_build_did_not_write() {
     let (code, err, _) = run(&declaration, &wheels, &[], &[]);
     assert_eq!(code, 2, "{err}");
     assert!(err.contains("SHA-256"), "{err}");
+    // A record that another carcinify wrote: the report's tools block
+    // would not describe the binary that times.
+    let wheels = built(&declaration);
+    let mut record = read(&record_path);
+    record["tools"]["harness_sha256"] = json!("0".repeat(64));
+    std::fs::write(&record_path, record.to_string()).unwrap();
+    let (code, err, _) = run(&declaration, &wheels, &[], &[]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("another carcinify"), "{err}");
 }
 
 /// A gate log as ci/gate.sh writes it, opened by the one rule just now for
@@ -338,6 +367,10 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     });
     assert_eq!(code, 0, "{err}\n{report:#}");
     assert_eq!(report["schema"], "carcinify/speed/report/1");
+    // The tools block is the build's, once.
+    let record = read(&wheels.join("build.json"));
+    assert_eq!(report["tools"], record["tools"]);
+    assert!(report["build"]["tools"].is_null(), "{report:#}");
     // nap-0's runs are two calls that sleep 0 ms: under 1 ms.
     assert_eq!(report["verdict"], "pass_with_flags", "{report:#}");
     assert_eq!(report["flags"], json!(["short_run: nap-0"]), "{report:#}");
