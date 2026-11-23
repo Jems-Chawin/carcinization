@@ -83,6 +83,13 @@ pub fn judge(
         if t.figures.as_ref().is_some_and(|f| f.short_run) {
             flags.push(format!("short_run: {}", t.name));
         }
+        if t.figures.is_some() && t.kept_off_beside.is_none() {
+            flags.push(format!(
+                "load_beside_not_watched: {}: no process computed beside its timing, or what it saw could not be read (this machine has fewer than {} CPUs, the timing took under 0.05 s, or the process did not start), so load that began and ended inside a run was not watched; the loops timed before and after each run were used alone",
+                t.name,
+                carcinify_decide::watch::MIN_CPUS_TO_WATCH
+            ));
+        }
     }
     match (unreliable.is_empty(), flags.is_empty()) {
         (false, _) => ("unreliable", 1, unreliable, flags),
@@ -723,7 +730,7 @@ mod tests {
                 pairs_dropped: if ratio.is_none() { 3 } else { 0 },
                 short_run,
             }),
-            kept_off_beside: None,
+            kept_off_beside: Some(0.0),
         }
     }
 
@@ -758,6 +765,22 @@ mod tests {
         let mut quiet_beside = timed("a", None, Some((2.0, 1.9, 2.1)), false);
         quiet_beside.kept_off_beside = Some(0.1);
         assert_eq!(judge(&[quiet_beside], &quiet()).0, "pass");
+    }
+
+    /// Design §5 and decide's flag: with no process beside a target, load
+    /// that began and ended inside one of its runs was not watched.
+    #[test]
+    fn a_target_timed_with_no_watch_beside_it_is_flagged() {
+        let mut unwatched = timed("a", None, Some((2.0, 1.9, 2.1)), false);
+        unwatched.kept_off_beside = None;
+        let watched = timed("b", None, Some((2.0, 1.9, 2.1)), false);
+        let (verdict, exit, _, flags) = judge(&[unwatched, watched], &quiet());
+        assert_eq!((verdict, exit), ("pass_with_flags", 0));
+        assert_eq!(flags.len(), 1, "{flags:?}");
+        assert!(
+            flags[0].starts_with("load_beside_not_watched: a: "),
+            "{flags:?}"
+        );
     }
 
     #[test]
