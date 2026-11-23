@@ -97,6 +97,13 @@ mod speed_port {
         Ok(n)
     }
 
+    /// How many keyword arguments it was given, whatever their keys.
+    #[pyfunction]
+    #[pyo3(signature = (**kwargs))]
+    fn options(kwargs: Option<&Bound<'_, pyo3::types::PyDict>>) -> usize {
+        kwargs.map_or(0, |k| k.len())
+    }
+
     /// A result that owns Rust memory, which nothing else keeps.
     #[pyclass]
     struct Blob {

@@ -36,6 +36,8 @@
   workspace and keeps it. Built with the feature `count_allocations`, the
   crate counts its allocations and exports `_speed_allocations()`.
 - `temp(n)` makes a Python tuple and a dict, drops both, and returns n.
+- `options(**kwargs)` counts its keyword arguments; the case
+  options-odd-key gives one whose key, a-b, cannot be written as a name.
 - The PyO3 port's `blob(n)` returns an object that owns n bytes of Rust
   memory and keeps nothing; its `log_push(n)` keeps every n in a Vec that
   doubles as it fills.

@@ -1943,6 +1943,7 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
             ("fill", "cases.jsonl", "fill-100"),
             ("fill-kw", "cases.jsonl", "fill-kw-100"),
             ("temp", "cases.jsonl", "temp-1000"),
+            ("options", "cases.jsonl", "options-odd-key"),
         ],
     );
     let wheels = built(&declaration);
@@ -1990,6 +1991,12 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
     // left to the caller: temp(1000) leaves its int alone.
     let temp = &report["targets"][2]["counts"]["python"]["objects_left_to_the_caller"];
     assert_eq!(temp["blocks"], 1, "{report:#}");
+    // A keyword that cannot be written as a name: the call goes through
+    // functools.partial, and the Python figure says so.
+    let options = &report["targets"][3];
+    assert!(options["failed"].is_null(), "{options:#}");
+    let note = options["counts"]["python"]["note"].as_str().unwrap_or("");
+    assert!(note.contains("functools.partial"), "{options:#}");
     assert!(!what.contains("caller target"), "{what}");
 }
 

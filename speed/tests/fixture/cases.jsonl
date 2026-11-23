@@ -20,3 +20,4 @@
 {"id": "temp-1000", "fn": "temp", "args": [1000]}
 {"id": "blob-1000", "fn": "blob", "args": [1000]}
 {"id": "log-push-1", "fn": "log_push", "args": [1]}
+{"id": "options-odd-key", "fn": "options", "kwargs": {"a-b": 1}}

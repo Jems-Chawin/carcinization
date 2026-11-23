@@ -91,3 +91,7 @@ _log = []
 def log_push(n):
     _log.append(n)
     return n
+
+
+def options(**kwargs):
+    return len(kwargs)
