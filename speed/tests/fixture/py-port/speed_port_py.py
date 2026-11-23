@@ -12,3 +12,7 @@ def nap(ms):
 
 def wrong(n):
     return n + 1
+
+
+def pop_first(xs):
+    return xs.pop(0)

@@ -181,6 +181,7 @@ fn run(opts: &Options) -> Result<u8, String> {
             "short_run": figures.as_ref().map(|f| f.short_run),
             "runs": out["runs"],
             "watched_beside": out["watched_beside"],
+            "arguments_changed_by_call": out["arguments_changed_by_call"],
         }));
         timed.push(Timed {
             name: t.name.clone(),

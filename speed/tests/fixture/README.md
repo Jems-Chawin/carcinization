@@ -10,4 +10,6 @@
 - `wrong(n)` returns another value in the Python port, to be caught.
 - `basename` is in both modules' namespace, imported from `os.path`: not
   their own code, so carcinify diff refuses it as a case, and speed too.
+- `pop_first(xs)` changes its argument: on one list reused, its fourth
+  call would raise.
 - `outside.jsonl` is a case file that no suite lists.

@@ -68,7 +68,7 @@ def main():
     targets = []
     for target in plan["targets"]:
         name, req, n = target["name"], target["request"], target["calls_per_run"]
-        out = {"name": name, "runs": [], "outputs": {}, "error": None, "refused": None}
+        out = {"name": name, "runs": [], "outputs": {}, "error": None, "refused": None, "arguments_changed_by_call": None}
         targets.append(out)
         # The function as carcinify diff finds it, by its rules: only the
         # module's own public functions, compiled ones in a wheel.
@@ -82,27 +82,44 @@ def main():
         if out["refused"]:
             continue
         try:
-            if req["encoding"] == "typed":
-                args = [harness.dec(x) for x in req["args"]]
-                kwargs = {k: harness.dec(x) for k, x in req["kwargs"].items()}
-            else:
-                args, kwargs = req["args"], req["kwargs"]
-            # shortcut: every call gets the same objects, so a function that
-            # changes its arguments sees the changes on later calls; copy
-            # them per call if a port ever needs it.
+
+            def fresh():
+                """A new copy of the case's arguments, decoded again."""
+                if req["encoding"] == "typed":
+                    return [harness.dec(x) for x in req["args"]], {k: harness.dec(x) for k, x in req["kwargs"].items()}
+                return json.loads(json.dumps(req["args"])), json.loads(json.dumps(req["kwargs"]))
+
+            def encoded(args, kwargs):
+                try:
+                    return harness.enc((args, kwargs))
+                except Exception:  # no longer a value the format holds
+                    return None
+
+            # One untimed call on each side, so that the runs are warm, on
+            # its own copy: does the call change its arguments?
+            changed = False
             for side in modules:
-                fns[side](*args, **kwargs)  # untimed: the runs are warm
+                args, kwargs = fresh()
+                before = encoded(args, kwargs)
+                fns[side](*args, **kwargs)
+                changed = changed or before is None or encoded(args, kwargs) != before
+            out["arguments_changed_by_call"] = changed
+            if changed:
+                log("%s: the call changes its arguments: each call gets a fresh copy, made before its run" % name)
+            args, kwargs = fresh()
             order = []
             for k in range(plan["runs"]):
                 order += ["original", "port"] if k % 2 == 0 else ["port", "original"]
             kept_off = measure.calibrate()
             for i, side in enumerate(order):
                 fn = fns[side]
+                # The same loop on both sides; the copies are made untimed.
+                calls = [fresh() for _ in range(n)] if changed else [(args, kwargs)] * n
                 gc.collect()
                 log("%s: gc.collect()" % name)
                 start = time.perf_counter()
-                for _ in range(n):
-                    result = fn(*args, **kwargs)
+                for a, k in calls:
+                    result = fn(*a, **k)
                 seconds = (time.perf_counter() - start) / n
                 log("%s: run %d %s, %d calls, timed" % (name, i + 1, side, n))
                 after = measure.calibrate()

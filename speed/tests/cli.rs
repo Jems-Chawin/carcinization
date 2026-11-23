@@ -553,3 +553,28 @@ fn a_function_carcinify_diff_would_refuse_is_not_timed() {
         "{report:#}"
     );
 }
+
+#[test]
+fn a_function_that_changes_its_arguments_gets_a_fresh_copy_for_each_call() {
+    let declaration = declare(
+        "changes-arguments",
+        "suite-python.json",
+        &[
+            ("pop", "cases.jsonl", "pop-first"),
+            ("nap", "cases.jsonl", "nap-0"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    // Not under the gate, so unreliable; but nothing failed.
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("unreliable")),
+        "{err}\n{report:#}"
+    );
+    let pop = &report["targets"][0];
+    assert!(pop["failed"].is_null(), "{pop:#}");
+    assert_eq!(pop["arguments_changed_by_call"], true, "{pop:#}");
+    assert!(pop["ratio"]["median"].is_f64(), "{pop:#}");
+    assert_eq!(report["targets"][1]["arguments_changed_by_call"], false);
+}
