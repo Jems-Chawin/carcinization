@@ -192,7 +192,10 @@ takes them; they are exact and need no quiet machine.
   caller (the result), in blocks and bytes, and the call's peak. Both are
   read from emptied free lists, so the peak counts every block the call
   touches, with no help from free lists. It is not the number of
-  allocations the call made.
+  allocations the call made. Before Python 3.11 it is not counted
+  (`not_counted`, naming the version): CPython then keeps a frame object
+  with each function after its first call, and the tool's own frames
+  would be most of it.
 
 These are the full call's counts, as a Python caller pays them, with
 nothing subtracted. Step six's structure report has the core's own counts
