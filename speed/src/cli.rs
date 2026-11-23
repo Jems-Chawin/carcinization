@@ -26,6 +26,8 @@ options:
   --hash-seed <n>       run: PYTHONHASHSEED of the timing process, 0 to
                         4294967295 [drawn at random; the report records it]
   --debug-log <file>    run: one line for each step of the timing
+  --timeout-secs <n>    run: limit for each target's timing; the driver
+                        is killed and the target fails   [120]
 
 exit status: 0 pass, with or without flags; 1 a target refused or failed,
 or the run unreliable; 2 refused, or the run could not be carried out";
@@ -65,6 +67,7 @@ pub struct Options {
     pub load_log: Option<PathBuf>,
     pub hash_seed: HashSeed,
     pub debug_log: Option<PathBuf>,
+    pub timeout: std::time::Duration,
 }
 
 fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
@@ -84,6 +87,7 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
             chosen: "drawn",
         },
         debug_log: None,
+        timeout: std::time::Duration::from_secs(120),
     };
     while let Some(arg) = args.next() {
         let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
@@ -95,6 +99,12 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--report" => opts.report = Some(PathBuf::from(value()?)),
             "--load-log" => opts.load_log = Some(PathBuf::from(value()?)),
             "--debug-log" => opts.debug_log = Some(PathBuf::from(value()?)),
+            "--timeout-secs" => {
+                let secs: u64 = value()?
+                    .parse()
+                    .map_err(|_| "--timeout-secs needs a whole number".to_string())?;
+                opts.timeout = std::time::Duration::from_secs(secs.max(1));
+            }
             "--hash-seed" => {
                 let value = value()?.parse().map_err(|_| {
                     "--hash-seed needs a whole number from 0 to 4294967295".to_string()

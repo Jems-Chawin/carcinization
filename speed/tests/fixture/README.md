@@ -12,4 +12,5 @@
   their own code, so carcinify diff refuses it as a case, and speed too.
 - `pop_first(xs)` changes its argument: on one list reused, its fourth
   call would raise.
+- `hang()` takes 3 s a call, longer than the time limit its test gives.
 - `outside.jsonl` is a case file that no suite lists.

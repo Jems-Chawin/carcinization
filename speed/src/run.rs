@@ -405,13 +405,21 @@ fn time(
         let watch = carcinify_decide::watch::Watch::start(&opts.python);
         let ran = drive(opts, work, &driver, &plan, &result_path);
         let beside = watch.finish();
-        let mut ran = ran?;
+        let mut ran = ran?.unwrap_or_else(|| {
+            let timeout = format!(
+                "no result within {} s; the driver was killed",
+                opts.timeout.as_secs()
+            );
+            json!({"targets": [{"name": plan["targets"][0]["name"], "runs": [], "outputs": {}, "timeout": timeout}]})
+        });
         let mut out = ran["targets"][0].take();
         out["watched_beside"] = beside.map_or(
             J::Null,
             |r| json!({"seconds": r.seconds, "kept_off_the_cpu": r.kept_off_the_cpu}),
         );
-        result["python"] = ran["python"].take();
+        if !ran["python"].is_null() {
+            result["python"] = ran["python"].take();
+        }
         result["targets"]
             .as_array_mut()
             .ok_or("no targets")?
@@ -420,14 +428,15 @@ fn time(
     Ok(result)
 }
 
-/// One run of the timing driver on `plan`, and its result.
+/// One run of the timing driver on `plan`, and its result; `None` when it
+/// gave none within the time limit and was killed.
 fn drive(
     opts: &Options,
     work: &Path,
     driver: &Path,
     plan: &J,
     result_path: &Path,
-) -> Result<J, String> {
+) -> Result<Option<J>, String> {
     let log_path = work.join("driver.log");
     let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
     // As carcinify diff starts a side: no user site-packages, no PYTHON*
@@ -460,9 +469,19 @@ fn drive(
             .write_all(plan.to_string().as_bytes())
             .map_err(|e| e.to_string())?;
     }
-    // shortcut: no time limit; a port that hangs hangs the run. Add one if
-    // a port ever does.
-    let status = child.wait().map_err(|e| e.to_string())?;
+    // The time limit, as carcinify diff has one for each case and side.
+    let deadline = std::time::Instant::now() + opts.timeout;
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            break status;
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Ok(None);
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    };
     let text = std::fs::read_to_string(result_path).map_err(|_| {
         let log = std::fs::read_to_string(&log_path).unwrap_or_default();
         format!(
@@ -470,12 +489,17 @@ fn drive(
             &log[log.len().saturating_sub(4000)..]
         )
     })?;
-    serde_json::from_str(&text).map_err(|e| format!("the timing driver's result: {e}"))
+    serde_json::from_str(&text)
+        .map(Some)
+        .map_err(|e| format!("the timing driver's result: {e}"))
 }
 
 /// Why a target's output fails it, and the first difference: compared as
 /// carcinify diff compares, with the case's own relaxations.
 fn check_output(out: &J, case: &suite::Case) -> (Option<String>, Option<J>) {
+    if let Some(timeout) = out["timeout"].as_str() {
+        return (Some(format!("timeout: {timeout}")), None);
+    }
     let refused = &out["refused"];
     if !refused.is_null() {
         let detail = refused["detail"].as_str().unwrap_or("");

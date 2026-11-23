@@ -578,3 +578,45 @@ fn a_function_that_changes_its_arguments_gets_a_fresh_copy_for_each_call() {
     assert!(pop["ratio"]["median"].is_f64(), "{pop:#}");
     assert_eq!(report["targets"][1]["arguments_changed_by_call"], false);
 }
+
+#[test]
+fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
+    let declaration = declare(
+        "time-limit",
+        "suite-python.json",
+        &[
+            ("hang", "cases.jsonl", "hang"),
+            ("nap", "cases.jsonl", "nap-2"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let start = std::time::Instant::now();
+    let (code, err, report) = quiet(&mut || {
+        run(
+            &declaration,
+            &wheels,
+            &[Path::new("--timeout-secs"), Path::new("1")],
+            &[],
+        )
+    });
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
+    assert!(
+        failed.starts_with("timeout: no result within 1 s"),
+        "{report:#}"
+    );
+    assert!(
+        report["targets"][1]["ratio"]["median"].is_f64(),
+        "{report:#}"
+    );
+    // hang's first call alone takes 3 s.
+    assert!(
+        start.elapsed() < std::time::Duration::from_secs(30),
+        "{:?}",
+        start.elapsed()
+    );
+}

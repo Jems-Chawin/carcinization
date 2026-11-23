@@ -35,7 +35,7 @@ suite	deps-recorded	25 passed, 0 failed, 2 ignored	exit 0
 suite	decide	37 passed, 0 failed, 1 ignored	exit 0
 suite	decide-numpy	1 passed, 0 failed, 0 ignored	exit 0	optional
 suite	deps-live	2 passed, 0 failed, 0 ignored	exit 0	optional
-suite	speed	40 passed, 0 failed, 2 ignored	exit 0
+suite	speed	41 passed, 0 failed, 2 ignored	exit 0
 suite	speed-maturin	2 passed, 0 failed, 0 ignored	exit 0
 suite	example-float	2 passed, 0 failed, 0 ignored	exit 0
 suite	example-float-fixed	2 passed, 0 failed, 0 ignored	exit 0

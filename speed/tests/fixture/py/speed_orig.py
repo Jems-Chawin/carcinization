@@ -17,3 +17,7 @@ def wrong(n):
 
 def pop_first(xs):
     return xs.pop(0)
+
+
+def hang():
+    time.sleep(3)
