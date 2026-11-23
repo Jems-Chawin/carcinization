@@ -624,7 +624,7 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
         run(
             &declaration,
             &wheels,
-            &[Path::new("--timeout-secs"), Path::new("1")],
+            &[Path::new("--timeout-secs"), Path::new("5")],
             &[],
         )
     });
@@ -635,16 +635,18 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
     );
     let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
     assert!(
-        failed.starts_with("timeout: no result within 1 s"),
+        failed.starts_with("timeout: no result within 5 s"),
         "{report:#}"
     );
     assert!(
         report["targets"][1]["ratio"]["median"].is_f64(),
         "{report:#}"
     );
-    // hang's first call alone takes 3 s.
+    // hang's first call alone takes 60 s. The limit applies to every
+    // target's driver: nap's, with Python's start and its calibrations,
+    // took more than 1 s on a busy machine, so the limit is 5 s.
     assert!(
-        start.elapsed() < std::time::Duration::from_secs(30),
+        start.elapsed() < std::time::Duration::from_secs(60),
         "{:?}",
         start.elapsed()
     );

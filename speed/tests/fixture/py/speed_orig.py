@@ -20,4 +20,4 @@ def pop_first(xs):
 
 
 def hang():
-    time.sleep(3)
+    time.sleep(60)
