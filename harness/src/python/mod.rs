@@ -96,9 +96,18 @@ fn clean_crate(crate_dir: &Path, target_dir: &Path, log: &std::fs::File) -> Resu
     }
 }
 
+/// What a failed build's log shows in its message: 3000 bytes from the
+/// compiler's first error on, or the last 3000 when there is none. A
+/// verbose build puts more than that after the error.
 fn tail(path: &Path) -> String {
     let text = std::fs::read(path).unwrap_or_default();
-    String::from_utf8_lossy(&text[text.len().saturating_sub(3000)..]).into_owned()
+    let error = (0..text.len())
+        .find(|&i| (i == 0 || text[i - 1] == b'\n') && text[i..].starts_with(b"error"));
+    let shown = match error {
+        Some(start) => &text[start..text.len().min(start + 3000)],
+        None => &text[text.len().saturating_sub(3000)..],
+    };
+    String::from_utf8_lossy(shown).into_owned()
 }
 
 fn utf8(p: &Path) -> Result<String, String> {
@@ -182,9 +191,6 @@ pub fn prepare(
                 "build".to_string(),
                 "--release".to_string(),
                 "--locked".to_string(),
-                // Cargo's command line for each crate it compiles goes to
-                // the build log: carcinify speed reads the flags from it.
-                "-v".to_string(),
                 "--interpreter".to_string(),
                 utf8(&tools.python)?,
                 "--manifest-path".to_string(),
@@ -218,6 +224,11 @@ pub fn prepare(
                     }
                 })
                 .collect();
+            if tools.recompile_crate {
+                // Cargo's command line for each crate it compiles goes to
+                // the build log: carcinify speed reads the flags from it.
+                cmd.push("-v".to_string());
+            }
             cmd.push("--target-dir".to_string());
             let target_dir = workspace_dir.join("target/carcinify-diff").join(variant);
             cmd.push(utf8(&target_dir)?);
@@ -394,4 +405,45 @@ pub fn prepare(
         log: work.join(format!("{name}.log")),
     };
     Ok((cfg, built))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn log(name: &str, text: &str) -> PathBuf {
+        let path =
+            std::env::temp_dir().join(format!("carcinify-tail-{}-{name}.log", std::process::id()));
+        std::fs::write(&path, text).unwrap();
+        path
+    }
+
+    /// A failed build's log as a verbose build writes it: the error, then
+    /// more than 3000 bytes of notes and Cargo's command line.
+    #[test]
+    fn a_failed_builds_message_starts_at_the_compilers_first_error() {
+        let notes = "note: required by a bound in `pyo3::impl_::extract_argument`\n".repeat(80);
+        let text = format!(
+            "   Compiling speed-port v0.1.0\n     Running `rustc --crate-name speed_port src/lib.rs`\nerror[E0277]: the trait bound `Vec<u8>: PyClass` is not satisfied\n  --> src/lib.rs:9:5\n{notes}\nCaused by:\n  process didn't exit successfully: `rustc --crate-name speed_port`\n"
+        );
+        let path = log("error", &text);
+        let shown = tail(&path);
+        std::fs::remove_file(&path).unwrap();
+        assert!(
+            shown.starts_with("error[E0277]: the trait bound"),
+            "{shown}"
+        );
+    }
+
+    #[test]
+    fn a_log_without_an_error_line_shows_its_end() {
+        let text = format!("{}the last line\n", "warning: unused\n".repeat(400));
+        let path = log("end", &text);
+        let shown = tail(&path);
+        std::fs::remove_file(&path).unwrap();
+        assert!(
+            shown.ends_with("the last line\n") && shown.len() <= 3000,
+            "{shown}"
+        );
+    }
 }

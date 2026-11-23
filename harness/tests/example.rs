@@ -47,6 +47,11 @@ fn the_default_serde_json_build_fails_on_the_data_file() {
     assert_eq!(d["candidate"]["repr"], "396.04");
     assert_eq!(d["candidate"]["bits"], "0x4078c0a3d70a3d71");
     assert_eq!(report["sides"]["candidate"]["kind"], "pyo3");
+    // maturin -v is for carcinify speed's builds alone.
+    let command = report["sides"]["candidate"]["build_command"]
+        .as_array()
+        .unwrap();
+    assert!(!command.iter().any(|a| a == "-v"), "{command:?}");
     assert!(
         report["tools"]["maturin"]
             .as_str()
