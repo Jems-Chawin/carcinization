@@ -2828,3 +2828,55 @@ fn reports_timed_by_other_measuring_code_are_refused() {
         );
     }
 }
+
+/// RUST-182: every figure with 3 significant figures, below 1 too, and an
+/// `apart` beside the threshold printed on its own side of it. A Python
+/// port reads as one beside the flag.
+#[test]
+fn ratios_below_one_keep_three_figures_and_apart_never_prints_as_the_threshold() {
+    let a = report_on(
+        "macos",
+        "3.12.13",
+        "apple-m1",
+        "28",
+        json!([
+            timed_at("x", 0.0412, 0.0398, 0.0425),
+            timed_at("y", 2.0, 1.9, 2.1),
+            timed_at("z", 2.0, 1.9, 2.1)
+        ]),
+    );
+    let mut b = report_on(
+        "linux",
+        "3.12.13",
+        "generic",
+        "12",
+        json!([
+            timed_at("x", 0.0496, 0.0481, 0.0511),
+            timed_at("y", 2.5008, 2.4, 2.6),
+            timed_at("z", 2.4992, 2.4, 2.6)
+        ]),
+    );
+    let (code, out, err) = compare("speed-compare-figures", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    for figure in [
+        "ratio original ÷ port 0.0412, per pair 0.0398 to 0.0425",
+        "0.0496",
+        "1.204 apart, within 1.25",
+    ] {
+        assert!(out.contains(figure), "{figure}\n{out}");
+    }
+    // 2.5008 ÷ 2.0 = 1.2504 and 2.4992 ÷ 2.0 = 1.2496: neither prints 1.250.
+    assert!(out.contains("1.2504 apart, over 1.25"), "{out}");
+    assert!(out.contains("1.2496 apart, within 1.25"), "{out}");
+    assert_eq!(flags_in(&out), ["platform_dependent: y"], "{out}");
+    b["build"]["sides"]["candidate"] = json!({"kind": "python"});
+    let (_, out, _) = compare("speed-compare-figures", &a, &b);
+    let beside = out
+        .lines()
+        .find(|l| l.contains("platform_dependent:"))
+        .unwrap_or("");
+    assert!(
+        beside.contains("a Python port on linux aarch64 (B)"),
+        "{out}"
+    );
+}

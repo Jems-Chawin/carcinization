@@ -122,7 +122,7 @@ fn compare(a: &J, b: &J) -> Result<String, String> {
             "{} on {la} and {} on {lb}, {} apart",
             number(ma),
             number(mb),
-            number(apart)
+            apart_text(apart)
         );
         if apart > APART {
             out += &format!(
@@ -212,12 +212,16 @@ fn build(r: &J) -> String {
     }
 }
 
+/// The build's target CPU and feature count, or that the port is Python.
 fn target(r: &J) -> String {
-    let t = &r["build"]["sides"]["candidate"]["target"];
+    let side = &r["build"]["sides"]["candidate"];
+    if side["kind"] != "pyo3" {
+        return "a Python port".into();
+    }
     format!(
         "target CPU {}, {} target features",
-        text(&t["target_cpu"]),
-        text(&t["target_features"])
+        text(&side["target"]["target_cpu"]),
+        text(&side["target"]["target_features"])
     )
 }
 
@@ -229,16 +233,23 @@ fn shown(j: &Option<&J>) -> String {
     j.map_or("nothing".into(), J::to_string)
 }
 
-/// Three significant figures, as a ratio is read.
+/// Three significant figures, as a ratio is read, at every size (RUST-182).
 fn number(x: f64) -> String {
-    let digits = if x.abs() >= 100.0 {
-        0
-    } else if x.abs() >= 10.0 {
-        1
-    } else {
-        2
-    };
+    if x == 0.0 || !x.is_finite() {
+        return x.to_string();
+    }
+    let digits = (2 - x.abs().log10().floor() as i32).max(0) as usize;
     format!("{x:.digits$}")
+}
+
+/// How far apart two ratios are: 3 decimals, and more where 3 would print
+/// the threshold itself, so that a value is never shown on the wrong side
+/// of it (RUST-182).
+fn apart_text(x: f64) -> String {
+    (3..=9)
+        .map(|digits| format!("{x:.digits$}"))
+        .find(|s| x == APART || s.parse::<f64>() != Ok(APART))
+        .unwrap_or_else(|| x.to_string())
 }
 
 fn time(seconds: f64) -> String {
