@@ -27,9 +27,11 @@ the declaration names, in two steps so that nothing is built while timing:
           apart (a first value, and arbitrary), with both per-pair ranges
           and each build's target CPU, feature count, RUSTFLAGS and rustc
           options beside it; builds_differ when the RUSTFLAGS or the
-          options rustc ran with differ, and then
-          builds_and_platforms_differ in place of platform_dependent; and
-          interpreters_differ. Refuses reports of different code.
+          options rustc ran with differ (each -C but those naming a hash
+          or a path, linking or placing debug info, and each feature; no
+          other --cfg, and an option holding a space only up to it), and
+          then builds_and_platforms_differ in place of platform_dependent;
+          and interpreters_differ. Refuses reports of different code.
 
 options:
   --python <path>       interpreter       [$CARCINIFY_PYTHON, else python3]

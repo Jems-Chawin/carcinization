@@ -211,12 +211,20 @@ flags:
   printed beside it.
 - `builds_differ`: the two builds' rustc flags differ. These are the
   flags in the build's environment (`RUSTFLAGS`, and Cargo's
-  `CARGO_ENCODED_RUSTFLAGS` and `CARGO_BUILD_RUSTFLAGS`), and the options
-  rustc ran with, however they were set: by a Cargo configuration file or a
-  `CARGO_PROFILE_*` variable as well. Options that name a hash or a path,
-  or only link, are left out, since they differ by platform and change no
-  code. Each target apart is
-  then `builds_and_platforms_differ`: two builds on two platforms, and
+  `CARGO_ENCODED_RUSTFLAGS` and `CARGO_BUILD_RUSTFLAGS`), and these options
+  of the command rustc ran with:
+  - each `-C`, however it was set, by a Cargo configuration file or a
+    `CARGO_PROFILE_*` variable as well; but not those that name a hash or
+    a path, only link, or say where the debug info goes, since they differ
+    by platform and change no code;
+  - each feature (`--cfg feature=…`).
+
+  No other `--cfg` is compared, from a configuration file either: a
+  crate's build script gives cfgs that differ by interpreter, such as
+  pyo3's `Py_3_12`, and they would flag every pair. An option Cargo quoted
+  because it holds a space, as `-C 'llvm-args=-a -b'`, is compared only up
+  to its first space. Each target apart is then
+  `builds_and_platforms_differ`: two builds on two platforms, and
   `--compare` cannot say which one made the difference.
 - `interpreters_differ`: the two Pythons differ in version,
   implementation or free-threading, or their NumPy versions differ.
