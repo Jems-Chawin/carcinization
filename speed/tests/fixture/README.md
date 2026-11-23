@@ -18,8 +18,8 @@
   too.
 - `first(xs)` returns the list's first item; the Python port pops it,
   which the original does not.
-- `crash(n)` returns n in the original and aborts the interpreter in the
-  Python port.
+- `crash(n)` returns n in the original; the Python port kills its own
+  interpreter (SIGKILL), which leaves no crash report behind.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which
   reaches `nap` or `wrong` through its own module, where carcinify speed
   puts each side's function. `two_naps` reaches the case nap-2;

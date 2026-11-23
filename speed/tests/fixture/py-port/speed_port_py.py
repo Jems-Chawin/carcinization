@@ -1,6 +1,7 @@
 """A port of speed_orig, slow on purpose: nap sleeps ten times as long."""
 
 import os
+import signal
 import time
 from os.path import basename  # not this module's own code
 
@@ -28,7 +29,9 @@ def square(n):
 
 
 def crash(n):
-    os.abort()
+    # SIGKILL, not os.abort(): the interpreter dies without a result, and
+    # no system writes a crash report for it.
+    os.kill(os.getpid(), signal.SIGKILL)
 
 
 def first(xs):

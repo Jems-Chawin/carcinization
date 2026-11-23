@@ -1181,7 +1181,11 @@ fn a_target_whose_driver_crashes_fails_and_the_next_is_still_timed() {
         "{err}\n{report:#}"
     );
     let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
-    assert!(failed.starts_with("crashed: "), "{report:#}");
+    // SIGKILL, so that no system writes a crash report for the test.
+    assert!(
+        failed.starts_with("crashed: the driver exited (signal: 9 (SIGKILL)) without a result"),
+        "{report:#}"
+    );
     assert!(
         report["targets"][1]["ratio"]["median"].is_f64(),
         "{report:#}"
