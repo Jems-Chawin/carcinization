@@ -127,6 +127,14 @@ fn run(opts: &Options) -> Result<u8, String> {
     let _ = std::fs::remove_dir_all(&work);
     let result = result?;
     // At the end: the readings while the run ran, up to one more.
+    let reading =
+        |r: &gate::Reading| json!({"time": r.time, "epoch": r.epoch, "one_minute": r.one_minute});
+    let opened = gate.as_ref().ok().map(|g| {
+        (
+            g.header().to_string(),
+            g.opening().iter().map(reading).collect::<Vec<J>>(),
+        )
+    });
     let gate = gate.and_then(|g| g.finish(Duration::from_secs(2 * gate::EVERY)));
 
     let mut timed = Vec::new();
@@ -184,12 +192,7 @@ fn run(opts: &Options) -> Result<u8, String> {
     let (verdict, exit_status, reasons, flags) = judge(&timed, &gate);
     let readings: Vec<J> = gate
         .as_ref()
-        .map(|l| {
-            l.readings
-                .iter()
-                .map(|r| json!({"time": r.time, "epoch": r.epoch, "one_minute": r.one_minute}))
-                .collect()
-        })
+        .map(|l| l.readings.iter().map(reading).collect())
         .unwrap_or_default();
     let facts = |f: Vec<crate::platform::Fact>| -> J {
         f.into_iter()
@@ -210,6 +213,9 @@ fn run(opts: &Options) -> Result<u8, String> {
         "hash_seed": {"value": opts.hash_seed.value, "chosen": opts.hash_seed.chosen},
         "gate": {
             "run_id": std::env::var("GATE_RUN_ID").ok(),
+            "header": opened.as_ref().map(|o| &o.0),
+            "rule": {"readings": gate::READINGS, "under": gate::LIMIT, "seconds_apart": gate::EVERY},
+            "opening": opened.as_ref().map(|o| &o.1),
             "readings": readings,
         },
         "targets": targets,

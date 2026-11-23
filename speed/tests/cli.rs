@@ -383,6 +383,22 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
         !report["gate"]["readings"].as_array().unwrap().is_empty(),
         "{report:#}"
     );
+    // The gate's header, its rule, and the readings the rule was checked on.
+    let gate = &report["gate"];
+    assert!(
+        gate["header"]
+            .as_str()
+            .unwrap()
+            .contains(&format!(", run {id}, then: ")),
+        "{gate:#}"
+    );
+    assert_eq!(
+        gate["rule"],
+        json!({"readings": 30, "under": 6.0, "seconds_apart": 10})
+    );
+    let opening = gate["opening"].as_array().unwrap();
+    assert_eq!(opening.len(), 30, "{gate:#}");
+    assert!(opening.iter().all(|r| r["one_minute"] == 1.0), "{gate:#}");
     let nap = &report["targets"][0];
     assert_eq!(nap["name"], "nap");
     // decide's process beside the measurement, kept for each target on a

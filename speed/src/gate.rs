@@ -80,6 +80,8 @@ pub struct Gate {
     path: PathBuf,
     /// The line where the run's block starts, its "wait:" header.
     header: usize,
+    header_line: String,
+    opening: Vec<Reading>,
 }
 
 impl Gate {
@@ -149,7 +151,20 @@ impl Gate {
         Ok(Gate {
             path: path.to_path_buf(),
             header,
+            header_line: lines[header].to_string(),
+            opening: last.to_vec(),
         })
+    }
+
+    /// The block's "wait:" line: the rule and the run id.
+    pub fn header(&self) -> &str {
+        &self.header_line
+    }
+
+    /// The readings the rule was checked on: the last [`READINGS`] before
+    /// "gate open".
+    pub fn opening(&self) -> &[Reading] {
+        &self.opening
     }
 
     /// At the run's end: waits up to `patience` for one more reading, then
@@ -404,6 +419,18 @@ mod tests {
         let load = run(&log, reading(t + 10, 5.5)).unwrap();
         assert_eq!(load.readings, vec![r(t + 10, 5.5)]);
         assert!(!load.at_or_over_limit);
+    }
+
+    #[test]
+    fn an_open_gate_gives_its_header_and_the_readings_its_rule_was_checked_on() {
+        // Five readings at 9, then thirty at 5: the rule is checked on the
+        // last thirty.
+        let wait: Vec<f64> = [9.0; 5].into_iter().chain([5.0; 30]).collect();
+        let (text, _) = block(0, ID, (30, "6", 10), &wait);
+        let gate = Gate::open(&Log::new(&text).0, Some(ID)).unwrap();
+        assert_eq!(gate.header(), text.lines().next().unwrap());
+        let opening: Vec<Reading> = (5..35).map(|i| r(10 * i, 5.0)).collect();
+        assert_eq!(gate.opening(), &opening[..]);
     }
 
     #[test]
