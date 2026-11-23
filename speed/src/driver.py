@@ -320,18 +320,19 @@ def count(out, ready, counts, note=None):
         del result
     gc.collect()
     growth = counts()[3] - start
+    out["counts"] = {"first": first, "warm": warm, "growth": growth}
+    # Before 3.11, CPython keeps a frame object with each function after its
+    # first call: the tool's own would be most of the figure (RUST-199).
+    if sys.version_info < (3, 11):
+        out["counts"]["python"] = {"not_counted": "Python %d.%d: before 3.11, CPython keeps a frame object with each function after its first call, and the tool's own would be most of the figure" % sys.version_info[:2]}
+        return
     # Two more warm calls: a snapshot, and what reads it, would be in the
     # peak; the snapshot's own blocks are left out by their file.
     peak = traced(lambda: tracemalloc.get_traced_memory()[1], collect=False)
     left = traced(lambda: tracemalloc.take_snapshot().filter_traces([tracemalloc.Filter(False, tracemalloc.__file__)]).traces)
-    out["counts"] = {
-        "first": first,
-        "warm": warm,
-        "growth": growth,
-        "python": {
-            "objects_left_to_the_caller": {"blocks": len(left), "bytes": sum(t.size for t in left)},
-            "peak_bytes": peak,
-        },
+    out["counts"]["python"] = {
+        "objects_left_to_the_caller": {"blocks": len(left), "bytes": sum(t.size for t in left)},
+        "peak_bytes": peak,
     }
     if note:
         out["counts"]["python"]["note"] = note

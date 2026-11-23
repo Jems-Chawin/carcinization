@@ -965,6 +965,53 @@ fn write(path: &Path, report: &J) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    /// RUST-199: before 3.11, CPython keeps a frame object with each
+    /// function after its first call, and the tool's own frames would be
+    /// most of the Python figure. There it is not counted, naming the
+    /// version, and the Rust counts stand. The driver's count, with a
+    /// stand-in counter, under each version.
+    #[test]
+    fn before_python_3_11_the_python_figure_is_not_counted() {
+        let dir =
+            std::env::temp_dir().join(format!("carcinify-speed-count-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("driver.py"), DRIVER).unwrap();
+        let script = r#"
+import json, sys
+sys.path.insert(0, sys.argv[1])
+import driver
+real, figures = sys.version_info, {}
+for version in [(3, 10, 18), (3, 11, 0)]:
+    sys.version_info, out = version, {}
+    driver.count(out, lambda: lambda: [1], lambda: (0, 0, 0, 0))
+    sys.version_info = real
+    figures["%d.%d" % version[:2]] = out["counts"]
+print(json.dumps(figures))
+"#;
+        let python = std::env::var("CARCINIFY_PYTHON").unwrap_or_else(|_| "python3".into());
+        let out = Command::new(python)
+            .args(["-I", "-c", script])
+            .arg(&dir)
+            .output()
+            .unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        let figures: J = serde_json::from_slice(&out.stdout)
+            .unwrap_or_else(|_| panic!("{}", String::from_utf8_lossy(&out.stderr)));
+        let before = &figures["3.10"];
+        assert!(
+            before["python"]["not_counted"]
+                .as_str()
+                .unwrap_or("")
+                .contains("Python 3.10"),
+            "{figures:#}"
+        );
+        assert!(before["warm"]["allocations"].is_i64(), "{figures:#}");
+        assert!(
+            figures["3.11"]["python"]["peak_bytes"].is_i64(),
+            "{figures:#}"
+        );
+    }
+
     fn timed(
         name: &str,
         failed: Option<&str>,

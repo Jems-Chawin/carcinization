@@ -171,6 +171,10 @@ rest.
 
 - Python before 3.12 is not tested. The timing driver is written for 3.9
   and later.
+- Before Python 3.11, the Python figure of the counts is not counted
+  (`not_counted`, naming the version): CPython then keeps a frame object
+  with each function after its first call, and the tool's own frames would
+  be most of the figure. The Rust counts stand.
 - Only Python originals, and ports that are Python or reached through
   PyO3, have been tried.
 - What a report cannot show is listed at the end of step seven.
