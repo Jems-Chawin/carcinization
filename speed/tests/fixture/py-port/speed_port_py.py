@@ -1,5 +1,6 @@
 """A port of speed_orig, slow on purpose: nap sleeps ten times as long."""
 
+import os
 import time
 from os.path import basename  # not this module's own code
 
@@ -24,3 +25,7 @@ def hang():
 
 def square(n):
     return n * n
+
+
+def crash(n):
+    os.abort()

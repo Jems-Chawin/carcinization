@@ -490,13 +490,19 @@ fn time(
         let watch = carcinify_decide::watch::Watch::start(&opts.python);
         let ran = drive(opts, work, &driver, &plan, &result_path);
         let beside = watch.finish();
-        let mut ran = ran?.unwrap_or_else(|| {
-            let timeout = format!(
-                "no result within {} s; the driver was killed",
-                opts.timeout.as_secs()
-            );
-            json!({"targets": [{"name": plan["targets"][0]["name"], "runs": [], "outputs": {}, "timeout": timeout}]})
-        });
+        // A driver that gave no result fails its own target alone.
+        let failed = |why: &str, text: String| json!({"targets": [{"name": plan["targets"][0]["name"], "runs": [], "outputs": {}, why: text}]});
+        let mut ran = match ran? {
+            Driven::Result(ran) => ran,
+            Driven::TimedOut => failed(
+                "timeout",
+                format!(
+                    "no result within {} s; the driver was killed",
+                    opts.timeout.as_secs()
+                ),
+            ),
+            Driven::Crashed(why) => failed("crashed", why),
+        };
         let mut out = ran["targets"][0].take();
         out["watched_beside"] = beside.map_or(
             J::Null,
@@ -513,15 +519,24 @@ fn time(
     Ok(result)
 }
 
-/// One run of the timing driver on `plan`, and its result; `None` when it
-/// gave none within the time limit and was killed.
+/// How a run of the timing driver ended.
+pub enum Driven {
+    /// With its result.
+    Result(J),
+    /// Without one within the time limit: the driver was killed.
+    TimedOut,
+    /// Without one: how it exited, and the end of its log.
+    Crashed(String),
+}
+
+/// One run of the timing driver on `plan`.
 pub fn drive(
     opts: &Options,
     work: &Path,
     driver: &Path,
     plan: &J,
     result_path: &Path,
-) -> Result<Option<J>, String> {
+) -> Result<Driven, String> {
     let log_path = work.join("driver.log");
     let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
     // As carcinify diff starts a side: no user site-packages, no PYTHON*
@@ -563,19 +578,20 @@ pub fn drive(
         if std::time::Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
-            return Ok(None);
+            return Ok(Driven::TimedOut);
         }
         std::thread::sleep(Duration::from_millis(50));
     };
-    let text = std::fs::read_to_string(result_path).map_err(|_| {
-        let log = std::fs::read_to_string(&log_path).unwrap_or_default();
-        format!(
-            "the timing driver gave no result ({status}):\n{}",
-            &log[log.len().saturating_sub(4000)..]
-        )
-    })?;
+    let Ok(text) = std::fs::read_to_string(result_path) else {
+        let log = std::fs::read(&log_path).unwrap_or_default();
+        let tail = String::from_utf8_lossy(&log[log.len().saturating_sub(2000)..]);
+        return Ok(Driven::Crashed(match tail.trim() {
+            "" => format!("the driver exited ({status}) without a result, and its log is empty"),
+            tail => format!("the driver exited ({status}) without a result; its log ends:\n{tail}"),
+        }));
+    };
     serde_json::from_str(&text)
-        .map(Some)
+        .map(Driven::Result)
         .map_err(|e| format!("the timing driver's result: {e}"))
 }
 
@@ -587,6 +603,9 @@ pub fn drive(
 fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<String>, Option<J>) {
     if let Some(timeout) = out["timeout"].as_str() {
         return (Some(format!("timeout: {timeout}")), None);
+    }
+    if let Some(crashed) = out["crashed"].as_str() {
+        return (Some(format!("crashed: {crashed}")), None);
     }
     let refused = &out["refused"];
     if !refused.is_null() {

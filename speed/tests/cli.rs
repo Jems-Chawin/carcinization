@@ -1111,3 +1111,30 @@ fn a_refused_build_leaves_no_work_directory_behind() {
     );
     assert!(!work.exists(), "{} is left behind", work.display());
 }
+
+/// A port that kills its interpreter fails its own target, named, and the
+/// next target is timed in a driver of its own.
+#[test]
+fn a_target_whose_driver_crashes_fails_and_the_next_is_still_timed() {
+    let declaration = declare(
+        "crash",
+        "suite-python.json",
+        &[
+            ("crash", "cases.jsonl", "crash-1"),
+            ("nap", "cases.jsonl", "nap-2"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
+    assert!(failed.starts_with("crashed: "), "{report:#}");
+    assert!(
+        report["targets"][1]["ratio"]["median"].is_f64(),
+        "{report:#}"
+    );
+}

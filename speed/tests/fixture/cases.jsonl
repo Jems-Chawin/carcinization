@@ -6,3 +6,4 @@
 {"id": "pop-first", "fn": "pop_first", "args": [[1, 2, 3]]}
 {"id": "hang", "fn": "hang"}
 {"id": "square-3", "fn": "square", "args": [3]}
+{"id": "crash-1", "fn": "crash", "args": [1]}

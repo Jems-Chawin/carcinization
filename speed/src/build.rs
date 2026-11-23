@@ -204,12 +204,16 @@ fn callers(
         .iter()
         .map(|(t, _, path)| crate::run::caller_target(t, path))
         .collect();
-    let result = crate::run::drive(opts, work, &driver, &plan, &result_path)?.ok_or_else(|| {
-        format!(
-            "the callers were not recorded within {} s",
-            opts.timeout.as_secs()
-        )
-    })?;
+    let result = match crate::run::drive(opts, work, &driver, &plan, &result_path)? {
+        crate::run::Driven::Result(result) => result,
+        crate::run::Driven::TimedOut => {
+            return Err(format!(
+                "the callers were not recorded within {} s",
+                opts.timeout.as_secs()
+            ));
+        }
+        crate::run::Driven::Crashed(why) => return Err(format!("recording the callers: {why}")),
+    };
     let mut prepared = prepared.into_iter();
     let (Some((mut original, original_built)), Some((mut candidate, candidate_built))) =
         (prepared.next(), prepared.next())

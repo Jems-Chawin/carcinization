@@ -16,6 +16,8 @@
 - `square(n)` is cached in the original (`functools.lru_cache`): every
   timed call would be a cache hit, so carcinify diff refuses it, and speed
   too.
+- `crash(n)` returns n in the original and aborts the interpreter in the
+  Python port.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which
   reaches `nap` or `wrong` through its own module, where carcinify speed
   puts each side's function. `two_naps` reaches the case nap-2;

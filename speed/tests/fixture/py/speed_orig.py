@@ -27,3 +27,7 @@ def hang():
 @functools.lru_cache(maxsize=None)
 def square(n):
     return n * n
+
+
+def crash(n):
+    return n
