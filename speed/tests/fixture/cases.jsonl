@@ -13,3 +13,4 @@
 {"id": "lookup-a", "fn": "lookup", "args": ["a"]}
 {"id": "main-only-1", "fn": "main_only", "args": [1]}
 {"id": "doubled-3", "fn": "doubled", "args": [3]}
+{"id": "lazy-1", "fn": "lazy", "args": [1]}

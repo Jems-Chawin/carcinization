@@ -1705,3 +1705,53 @@ fn a_target_that_already_failed_gets_no_cold_thread() {
         "{log}"
     );
 }
+
+/// RUST-168: both sides are imported into one process, so a top-level
+/// module name both sides' directories provide would resolve to one
+/// side's file for both. speed build refuses it before building.
+#[test]
+fn a_module_name_both_sides_provide_is_refused() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-same-helper");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    std::fs::write(repo.0.join("py/helper.py"), "FACTOR = 1\n").unwrap();
+    std::fs::write(repo.0.join("py-port/helper.py"), "FACTOR = 10\n").unwrap();
+    repo.commit("a helper of the same name on each side");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let _ = std::fs::remove_dir_all(&wheels);
+    let (code, err) = speed_as_given(&[
+        "build",
+        declaration.to_str().unwrap(),
+        "--out",
+        wheels.to_str().unwrap(),
+    ]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("helper (py/helper.py and py-port/helper.py)")
+            && err.contains("one Python process"),
+        "{err}"
+    );
+    assert!(!wheels.exists(), "nothing is built");
+}
+
+/// RUST-168: the sides' directories stay on sys.path for the whole
+/// driver, so that a module imported only when called is found, as in
+/// carcinify diff.
+#[test]
+fn a_sibling_module_imported_when_called_is_timed() {
+    let declaration = declare(
+        "lazy",
+        "suite-python.json",
+        &[("lazy", "cases.jsonl", "lazy-1")],
+    );
+    let wheels = built(&declaration);
+    let (_, err, report) = quiet(&mut || run(&declaration, &wheels, &[], &[]));
+    let lazy = &report["targets"][0];
+    assert!(
+        lazy["failed"].is_null() && lazy["ratio"]["median"].is_f64(),
+        "{err}\n{lazy:#}"
+    );
+}

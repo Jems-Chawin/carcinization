@@ -74,3 +74,9 @@ def main_only(n):
 def doubled(n):
     # A new thread has no factor of its own: it gets the default.
     return getattr(_imported, "factor", 1) * n
+
+
+def lazy(n):
+    import lazy_helper  # a sibling module, imported only when called
+
+    return lazy_helper.same(n)

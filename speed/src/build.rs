@@ -12,7 +12,7 @@ use carcinify_diff::report::Tools as ToolsBlock;
 use carcinify_diff::side::{Side, SideConfig};
 use carcinify_diff::suite::{Measured, SideSpec};
 use serde_json::{Value as J, json};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -71,6 +71,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
                 .map_err(|e| format!("shared entry {}: {e}", path.display()))?,
         );
     }
+    refuse_names_in_common(suite_dir, &loaded.suite.original, &loaded.suite.candidate)?;
     let work = Work::new()?;
     let tools = Tools {
         python: opts.python.clone(),
@@ -213,6 +214,76 @@ impl Drop for Work {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// carcinify speed imports both sides into one Python process (RUST-168),
+/// where a top-level module name both sides' directories provide, from two
+/// different files, would resolve to one side's file for both. Refused
+/// before anything is built.
+fn refuse_names_in_common(
+    suite_dir: &Path,
+    original: &SideSpec,
+    candidate: &SideSpec,
+) -> Result<(), String> {
+    // What each side gives to import by a top-level name: a .py file, an
+    // extension or a package directory, first on its path first.
+    let names = |spec: &SideSpec| {
+        let mut found: BTreeMap<String, PathBuf> = BTreeMap::new();
+        match spec {
+            SideSpec::Python { path, .. } => {
+                for dir in path {
+                    let entries = std::fs::read_dir(suite_dir.join(dir));
+                    for entry in entries.into_iter().flatten().flatten() {
+                        let file = entry.file_name().to_string_lossy().into_owned();
+                        let name = if entry.path().is_dir() {
+                            entry
+                                .path()
+                                .join("__init__.py")
+                                .is_file()
+                                .then(|| file.clone())
+                        } else {
+                            file.split_once('.')
+                                .filter(|(_, ext)| {
+                                    matches!(ext.rsplit('.').next(), Some("py" | "so" | "pyd"))
+                                })
+                                .map(|(stem, _)| stem.to_string())
+                        };
+                        if let Some(name) = name {
+                            found
+                                .entry(name)
+                                .or_insert_with(|| Path::new(dir).join(&file));
+                        }
+                    }
+                }
+            }
+            SideSpec::Pyo3 { module, .. } => {
+                let top = module.split('.').next().unwrap_or(module);
+                found.insert(
+                    top.to_string(),
+                    PathBuf::from(format!("the compiled module {module}")),
+                );
+            }
+        }
+        found
+    };
+    let (port, same) = (names(candidate), |a: &Path, b: &Path| {
+        let real = |p: &Path| suite_dir.join(p).canonicalize().ok();
+        real(a).is_some_and(|a| Some(a) == real(b))
+    });
+    let common: Vec<String> = names(original)
+        .iter()
+        .filter_map(|(name, a)| {
+            let b = port.get(name)?;
+            (!same(a, b)).then(|| format!("{name} ({} and {})", a.display(), b.display()))
+        })
+        .collect();
+    if common.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "both sides provide a top-level module named {}: carcinify speed imports both sides into one Python process, so one side would import the other's. Rename one, or make each side a package of its own",
+        common.join(", ")
+    ))
 }
 
 /// Files the timing driver imported (`ran`, its result), and the callers'

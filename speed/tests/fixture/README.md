@@ -27,6 +27,8 @@
   `main_only` raises off the main thread on both sides. The port's
   `doubled` finds its factor on the importing thread only, so it
   answers otherwise on a new thread.
+- The Python port's `lazy` imports its sibling `lazy_helper` only when
+  called.
 - `crash(n)` returns n in the original; the Python port kills its own
   interpreter (SIGKILL), which leaves no crash report behind.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which

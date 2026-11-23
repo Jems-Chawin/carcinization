@@ -42,12 +42,12 @@ def load_file(path, name):
 
 
 def import_side(side):
-    """The side's module, from the side's own directories and nowhere else."""
+    """The side's module, from the side's own directories and nowhere else.
+    They stay on sys.path, as in the process carcinify diff gives each side,
+    so that what the module imports when called is found there: speed build
+    has refused any top-level name both sides provide."""
     sys.path[:0] = side["sys_path"]
-    try:
-        module = importlib.import_module(side["module"])
-    finally:
-        del sys.path[: len(side["sys_path"])]
+    module = importlib.import_module(side["module"])
     where = os.path.realpath(getattr(module, "__file__", None) or "")
     roots = [os.path.realpath(r) for r in side["roots"]]
     if not any(where.startswith(r + os.sep) for r in roots):

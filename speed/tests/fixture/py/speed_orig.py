@@ -61,3 +61,7 @@ def main_only(n):
 
 def doubled(n):
     return 2 * n
+
+
+def lazy(n):
+    return n
