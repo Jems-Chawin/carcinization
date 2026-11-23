@@ -4,7 +4,9 @@ import time
 
 
 def nap(ms):
-    time.sleep(ms / 1000)
+    # No sleep at all for 0: time.sleep(0) takes about 1 ms on some Linux.
+    if ms:
+        time.sleep(ms / 1000)
     return ms
 
 

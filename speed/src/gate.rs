@@ -41,6 +41,19 @@ pub enum Unreliable {
     LoadNotWatched(String),
 }
 
+impl Unreliable {
+    /// The reason's name in the report, and what it says.
+    pub fn reason(&self) -> (&'static str, &str) {
+        match self {
+            Unreliable::NoGate(s) => ("no_gate", s),
+            Unreliable::GateRule(s) => ("gate_rule", s),
+            Unreliable::NotThisRun(s) => ("not_this_run", s),
+            Unreliable::GateNotOpen(s) => ("gate_not_open", s),
+            Unreliable::LoadNotWatched(s) => ("load_not_watched", s),
+        }
+    }
+}
+
 /// One reading of the load average.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Reading {

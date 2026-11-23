@@ -158,7 +158,7 @@ fn main_mutants(opts: &Options, dir: &std::path::Path) -> ExitCode {
 /// A seed for a run that names none. The keys of std's `RandomState` are
 /// random for each process, so one hash of them is a random number without a
 /// dependency.
-fn drawn_seed() -> u32 {
+pub fn drawn_seed() -> u32 {
     use std::hash::{BuildHasher, RandomState};
     RandomState::new().hash_one(std::process::id()) as u32
 }

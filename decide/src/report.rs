@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 
 pub const DECLARATION_SCHEMA: &str = "carcinify/decide/declaration/2";
 pub const REPORT_SCHEMA: &str = "carcinify/decide/report/2";
-const DRIVER: &str = include_str!("measure.py");
+pub const DRIVER: &str = include_str!("measure.py");
 
 /// Fewer uninstrumented runs than this say nothing about how much the
 /// numbers vary.

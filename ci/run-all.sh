@@ -108,7 +108,7 @@ if [ "${RUN_LIVE:-0}" = 1 ]; then
   suite deps-live -p carcinify --test deps -- --ignored
 fi
 # speed: so far the reader of the host gate's log, ci/gate.sh itself, the
-# platform facts, and speed build.
+# platform facts, speed build, and speed run on direct targets.
 suite speed -p carcinify-speed -p carcinify --lib --test speed
 suite speed-maturin -p carcinify --test speed -- --ignored
 # The worked examples' own tests. Each is a workspace of its own.

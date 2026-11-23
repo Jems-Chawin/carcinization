@@ -4,7 +4,8 @@ import time
 
 
 def nap(ms):
-    time.sleep(10 * ms / 1000)
+    if ms:
+        time.sleep(10 * ms / 1000)
     return ms
 
 
