@@ -206,10 +206,15 @@ flags:
 
 - `platform_dependent`: the two median ratios are more than 1.25 apart.
   1.25 is a first value, and arbitrary. Both per-pair ranges, and each
-  build's target CPU, feature count and RUSTFLAGS, are printed beside it.
-- `builds_differ`: the two builds' rustc flags differ (`RUSTFLAGS`, or
-  Cargo's `CARGO_ENCODED_RUSTFLAGS` or `CARGO_BUILD_RUSTFLAGS`). Each
-  target apart is
+  build's target CPU, feature count, RUSTFLAGS and rustc options, are
+  printed beside it.
+- `builds_differ`: the two builds' rustc flags differ. These are the
+  flags in the build's environment (`RUSTFLAGS`, and Cargo's
+  `CARGO_ENCODED_RUSTFLAGS` and `CARGO_BUILD_RUSTFLAGS`), and the options
+  rustc ran with, however they were set: by a Cargo configuration file or a
+  `CARGO_PROFILE_*` variable as well. Options that name a hash or a path,
+  or only link, are left out, since they differ by platform and change no
+  code. Each target apart is
   then `builds_and_platforms_differ`: two builds on two platforms, and
   `--compare` cannot say which one made the difference.
 - `interpreters_differ`: the two Pythons differ in version,
@@ -237,8 +242,8 @@ Say these three things with the figures, in the port's notes.
 2. A Linux aarch64 figure taken on an Apple-silicon Mac, in Docker or on
    the metal, says little about other aarch64 machines. Measure on the
    hardware the users run.
-3. The report records each build's target CPU, its target-feature count
-   and its RUSTFLAGS. A target flagged `platform_dependent` is worth
+3. The report records each build's target CPU, its target-feature count,
+   its RUSTFLAGS and the options rustc ran with. A target flagged `platform_dependent` is worth
    rebuilding with the other target CPU before the platform is blamed:
    `ci/linux/speed.sh` passes `RUSTFLAGS` into the container. It is a
    diagnostic: on the einsum port it helped at 4 words and not from 8.

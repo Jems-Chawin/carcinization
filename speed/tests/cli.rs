@@ -204,19 +204,76 @@ fn speed_build_writes_the_ports_wheel_its_hash_and_the_target_cpu_it_was_built_f
         assert_eq!(candidate["wheel"]["sha256"], sha256_file(&wheel).unwrap());
         let maturin = record["tools"]["maturin"].as_str().unwrap().to_string();
         assert!(maturin.starts_with("maturin 1.16"), "{maturin}");
-        candidate["target"]["target_cpu"]
-            .as_str()
-            .unwrap()
-            .to_string()
+        let target = &candidate["target"];
+        let text = |key: &str| target[key].as_str().unwrap().to_string();
+        (text("target_cpu"), text("code_options"))
     };
     // Twice: Cargo prints its command line only for a crate it compiles,
     // so the second build must compile the crate again, which Cargo would
     // find fresh.
     for _ in 0..2 {
-        let cpu = built(&[]);
+        let (cpu, options) = built(&[]);
         assert!(cpu.starts_with("default of "), "{cpu}");
+        assert!(options.contains("-C opt-level=3"), "{options}");
+        // RUST-191: no hash, path or link argument.
+        for not_code in ["metadata=", "incremental=", "link-arg"] {
+            assert!(!options.contains(not_code), "{options}");
+        }
     }
-    assert_eq!(built(&[("RUSTFLAGS", "-C target-cpu=generic")]), "generic");
+    let (cpu, options) = built(&[("RUSTFLAGS", "-C target-cpu=generic")]);
+    assert_eq!(cpu, "generic");
+    assert!(options.contains("-C target-cpu=generic"), "{options}");
+    // RUST-191: a profile set by Cargo's own variable reaches rustc too.
+    let (_, options) = built(&[("CARGO_PROFILE_RELEASE_OPT_LEVEL", "1")]);
+    assert!(options.contains("-C opt-level=1"), "{options}");
+}
+
+/// RUST-191: a Cargo configuration file that gives one platform's builds
+/// a flag, as a tracked `.cargo/config.toml` can, is not in the build's
+/// environment; speed build records it among the options rustc ran with.
+#[test]
+#[ignore = "needs maturin; see the top of this file"]
+fn a_flag_a_cargo_configuration_file_gives_this_platform_is_recorded() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-cargo-config");
+    let repo = Repo::new(
+        &dir.join("repo"),
+        &[
+            "py/speed_orig.py",
+            "rs/Cargo.toml",
+            "rs/Cargo.lock",
+            "rs/pyproject.toml",
+            "rs/src/lib.rs",
+            "cases.jsonl",
+            "suite.json",
+        ],
+    );
+    std::fs::create_dir_all(repo.0.join(".cargo")).unwrap();
+    std::fs::write(
+        repo.0.join(".cargo/config.toml"),
+        format!(
+            "[target.'cfg(target_os = \"{}\")']\nrustflags = [\"-C\", \"no-vectorize-loops\"]\n",
+            std::env::consts::OS
+        ),
+    )
+    .unwrap();
+    repo.commit("no loop vectorizing, on this platform only");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite.json", "runs": 3,
+        "targets": [{"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let out = dir.join("wheels");
+    let (code, err) = speed(
+        &[Path::new("build"), &declaration, Path::new("--out"), &out],
+        &[],
+    );
+    assert_eq!(code, 0, "{err}");
+    let record = read(&out.join("build.json"));
+    assert_eq!(record["tools"]["build_environment"].get("RUSTFLAGS"), None);
+    let options = &record["sides"]["candidate"]["target"]["code_options"];
+    assert!(
+        options.as_str().unwrap().contains("-C no-vectorize-loops"),
+        "{options}"
+    );
 }
 
 /// `speed build` on the Python fixture, into the declaration's directory.
@@ -3001,6 +3058,45 @@ fn an_interrupted_gate_says_so_and_leaves_no_sampler() {
         );
         assert!(!left, "{signal}: a process of the gate's group was left");
     }
+}
+
+/// RUST-191: rustc flags set where the environment does not show them, in
+/// a Cargo configuration file or a `CARGO_PROFILE_*` variable, still make
+/// two builds: speed build records the options rustc ran with, and
+/// builds_differ compares them beside RUSTFLAGS.
+#[test]
+fn reports_whose_rustc_ran_with_other_options_are_flagged_builds_differ() {
+    let c2 = "-C opt-level=3 -C embed-bitcode=no -C strip=debuginfo -C target-cpu=apple-m1";
+    let report = |os: &str, options: &str| {
+        let mut r = report_on(
+            os,
+            "3.12.13",
+            "apple-m1",
+            "28",
+            json!([timed_at("x", 21.0, 20.4, 23.2)]),
+        );
+        r["build"]["sides"]["candidate"]["target"]["code_options"] = json!(options);
+        r
+    };
+    let a = report("linux", c2);
+    let b = report("macos", &format!("{c2} -C no-vectorize-loops"));
+    let (code, out, err) = compare("speed-compare-code-options", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        out.lines()
+            .nth(1)
+            .is_some_and(|l| l.contains("no RUSTFLAGS, rustc options -C opt-level=3")
+                && l.contains("-C no-vectorize-loops")),
+        "beside RUSTFLAGS, in the header: {out}"
+    );
+    let differ = format!(
+        "builds_differ: no RUSTFLAGS, rustc options {c2} on linux aarch64 (A); no RUSTFLAGS, rustc options {c2} -C no-vectorize-loops on macos aarch64 (B)"
+    );
+    assert!(flags_in(&out).contains(&differ), "{out}");
+    let b = report("macos", c2);
+    let (code, out, err) = compare("speed-compare-code-options", &a, &b);
+    assert_eq!(code, 0, "{err}");
+    assert!(!out.contains("builds_differ"), "{out}");
 }
 
 /// RUST-187: two builds of the port with other rustc flags are two

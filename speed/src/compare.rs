@@ -249,8 +249,9 @@ fn target(r: &J) -> String {
     )
 }
 
-/// RUST-187: the rustc flags the port was built with, as the build
-/// recorded them from its environment.
+/// RUST-187 and RUST-191: the rustc flags the port was built with, as the
+/// build recorded them from its environment, and the options rustc ran
+/// with.
 fn rustflags(r: &J) -> String {
     let env = &r["tools"]["build_environment"];
     let set: Vec<String> = [
@@ -261,10 +262,16 @@ fn rustflags(r: &J) -> String {
     .iter()
     .filter_map(|name| env[*name].as_str().map(|v| format!("{name}={v:?}")))
     .collect();
-    if set.is_empty() {
+    let set = if set.is_empty() {
         "no RUSTFLAGS".into()
     } else {
         set.join(", ")
+    };
+    // RUST-191: the options rustc ran with, however they were set: in a
+    // Cargo configuration file or a CARGO_PROFILE_* variable as well.
+    match r["build"]["sides"]["candidate"]["target"]["code_options"].as_str() {
+        Some(options) => format!("{set}, rustc options {options}"),
+        None => set,
     }
 }
 

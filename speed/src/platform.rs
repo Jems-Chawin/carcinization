@@ -53,6 +53,58 @@ pub fn rustc_args(verbose: &str, name: &str) -> Option<Vec<String>> {
     })
 }
 
+/// RUST-191: the options of the command Cargo ran rustc with that change
+/// the code it makes, in the command's order: each `-C` as `-C name=value`,
+/// and each `--cfg feature=…`. Those that name a hash or a path, or only
+/// link, are left out: they differ by build directory or by platform (maturin
+/// links a macOS module with arguments of its own) and change no code.
+pub fn code_options(rustc_command: &[String]) -> Vec<String> {
+    const NOT_CODE: [&str; 10] = [
+        "metadata",
+        "extra-filename",
+        "incremental",
+        "linker",
+        "linker-flavor",
+        "link-arg",
+        "link-args",
+        "link-self-contained",
+        "prefer-dynamic",
+        "rpath",
+    ];
+    // Cargo puts an argument the shell would split or expand in single
+    // quotes; the options read here hold no quote of their own.
+    let args: Vec<&str> = rustc_command
+        .iter()
+        .map(|a| {
+            a.strip_prefix('\'')
+                .and_then(|a| a.strip_suffix('\''))
+                .unwrap_or(a)
+        })
+        .collect();
+    let mut out = Vec::new();
+    for (i, a) in args.iter().enumerate() {
+        let next = || args.get(i + 1).copied();
+        let option = match *a {
+            "-C" | "--codegen" => next(),
+            "--cfg" => {
+                out.extend(
+                    next()
+                        .filter(|c| c.starts_with("feature="))
+                        .map(|c| format!("--cfg {c}")),
+                );
+                None
+            }
+            _ => a
+                .strip_prefix("-C")
+                .or_else(|| a.strip_prefix("--codegen=")),
+        };
+        if let Some(o) = option.filter(|o| !NOT_CODE.contains(&o.split('=').next().unwrap_or(o))) {
+            out.push(format!("-C {o}"));
+        }
+    }
+    out
+}
+
 /// A command's standard output, trimmed, if it succeeded and said anything.
 fn output(args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(args[0])
@@ -205,6 +257,7 @@ fn target_with(command: &[String], rustc: &dyn Fn(&[String]) -> Option<String>) 
             "rustc",
             or_unknown(verbose.and_then(|v| v.lines().next().map(String::from))),
         ),
+        ("code_options", code_options(args).join(" ")),
     ]
 }
 
@@ -303,6 +356,43 @@ mod tests {
         let wrapped = "     Running `/usr/bin/sccache /opt/rust/bin/rustc --crate-name einsum_greedy src/lib.rs`\n";
         let args = rustc_args(wrapped, "einsum_greedy").unwrap();
         assert_eq!(args[0], "/opt/rust/bin/rustc");
+    }
+
+    /// RUST-191: the commands Cargo ran rustc with for the einsum port's C2
+    /// build (`-C target-cpu=apple-m1 -C llvm-args=…` in RUSTFLAGS) on macOS
+    /// and in the Linux arm64 container, abridged: the `--extern`, `-L` and
+    /// `--out-dir` arguments are left out and the toolchains' paths
+    /// shortened. They differ only in the hash and in maturin's macOS link
+    /// arguments, which change no code: the options kept are the same.
+    #[test]
+    fn the_options_that_change_the_code_are_kept_and_hashes_paths_and_links_left_out() {
+        let mac = "/rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc --crate-name greedy_rs --edition=2024 py/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat,unused-externs-silent --crate-type cdylib --emit=dep-info,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=a21db9b0d2a3736a -C strip=debuginfo -C 'link-args=-Wl,-install_name,@rpath/greedy_rs.cpython-312-darwin.so' -C target-cpu=apple-m1 -C llvm-args=-force-vector-interleave=2 -C link-arg=-undefined -C link-arg=dynamic_lookup --force-warn=unused_crate_dependencies";
+        let linux = "/usr/local/rustup/toolchains/1.100.0-aarch64-unknown-linux-gnu/bin/rustc --crate-name greedy_rs --edition=2024 py/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat,unused-externs-silent --crate-type cdylib --emit=dep-info,link -C opt-level=3 -C embed-bitcode=no --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values())' -C metadata=22834903f9574a26 -C strip=debuginfo -C target-cpu=apple-m1 -C llvm-args=-force-vector-interleave=2 --force-warn=unused_crate_dependencies";
+        let options = |line: &str| {
+            let args = rustc_args(&format!("     Running `{line}`\n"), "greedy_rs").unwrap();
+            code_options(&args)
+        };
+        let c2 = strings(&[
+            "-C opt-level=3",
+            "-C embed-bitcode=no",
+            "-C strip=debuginfo",
+            "-C target-cpu=apple-m1",
+            "-C llvm-args=-force-vector-interleave=2",
+        ]);
+        assert_eq!(options(mac), c2);
+        assert_eq!(options(linux), c2);
+        // Every spelling of -C; the features, unquoted; the incremental
+        // directory, the file-name hash and the linker left out.
+        let other = "rustc --crate-name greedy_rs --cfg 'feature=\"default\"' --cfg docsrs -Copt-level=1 --codegen no-vectorize-loops --codegen=codegen-units=1 -C extra-filename=-5d0c -C incremental=/tmp/i -C linker=cc";
+        assert_eq!(
+            options(other),
+            strings(&[
+                "--cfg feature=\"default\"",
+                "-C opt-level=1",
+                "-C no-vectorize-loops",
+                "-C codegen-units=1",
+            ])
+        );
     }
 
     /// rustup picks a toolchain by directory, so the `rustc` on PATH need

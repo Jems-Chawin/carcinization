@@ -107,7 +107,20 @@ with it.
   report that did not pass; three significant figures below 1, and an
   `apart` beside the threshold; `builds_differ` and
   `builds_and_platforms_differ` for two reports that differ only in
-  RUSTFLAGS.
+  RUSTFLAGS, and `builds_differ` for two that differ only in the options
+  rustc ran with.
+- **The options rustc ran with.** Recorded from Cargo's command line:
+  `a_flag_a_cargo_configuration_file_gives_this_platform_is_recorded`
+  (a committed `.cargo/config.toml` section for this platform), and
+  `CARGO_PROFILE_RELEASE_OPT_LEVEL=1` in
+  `speed_build_writes_the_ports_wheel_its_hash_and_the_target_cpu_it_was_built_for`.
+  That platform defaults are left out:
+  `the_options_that_change_the_code_are_kept_and_hashes_paths_and_links_left_out`,
+  on the commands Cargo ran for the einsum port's C2 build on macOS and in
+  the Linux arm64 container, which differ in maturin's macOS link
+  arguments and the hash only. On the chase's two C2 reports, with each
+  build's options added, `--compare` flags `platform_dependent` at 120 and
+  270 operands and no `builds_differ` (2026-11-24).
 - **1.25 is a first value, and arbitrary.** It was not derived from data.
   On the einsum port's reports (below), one set of flags on both platforms
   (the apple-m1 tuning made to vectorize from 4 words) gave 1.03 apart at
