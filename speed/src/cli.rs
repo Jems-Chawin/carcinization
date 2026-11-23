@@ -23,6 +23,8 @@ the declaration names, in two steps so that nothing is built while timing:
 options:
   --python <path>       interpreter       [$CARCINIFY_PYTHON, else python3]
   --maturin <path>      build: maturin    [$CARCINIFY_MATURIN, else maturin]
+  --allow-dirty         build or time although the tree does not match its
+                        commit; the record and the report say so
   --hash-seed <n>       run: PYTHONHASHSEED of the timing process, 0 to
                         4294967295 [drawn at random; the report records it]
   --debug-log <file>    run: one line for each step of the timing
@@ -68,6 +70,7 @@ pub struct Options {
     pub hash_seed: HashSeed,
     pub debug_log: Option<PathBuf>,
     pub timeout: std::time::Duration,
+    pub allow_dirty: bool,
 }
 
 fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
@@ -88,6 +91,7 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
         },
         debug_log: None,
         timeout: std::time::Duration::from_secs(120),
+        allow_dirty: false,
     };
     while let Some(arg) = args.next() {
         let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
@@ -99,6 +103,7 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Options, String> {
             "--report" => opts.report = Some(PathBuf::from(value()?)),
             "--load-log" => opts.load_log = Some(PathBuf::from(value()?)),
             "--debug-log" => opts.debug_log = Some(PathBuf::from(value()?)),
+            "--allow-dirty" => opts.allow_dirty = true,
             "--timeout-secs" => {
                 let secs: u64 = value()?
                     .parse()

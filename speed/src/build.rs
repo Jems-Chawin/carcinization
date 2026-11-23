@@ -58,7 +58,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
         return Err(Failure::Refused(loaded.refused));
     }
     let suite_dir = loaded.suite_path.parent().unwrap_or(Path::new("/"));
-    let git = git_info(suite_dir)?;
+    let git = tree(suite_dir, opts.allow_dirty)?;
     let mut shared = Vec::new();
     for entry in &loaded.suite.shared {
         let path = suite_dir.join(entry);
@@ -118,6 +118,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
         "suite_sha256": sha256_file(&loaded.suite_path)?,
         "commit": git.commit,
         "dirty": !git.dirty.is_empty(),
+        "python": interpreter(&opts.python)?,
         "sides": sides,
         "tools": tools_block(opts, crate_dir.as_deref().unwrap_or(suite_dir), crate_dir.is_some(), outside)?,
     });
@@ -126,6 +127,39 @@ fn build(opts: &Options) -> Result<(), Failure> {
         .map_err(|e| format!("cannot write {}: {e}", out.join(RECORD).display()))?;
     let _ = std::fs::remove_dir_all(&work);
     Ok(())
+}
+
+/// The repository holding `dir`, refused as carcinify diff refuses it when
+/// its tree does not match its commit, unless `allow_dirty`.
+pub fn tree(dir: &Path, allow_dirty: bool) -> Result<carcinify_diff::provenance::Git, String> {
+    let git = git_info(dir)?;
+    if !git.dirty.is_empty() && !allow_dirty {
+        return Err(format!(
+            "the working tree has uncommitted changes, so the result would not describe commit {}:\n  {}\nCommit them, or pass --allow-dirty to run anyway (the record and the report will say so).",
+            &git.commit[..12.min(git.commit.len())],
+            git.dirty.join("\n  ")
+        ));
+    }
+    Ok(git)
+}
+
+/// The interpreter as it names itself, and its version: what a wheel is
+/// built for and imported by.
+pub fn interpreter(python: &Path) -> Result<J, String> {
+    let out = Command::new(python)
+        .args([
+            "-I",
+            "-c",
+            "import sys; print(sys.executable); print(sys.version)",
+        ])
+        .output()
+        .map_err(|e| format!("cannot run {}: {e}", python.display()))?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let (executable, version) = text
+        .trim()
+        .split_once('\n')
+        .ok_or_else(|| format!("{} did not say what it is", python.display()))?;
+    Ok(json!({"executable": executable, "version": version}))
 }
 
 /// carcinify diff's tools block, for this binary and the build it made:

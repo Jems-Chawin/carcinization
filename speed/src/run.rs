@@ -109,6 +109,36 @@ fn run(opts: &Options) -> Result<u8, String> {
             record["tools"]["harness_sha256"]
         ));
     }
+    // What is timed must be what was built for: the same declaration,
+    // suite, commit and interpreter, in a tree that matches its commit.
+    let suite_dir = loaded.suite_path.parent().unwrap_or(Path::new("/"));
+    let git = crate::build::tree(suite_dir, opts.allow_dirty)?;
+    let suite_sha256 = sha256_file(&loaded.suite_path)?;
+    let now = [
+        (
+            "declaration",
+            J::from(sha256_file(&opts.declaration)?),
+            &record["declaration_sha256"],
+        ),
+        (
+            "suite",
+            J::from(suite_sha256.as_str()),
+            &record["suite_sha256"],
+        ),
+        ("commit", J::from(git.commit.as_str()), &record["commit"]),
+        (
+            "interpreter",
+            crate::build::interpreter(&opts.python)?,
+            &record["python"],
+        ),
+    ];
+    for (what, now, built) in now {
+        if &now != built {
+            return Err(format!(
+                "the {what} is {now}, not the {built} that speed build built for: run `carcinify speed build` again"
+            ));
+        }
+    }
     // The build's tools block is the report's.
     let tools = record
         .as_object_mut()
@@ -208,6 +238,7 @@ fn run(opts: &Options) -> Result<u8, String> {
         "flags": flags,
         "tools": tools,
         "declaration_sha256": sha256_file(&opts.declaration)?,
+        "run": {"commit": git.commit, "dirty": !git.dirty.is_empty(), "suite_sha256": suite_sha256},
         "machine": facts(crate::platform::machine()),
         "build": record,
         "python": result["python"],

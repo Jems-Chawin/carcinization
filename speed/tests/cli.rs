@@ -40,10 +40,16 @@ fn declare(name: &str, suite: &str, targets: &[(&str, &str, &str)]) -> PathBuf {
     path
 }
 
-/// `carcinify speed <args>`, never under a gate unless `env` says so.
+/// `carcinify speed <args> --allow-dirty`: the fixture is in this
+/// repository, whose tree may not match its commit while it is worked on.
+/// Never under a gate unless `env` says so.
 fn speed(args: &[&Path], env: &[(&str, &str)]) -> (i32, String) {
     let mut command = Command::new(env!("CARGO_BIN_EXE_carcinify"));
-    command.arg("speed").args(args).env_remove("GATE_RUN_ID");
+    command
+        .arg("speed")
+        .args(args)
+        .arg("--allow-dirty")
+        .env_remove("GATE_RUN_ID");
     for (name, value) in env {
         command.env(name, value);
     }
@@ -619,4 +625,152 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
         "{:?}",
         start.elapsed()
     );
+}
+
+/// In a repository of its own, a copy of the Python fixture: what speed run
+/// times must be what speed build built for, in a tree that matches its
+/// commit.
+#[test]
+fn speed_run_refuses_what_speed_build_did_not_build_for() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-bound");
+    let _ = std::fs::remove_dir_all(&dir);
+    let repo = dir.join("repo");
+    for sub in ["py", "py-port"] {
+        std::fs::create_dir_all(repo.join(sub)).unwrap();
+    }
+    for file in [
+        "py/speed_orig.py",
+        "py-port/speed_port_py.py",
+        "cases.jsonl",
+        "suite-python.json",
+    ] {
+        std::fs::copy(fixture().join(file), repo.join(file)).unwrap();
+    }
+    let declaration = repo.join("speed.json");
+    let declare = |runs: u32| {
+        let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "suite-python.json", "runs": runs,
+            "targets": [{"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}]});
+        std::fs::write(&declaration, text.to_string()).unwrap();
+    };
+    declare(3);
+    let git = |args: &[&str]| {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(&repo)
+            .args([
+                "-c",
+                "user.name=test",
+                "-c",
+                "user.email=test@example.invalid",
+                "-c",
+                "commit.gpgsign=false",
+            ])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    git(&["init", "-q"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "fixture"]);
+    let wheels = dir.join("wheels");
+    let report = dir.join("report.json");
+    let speed = |step: &str, extra: &[&str]| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_carcinify"));
+        command
+            .arg("speed")
+            .arg(step)
+            .arg(&declaration)
+            .env_remove("GATE_RUN_ID");
+        match step {
+            "build" => command.arg("--out").arg(&wheels),
+            _ => command
+                .arg("--wheels")
+                .arg(&wheels)
+                .arg("--report")
+                .arg(&report),
+        };
+        let out = command.args(extra).output().unwrap();
+        (
+            out.status.code().unwrap(),
+            String::from_utf8_lossy(&out.stderr).into_owned(),
+        )
+    };
+    let (code, err) = speed("build", &[]);
+    assert_eq!(code, 0, "{err}");
+    let build = read(&wheels.join("build.json"));
+    assert_eq!(build["dirty"], false);
+    assert!(build["python"]["version"].is_string(), "{build:#}");
+
+    // The original changed after the build: ten times slower, same output.
+    let original = repo.join("py/speed_orig.py");
+    let text = std::fs::read_to_string(&original).unwrap();
+    std::fs::write(
+        &original,
+        text.replace("time.sleep(ms / 1000)", "time.sleep(10 * ms / 1000)"),
+    )
+    .unwrap();
+    let (code, err) = speed("run", &[]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("uncommitted changes"), "{err}");
+    let (code, err) = speed("build", &[]);
+    assert_eq!(
+        code, 2,
+        "a build too refuses a tree that does not match its commit: {err}"
+    );
+    // With --allow-dirty the run says so, beside the build's own state.
+    let (code, err) = speed("run", &["--allow-dirty"]);
+    assert_eq!(code, 1, "{err}");
+    let run = read(&report);
+    assert_eq!(
+        (&run["run"]["dirty"], &run["build"]["dirty"]),
+        (&json!(true), &json!(false)),
+        "{run:#}"
+    );
+    assert_eq!(run["run"]["suite_sha256"], build["suite_sha256"]);
+    // Committed: another commit than the build's.
+    git(&["commit", "-q", "-am", "slower"]);
+    let (code, err) = speed("run", &[]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("commit"), "{err}");
+    git(&["reset", "-q", "--hard", "HEAD~1"]);
+    // Another declaration, another suite.
+    declare(4);
+    let (code, err) = speed("run", &["--allow-dirty"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("declaration"), "{err}");
+    git(&["checkout", "-q", "--", "speed.json"]);
+    std::fs::write(
+        repo.join("suite-python.json"),
+        std::fs::read_to_string(fixture().join("suite-python.json")).unwrap() + "\n",
+    )
+    .unwrap();
+    let (code, err) = speed("run", &["--allow-dirty"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("suite"), "{err}");
+    git(&["checkout", "-q", "--", "suite-python.json"]);
+    // Another interpreter: the same one by another path is another
+    // sys.executable, as a virtual environment's is.
+    let python = std::env::var("CARCINIFY_PYTHON").unwrap_or_else(|_| "python3".into());
+    let resolved = String::from_utf8(
+        Command::new(&python)
+            .args(["-c", "import sys; print(sys.executable)"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let other = dir.join("other-python");
+    std::os::unix::fs::symlink(resolved.trim(), &other).unwrap();
+    let (code, err) = speed("run", &["--python", other.to_str().unwrap()]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("interpreter"), "{err}");
+    // And as it was built: timed.
+    let (code, err) = speed("run", &[]);
+    assert_eq!(code, 1, "unreliable, not under the gate: {err}");
+    assert_eq!(read(&report)["run"]["dirty"], false);
 }
