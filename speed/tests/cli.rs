@@ -1755,3 +1755,57 @@ fn a_sibling_module_imported_when_called_is_timed() {
         "{err}\n{lazy:#}"
     );
 }
+
+/// RUST-169: the cheap call is decided by the compared function's
+/// signature, before any call. A function that binds with no arguments,
+/// here nap(ms=None) whose body makes the workspace and then raises
+/// TypeError, needs _speed_noop: its cold thread is not measured, a flag.
+#[test]
+fn a_function_whose_parameters_all_have_defaults_needs_speed_noop() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-cold-defaults");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let port = repo.0.join("py-port/speed_port_py.py");
+    let text = std::fs::read_to_string(&port)
+        .unwrap()
+        .replacen("def nap(ms):", "def nap(ms=None):", 1)
+        .replacen(
+            "    if ms:\n        time.sleep(10 * ms / 1000)\n",
+            "    time.sleep(10 * ms / 1000)\n",
+            1,
+        );
+    assert!(
+        text.contains("def nap(ms=None):") && !text.contains("    if ms:\n        time.sleep(10")
+    );
+    std::fs::write(&port, text).unwrap();
+    repo.commit("nap(ms=None), whose body raises TypeError after making the workspace");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "nap", "case": {"file": "cases.jsonl", "id": "nap-2"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let (d, w, r) = (
+        declaration.to_str().unwrap().to_string(),
+        dir.join("wheels").to_str().unwrap().to_string(),
+        dir.join("report.json").to_str().unwrap().to_string(),
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w]);
+    assert_eq!(code, 0, "{err}");
+    let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r]);
+    assert_eq!(code, 1, "unreliable, not under the gate: {err}");
+    let report = read(Path::new(&r));
+    let flags: Vec<&str> = report["flags"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(J::as_str)
+        .collect();
+    assert!(
+        flags
+            .iter()
+            .any(|f| f.starts_with("cold_thread_not_measured: nap: ") && f.contains("_speed_noop")),
+        "{flags:#?}"
+    );
+    assert!(
+        report["targets"][0]["cold_thread"]["cold_minus_warm"].is_null(),
+        "{report:#}"
+    );
+}

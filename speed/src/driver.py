@@ -24,6 +24,7 @@ driver. Runs on Python 3.9 and later. Standard library only.
 import gc
 import importlib
 import importlib.util
+import inspect
 import json
 import os
 import platform
@@ -160,8 +161,9 @@ def cold_thread(out, run, module, fn, threads, name, harness, log):
     port's module, untimed, then the port's first call there (cold) and its
     next (warm), each timed alone by `run`. The thread's start is not
     timed. The cheap call is the module's _speed_noop if it exports one,
-    else the compared function with no arguments, which must raise
-    TypeError while its arguments are parsed, before its body runs. When
+    else the compared function with no arguments, when its signature shows
+    that such a call raises TypeError while the arguments are parsed, before
+    the body runs. When
     the port raises on a new thread, the original's first call is made once
     on another: if it does not raise, the port's traceback is kept, for
     carcinify speed to fail the target. Each output on a new thread is kept
@@ -180,6 +182,21 @@ def cold_thread(out, run, module, fn, threads, name, harness, log):
         if noop:
             noop()
             return None
+        # Decided before any call: a TypeError the body raised would look
+        # the same, after the body had warmed the thread.
+        try:
+            signature = inspect.signature(fn)
+        except (TypeError, ValueError):
+            return "the compared function shows no signature, so nothing says a call with no arguments would stop before its body: export _speed_noop from the port's module"
+        try:
+            signature.bind()
+        except TypeError:
+            pass  # a required parameter
+        else:
+            return "the compared function %s%s can be called with no arguments, so such a call would run its body and warm the thread: export _speed_noop from the port's module" % (
+                getattr(fn, "__name__", "?"),
+                signature,
+            )
         try:
             fn()
         except TypeError:
