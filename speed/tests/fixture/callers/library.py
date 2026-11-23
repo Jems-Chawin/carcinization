@@ -11,6 +11,14 @@ def wrong(n):
     raise RuntimeError("carcinify speed did not put a side's wrong in place")
 
 
+def size(s):
+    raise RuntimeError("carcinify speed did not put a side's size in place")
+
+
+def sized(s):
+    return size(s)
+
+
 def naps(times):
     return [nap(ms) for ms in times]
 

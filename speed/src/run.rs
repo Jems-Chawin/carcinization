@@ -621,6 +621,38 @@ pub fn drive(
 
 /// Why a target's output fails it, and the first difference: compared as
 /// carcinify diff compares, with the case's own relaxations.
+/// Recorded calls as the measured check compares them: each by its
+/// function and its arguments' canonical values, as a set. Neither the
+/// order of the calls nor of a set's items counts: both follow the hash
+/// seed, and speed build and speed run each draw their own.
+fn canonical(lines: &[J]) -> std::collections::BTreeSet<String> {
+    let value = |v: &mut J| {
+        if let Ok(decoded) = Value::decode(v) {
+            *v = J::from(decoded.canon());
+        }
+    };
+    lines
+        .iter()
+        .map(|line| {
+            let mut line = line.clone();
+            if let Some(fields) = line.as_object_mut() {
+                fields.remove("id"); // numbered in the order the calls came
+            }
+            line.get_mut("args")
+                .and_then(J::as_array_mut)
+                .into_iter()
+                .flatten()
+                .for_each(value);
+            line.get_mut("kwargs")
+                .and_then(J::as_object_mut)
+                .into_iter()
+                .flat_map(|k| k.values_mut())
+                .for_each(value);
+            line.to_string()
+        })
+        .collect()
+}
+
 /// Why a timed target failed, if it did, and the first difference between
 /// the sides' outputs, if that was why. A caller target is first held to
 /// the calls of `fn` that speed build recorded and checked (`built`).
@@ -675,7 +707,8 @@ fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<St
             .flatten()
             .filter_map(|l| serde_json::from_str(l.as_str()?).ok())
             .collect();
-        if run["calls"] != built["calls"] || J::from(lines.clone()) != built["lines"] {
+        let built_lines = built["lines"].as_array().map_or(&[][..], Vec::as_slice);
+        if run["calls"] != built["calls"] || canonical(&lines) != canonical(built_lines) {
             return (
                 Some(format!(
                     "timed_input_unstable: the caller's untimed call in this run reached {func} {} time(s) with {} input(s), where speed build recorded and checked {} with {}: {}",

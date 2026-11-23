@@ -27,6 +27,12 @@ def a_nap_set_by_the_environment():
     return library.naps([int(os.environ.get("SPEED_FIXTURE_NAP", "2"))])
 
 
+def a_set_of_letters():
+    # A set of strings, whose order follows the hash seed: the case
+    # size-letters, or the letters a variable names.
+    return library.sized(set(os.environ.get("SPEED_FIXTURE_LETTERS", "abcdefgh")))
+
+
 def a_wrong():
     # wrong(1): the case wrong-1, whose output the Python port gets wrong.
     return library.call_wrong(1)

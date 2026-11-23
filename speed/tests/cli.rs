@@ -1220,3 +1220,57 @@ fn a_port_that_changes_its_arguments_where_the_original_does_not_fails() {
         "{target:#}"
     );
 }
+
+/// RUST-166: a set's items, like the calls themselves, come in hash order,
+/// and speed build and speed run each draw their own seed. The run is held
+/// to the build as the measured check compares: by canonical value.
+#[test]
+fn a_caller_passing_a_set_of_strings_is_held_to_its_build_at_another_hash_seed() {
+    let declaration = declare_targets(
+        "caller-set",
+        "suite-python.json",
+        vec![caller("letters", "a_set_of_letters", "size")],
+    );
+    let wheels = declaration.with_file_name("wheels");
+    let seed = |n: &'static str| [Path::new("--hash-seed"), Path::new(n)];
+    let (code, err) = speed(
+        &[
+            &[
+                Path::new("build"),
+                &declaration,
+                Path::new("--out"),
+                &wheels,
+            ][..],
+            &seed("1"),
+        ]
+        .concat(),
+        &[],
+    );
+    assert_eq!(code, 0, "{err}");
+    for n in ["2", "3"] {
+        let (code, err, report) = quiet(&mut || run(&declaration, &wheels, &seed(n), &[]));
+        assert_eq!(
+            (code, &report["verdict"]),
+            (1, &json!("unreliable")),
+            "seed {n}: {err}\n{report:#}"
+        );
+        assert!(
+            report["targets"][0]["failed"].is_null(),
+            "seed {n}: {report:#}"
+        );
+    }
+    // Another input still fails.
+    let (code, err, report) = run(
+        &declaration,
+        &wheels,
+        &seed("2"),
+        &[("SPEED_FIXTURE_LETTERS", "abcdefgz")],
+    );
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let failed = report["targets"][0]["failed"].as_str().unwrap_or("");
+    assert!(failed.starts_with("timed_input_unstable: "), "{report:#}");
+}

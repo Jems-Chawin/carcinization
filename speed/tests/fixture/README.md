@@ -26,5 +26,7 @@
   `a_nap_no_case_has` reaches nap(3), which no case has;
   `naps_that_change` reaches nap(2) and then nap(0);
   `a_nap_set_by_the_environment` reaches nap(2), or the nap
-  SPEED_FIXTURE_NAP names; `a_wrong` reaches wrong-1.
+  SPEED_FIXTURE_NAP names; `a_set_of_letters` reaches size-letters, a set
+  of strings whose order follows the hash seed, or the letters
+  SPEED_FIXTURE_LETTERS names; `a_wrong` reaches wrong-1.
 - `outside.jsonl` is a case file that no suite lists.

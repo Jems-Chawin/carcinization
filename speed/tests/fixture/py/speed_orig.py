@@ -35,3 +35,7 @@ def crash(n):
 
 def first(xs):
     return xs[0]
+
+
+def size(s):
+    return len(s)
