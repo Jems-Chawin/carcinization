@@ -124,9 +124,12 @@ called.
    - Named parameters are written by position, keyword-only ones by
      keyword, and `*args` and `**kwargs` as they were passed, defaults
      included, as the call received them. Only a parameter that holds its
-     own default, where the value format cannot hold that default (a
-     sentinel `object()`), is left out, and the named parameters after it
-     go by keyword. The harness reads a left-out parameter as the default
+     own default, where that default is a bare `object()` sentinel, is
+     left out, and the named parameters after it go by keyword: such an
+     object can hold no state for the workload to have changed. A
+     sentinel of another class (such as NumPy's `_NoValue`), or any other
+     default the format cannot hold, is written, and so reported
+     unencodable by name. The harness reads a left-out parameter as the default
      of the function it calls, and leaves out a parameter at its default
      when it compares, so a call written with its defaults still matches a
      case written without them. Two limits: such a default is

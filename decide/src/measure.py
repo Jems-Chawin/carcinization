@@ -853,18 +853,14 @@ NO_DEFAULT = object()
 
 
 def must_leave_out(value, default):
-    """The value is the parameter's default object, which the value format
-    cannot hold (a sentinel). Only such a parameter is left out: any other
-    value is written as received, since the harness reads a left-out
-    parameter as the default of the function it calls, freshly imported,
-    which need not be this one's as the workload left it."""
-    if default is NO_DEFAULT or value is not default:
-        return False
-    try:
-        enc(default)
-    except (Unencodable, RecursionError):
-        return True
-    return False
+    """The value is the parameter's default, a bare `object()`: a sentinel,
+    which the value format cannot hold and which can hold no state. Only
+    such a parameter is left out. Any other value is written as received,
+    since the harness reads a left-out parameter as the default of the
+    function it calls, freshly imported, and a default of another class
+    may hold state the workload changed (it is then reported
+    unencodable)."""
+    return default is not NO_DEFAULT and value is default and type(default) is object
 
 
 def defaults_of(frame, code):

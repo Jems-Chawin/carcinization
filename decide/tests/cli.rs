@@ -44,6 +44,12 @@ def scaled(x, factor=2):
 SETTINGS = {'scale': 1}
 def lookup(key, table=SETTINGS):
     return table.get(key)
+class Options:
+    def __init__(self):
+        self.scale = 1
+OPTIONS = Options()
+def render(x, opts=OPTIONS):
+    return x * opts.scale
 import functools
 def _deco(fn):
     @functools.wraps(fn)
@@ -133,6 +139,12 @@ def run_scaled():
 def run_lookup():
     app.SETTINGS['scale'] = 99
     app.lookup('scale', {'scale': 99})
+    return 0
+
+
+def run_render():
+    app.OPTIONS.scale = 99
+    app.render(2)
     return 0
 
 
@@ -2429,8 +2441,48 @@ fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_c
         ("lookup", "run_lookup", "lookup"),
     ];
     record_each(&repo, &runs);
+    let (code, r, text) = diff_recordings(
+        &repo,
+        &runs,
+        concat!(
+            r#"{"id": "total-12", "fn": "total", "args": [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]}"#,
+            "\n",
+            r#"{"id": "scaled-5", "fn": "scaled", "args": [5]}"#,
+            "\n",
+            r#"{"id": "lookup-scale", "fn": "lookup", "args": ["scale"]}"#,
+            "\n"
+        ),
+        r#"{"file": "rec/total.calls.jsonl", "fn": "total"}, {"file": "rec/scaled.calls.jsonl"}, {"file": "rec/lookup.calls.jsonl"}"#,
+    );
+    assert_eq!(code, Some(1), "{text}");
+    assert_eq!(r["summary"]["identical"], 3, "{text}");
+    assert!(
+        r["reasons"]
+            .to_string()
+            .contains("measured_input_not_compared"),
+        "{text}"
+    );
+    for m in r["measured"].as_array().unwrap() {
+        assert_eq!(
+            (m["lines"].as_u64(), m["compared"].as_u64()),
+            (Some(1), Some(0)),
+            "{}: {text}",
+            m["file"]
+        );
+    }
+}
+
+/// Copies each run's recording into rec/, writes a port that differs from
+/// the project by a comment, the cases, and a suite that lists the given
+/// measured entries, commits, and runs carcinify diff.
+fn diff_recordings(
+    repo: &Repo,
+    runs: &[(&str, &str, &str)],
+    cases: &str,
+    measured: &str,
+) -> (Option<i32>, J, String) {
     std::fs::create_dir_all(repo.0.join("rec")).unwrap();
-    for (_, _, name) in runs {
+    for &(_, _, name) in runs {
         std::fs::copy(
             repo.0.join(format!("out/{name}.calls.jsonl")),
             repo.0.join(format!("rec/{name}.calls.jsonl")),
@@ -2440,28 +2492,16 @@ fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_c
     std::fs::create_dir_all(repo.0.join("port")).unwrap();
     // The harness refuses two sides of the same content.
     std::fs::write(repo.0.join("port/app.py"), format!("{APP}# the port\n")).unwrap();
-    std::fs::write(
-        repo.0.join("cases.jsonl"),
-        concat!(
-            r#"{"id": "total-12", "fn": "total", "args": [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]}"#,
-            "\n",
-            r#"{"id": "scaled-5", "fn": "scaled", "args": [5]}"#,
-            "\n",
-            r#"{"id": "lookup-scale", "fn": "lookup", "args": ["scale"]}"#,
-            "\n"
-        ),
-    )
-    .unwrap();
+    std::fs::write(repo.0.join("cases.jsonl"), cases).unwrap();
     std::fs::write(
         repo.0.join("suite.json"),
-        r#"{"schema": "carcinify/diff/suite/1",
- "original": {"kind": "python", "path": ["proj"], "module": "app"},
- "candidate": {"kind": "python", "path": ["port"], "module": "app"},
+        format!(
+            r#"{{"schema": "carcinify/diff/suite/1",
+ "original": {{"kind": "python", "path": ["proj"], "module": "app"}},
+ "candidate": {{"kind": "python", "path": ["port"], "module": "app"}},
  "cases": ["cases.jsonl"],
- "measured": [
-   {"file": "rec/total.calls.jsonl", "fn": "total"},
-   {"file": "rec/scaled.calls.jsonl"},
-   {"file": "rec/lookup.calls.jsonl"}]}"#,
+ "measured": [{measured}]}}"#
+        ),
     )
     .unwrap();
     git(&repo.0, &["add", "-A"]);
@@ -2479,23 +2519,11 @@ fn a_recorded_call_is_written_with_the_defaults_it_received_so_another_default_c
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
-    let r: J = serde_json::from_str(&std::fs::read_to_string(&report).unwrap()).unwrap();
-    assert_eq!(out.status.code(), Some(1), "{text}");
-    assert_eq!(r["summary"]["identical"], 3, "{text}");
-    assert!(
-        r["reasons"]
-            .to_string()
-            .contains("measured_input_not_compared"),
-        "{text}"
-    );
-    for m in r["measured"].as_array().unwrap() {
-        assert_eq!(
-            (m["lines"].as_u64(), m["compared"].as_u64()),
-            (Some(1), Some(0)),
-            "{}: {text}",
-            m["file"]
-        );
-    }
+    let r = std::fs::read_to_string(&report)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or(J::Null);
+    (out.status.code(), r, text)
 }
 
 /// Runs decide --record-calls once per (candidate, workload function,
@@ -2566,5 +2594,38 @@ fn record_calls_finds_the_defaults_of_a_candidate_behind_a_decorator() {
     assert_eq!(
         read("cached"),
         r#"{"id": "call-1", "fn": "cached", "encoding": "typed", "args": [{"t": "int", "v": "1"}], "kwargs": {}}"#.to_string() + "\n"
+    );
+}
+
+#[test]
+fn a_default_object_whose_state_the_workload_changed_is_written_not_left_out() {
+    // The workload's render(2) gives 198; the case render(2), in a fresh
+    // import, gives 2. Only a bare object() can hold no state, so this
+    // default is written, and the harness reports it, not a pass.
+    let repo = repo(
+        r#""function": "run_render", "args": []"#,
+        r#"{"file": "app.py", "function": "render"}"#,
+        "",
+        "",
+    );
+    let runs = [("render", "run_render", "render")];
+    record_each(&repo, &runs);
+    let (code, r, text) = diff_recordings(
+        &repo,
+        &runs,
+        concat!(r#"{"id": "render-2", "fn": "render", "args": [2]}"#, "\n"),
+        r#"{"file": "rec/render.calls.jsonl"}"#,
+    );
+    assert_eq!(code, Some(1), "{text}");
+    assert!(
+        r["reasons"]
+            .to_string()
+            .contains("measured_input_not_encodable"),
+        "{text}"
+    );
+    assert_eq!(r["measured"][0]["compared"], 0, "{text}");
+    assert_eq!(
+        r["measured"][0]["unencodable"][0]["holds"], "app.Options",
+        "{text}"
     );
 }
