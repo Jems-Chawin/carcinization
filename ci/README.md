@@ -21,6 +21,25 @@ The script does not stop at the first failure. Results are in
 `<out>/results.tsv`, versions in `<out>/versions.tsv`, the comparison in
 `<out>/comparison.txt`, and each suite's and example's output beside them.
 
+## Under the load gate
+
+```sh
+LOG=target/ci/gate.log ci/gate.sh ci/run-all.sh . target/ci/local
+```
+
+`gate.sh` waits until the 1-minute load average has been under 6 at 30
+readings in a row, 10 s apart, then runs its command with a reading every
+10 s. Every reading goes to the log, from the start of the wait. Each run
+appends a block that begins with a "wait:" line stating the rule and a
+random run id; the command gets the id as `GATE_RUN_ID`. Every line starts
+with the clock time and the epoch seconds, and gaps between readings are
+judged by the epoch seconds, so a wait across midnight is no different. A
+timed run checks the log's last block against that id and the rule
+(`speed/src/gate.rs`). Run the gate on the machine itself: in a container
+on a Mac, `/proc/loadavg` is the VM's. For a container, gate on the host
+with `docker exec -e GATE_RUN_ID ...` as the command, the id passed by
+name.
+
 ## What makes a run fail
 
 `compare.py` sets `results.tsv` beside `expected.tsv`. The run exits 1 when

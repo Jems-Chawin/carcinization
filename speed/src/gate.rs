@@ -568,4 +568,94 @@ mod tests {
             "load_not_watched"
         );
     }
+
+    /// `ci/gate.sh` with `LOG` set and the test-only settings cleared.
+    fn gate_script(log: &Path) -> std::process::Command {
+        let mut c = std::process::Command::new("bash");
+        c.arg(concat!(env!("CARGO_MANIFEST_DIR"), "/../ci/gate.sh"))
+            .env("LOG", log)
+            .env_remove("GATE_EVERY")
+            .env_remove("GATE_READINGS")
+            .env_remove("GATE_LIMIT")
+            .env_remove("GATE_RUN_ID");
+        c
+    }
+
+    #[test]
+    fn the_gate_script_states_the_one_rule_and_a_run_id_in_its_header() {
+        let log = Log::new("");
+        // In a process group of its own, so that its `sleep` goes with it.
+        let mut gate =
+            std::os::unix::process::CommandExt::process_group(&mut gate_script(&log.0), 0)
+                .arg("true")
+                .spawn()
+                .unwrap();
+        // The header comes before the first reading; the wait itself would
+        // take five minutes, so the script is stopped once it is there.
+        let start = std::time::Instant::now();
+        let header = loop {
+            let text = std::fs::read_to_string(&log.0).unwrap();
+            if let Some(line) = text.lines().next() {
+                break line.to_string();
+            }
+            assert!(start.elapsed() < Duration::from_secs(10), "no header");
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        // Bash's own `kill`: a slim Linux image may have no kill program.
+        let group = format!("kill -KILL -- -{}", gate.id());
+        let killed = std::process::Command::new("bash")
+            .args(["-c", &group])
+            .status();
+        assert!(killed.unwrap().success());
+        gate.wait().unwrap();
+        let (readings, limit, every, id) = rule(&header).expect(&header);
+        assert_eq!(
+            (readings, limit, every),
+            (READINGS, LIMIT, EVERY),
+            "{header}"
+        );
+        let id = id.expect(&header);
+        assert!(
+            id.len() == 16 && id.bytes().all(|b| b.is_ascii_hexdigit()),
+            "{header}"
+        );
+    }
+
+    #[test]
+    fn the_gate_script_gives_its_command_the_run_id_and_a_test_rule_is_judged_so() {
+        let log = Log::new("");
+        let snapshot = Log::new("");
+        let given = Log::new("");
+        let status = gate_script(&log.0)
+            .env("GATE_EVERY", "1")
+            .env("GATE_READINGS", "2")
+            .env("GATE_LIMIT", "1000")
+            .env("SNAPSHOT", &snapshot.0)
+            .env("GIVEN", &given.0)
+            .args([
+                "sh",
+                "-c",
+                r#"cp "$LOG" "$SNAPSHOT"; printf %s "$GATE_RUN_ID" > "$GIVEN""#,
+            ])
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let id = std::fs::read_to_string(&given.0).unwrap();
+        let header = std::fs::read_to_string(&log.0)
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            rule(&header).and_then(|r| r.3),
+            Some(id.as_str()),
+            "{header}"
+        );
+        // While its command ran, the gate was open, under a test rule.
+        assert_eq!(reason(Gate::open(&snapshot.0, Some(&id))), "gate_rule");
+        assert_eq!(reason(Gate::open(&snapshot.0, Some(ID))), "not_this_run");
+        // Afterwards its block has ended.
+        assert_eq!(reason(Gate::open(&log.0, Some(&id))), "gate_not_open");
+    }
 }

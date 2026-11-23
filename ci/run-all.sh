@@ -107,7 +107,7 @@ printf 'note\tdecide tests: %s run(s) repeated because the tool said the machine
 if [ "${RUN_LIVE:-0}" = 1 ]; then
   suite deps-live -p carcinify --test deps -- --ignored
 fi
-# speed: so far the reader of the host gate's log.
+# speed: so far the reader of the host gate's log, and ci/gate.sh itself.
 suite speed -p carcinify-speed --lib
 # The worked examples' own tests. Each is a workspace of its own.
 export PYO3_PYTHON=$py
