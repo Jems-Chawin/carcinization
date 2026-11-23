@@ -139,6 +139,16 @@ fn run(opts: &Options) -> Result<u8, String> {
             ));
         }
     }
+    // --allow-dirty allows a tree that does not match its commit, not one
+    // whose changes are not the build's.
+    let dirty_sha256 = crate::build::changes(&git)?;
+    if J::from(dirty_sha256.clone()) != record["dirty_sha256"] {
+        return Err(format!(
+            "the tree's uncommitted changes differ from those speed build built with (SHA-256 {} now, {} then): run `carcinify speed build` again",
+            dirty_sha256.as_deref().unwrap_or("none"),
+            record["dirty_sha256"].as_str().unwrap_or("none")
+        ));
+    }
     // The build's tools block is the report's.
     let tools = record
         .as_object_mut()
@@ -259,7 +269,7 @@ fn run(opts: &Options) -> Result<u8, String> {
         "flags": flags,
         "tools": tools,
         "declaration_sha256": sha256_file(&opts.declaration)?,
-        "run": {"commit": git.commit, "dirty": !git.dirty.is_empty(), "suite_sha256": suite_sha256},
+        "run": {"commit": git.commit, "dirty": !git.dirty.is_empty(), "dirty_sha256": dirty_sha256, "suite_sha256": suite_sha256},
         "machine": facts(crate::platform::machine()),
         "build": record,
         "python": result["python"],

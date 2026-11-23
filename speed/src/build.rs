@@ -129,6 +129,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
         "suite_sha256": sha256_file(&loaded.suite_path)?,
         "commit": git.commit,
         "dirty": !git.dirty.is_empty(),
+        "dirty_sha256": changes(&git)?,
         "python": interpreter(&opts.python)?,
         "sides": sides,
         "callers": callers,
@@ -361,6 +362,52 @@ pub fn tree(dir: &Path, allow_dirty: bool) -> Result<carcinify_diff::provenance:
         ));
     }
     Ok(git)
+}
+
+/// A SHA-256 of the tree's changes from its commit: `git diff HEAD`, then
+/// each file git does not track and does not ignore, by path and content.
+/// None for a tree that matches its commit.
+///
+/// shortcut: a change git status does not show (assume-unchanged or
+/// skip-worktree) is in `dirty` but not in this hash; hash those files too
+/// if anyone uses those flags on code under test.
+pub fn changes(git: &carcinify_diff::provenance::Git) -> Result<Option<String>, String> {
+    if git.dirty.is_empty() {
+        return Ok(None);
+    }
+    let run = |args: &[&str]| -> Result<Vec<u8>, String> {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(&git.root)
+            .args(args)
+            .output()
+            .map_err(|e| format!("cannot run git: {e}"))?;
+        if !out.status.success() {
+            return Err(format!(
+                "git {}: {}",
+                args.join(" "),
+                String::from_utf8_lossy(&out.stderr)
+            ));
+        }
+        Ok(out.stdout)
+    };
+    let mut all = run(&[
+        "diff",
+        "--binary",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-color",
+        "HEAD",
+    ])?;
+    let untracked = run(&["ls-files", "--others", "--exclude-standard", "-z"])?;
+    for path in untracked.split(|b| *b == 0).filter(|p| !p.is_empty()) {
+        let name = String::from_utf8_lossy(path);
+        all.extend_from_slice(path);
+        all.push(0);
+        all.extend_from_slice(sha256_file(&git.root.join(name.as_ref()))?.as_bytes());
+        all.push(b'\n');
+    }
+    Ok(Some(sha256_bytes(&all)))
 }
 
 /// The interpreter as it names itself, and its version: what a wheel is

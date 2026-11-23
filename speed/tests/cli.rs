@@ -774,22 +774,39 @@ fn speed_run_refuses_what_speed_build_did_not_build_for() {
         code, 2,
         "a build too refuses a tree that does not match its commit: {err}"
     );
-    // With --allow-dirty the run says so, beside the build's own state.
+    // With --allow-dirty too: these changes are not the build's, which had
+    // none.
+    let (code, err) = speed("run", &["--allow-dirty"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("uncommitted changes differ"), "{err}");
+    // Built and timed with the same changes, the report says so.
+    let (code, err) = speed("build", &["--allow-dirty"]);
+    assert_eq!(code, 0, "{err}");
     let (code, err) = speed("run", &["--allow-dirty"]);
     assert_eq!(code, 1, "{err}");
     let run = read(&report);
     assert_eq!(
         (&run["run"]["dirty"], &run["build"]["dirty"]),
-        (&json!(true), &json!(false)),
+        (&json!(true), &json!(true)),
         "{run:#}"
     );
+    assert!(run["run"]["dirty_sha256"].is_string(), "{run:#}");
+    assert_eq!(run["run"]["dirty_sha256"], run["build"]["dirty_sha256"]);
     assert_eq!(run["run"]["suite_sha256"], build["suite_sha256"]);
+    // A file git does not track, added since: other changes.
+    std::fs::write(repo.join("py/notes.txt"), "more").unwrap();
+    let (code, err) = speed("run", &["--allow-dirty"]);
+    assert_eq!(code, 2, "{err}");
+    assert!(err.contains("uncommitted changes differ"), "{err}");
+    std::fs::remove_file(repo.join("py/notes.txt")).unwrap();
     // Committed: another commit than the build's.
     git(&["commit", "-q", "-am", "slower"]);
     let (code, err) = speed("run", &[]);
     assert_eq!(code, 2, "{err}");
     assert!(err.contains("commit"), "{err}");
     git(&["reset", "-q", "--hard", "HEAD~1"]);
+    let (code, err) = speed("build", &[]);
+    assert_eq!(code, 0, "built again on the clean tree: {err}");
     // Another declaration, another suite.
     declare(4);
     let (code, err) = speed("run", &["--allow-dirty"]);
