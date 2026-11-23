@@ -35,6 +35,9 @@ pub struct Timed {
     pub name: String,
     pub failed: Option<String>,
     pub figures: Option<Figures>,
+    /// The share of its time the process computing beside the target's
+    /// timing was kept off the CPU; `None` when no watch was kept.
+    pub kept_off_beside: Option<f64>,
 }
 
 /// The verdict, its exit status, the reasons for it and the flags.
@@ -55,6 +58,16 @@ pub fn judge(
         unreliable.push(format!("{kind}: {detail}"));
     }
     for t in targets {
+        if let Some(lost) = t
+            .kept_off_beside
+            .filter(|l| *l > carcinify_decide::report::BUSY_WHILE_RUNNING)
+        {
+            unreliable.push(format!(
+                "busy_beside: {}: a second process that does nothing but compute was kept off the CPU for {:.0}% of its time: other programs were taking the CPU while the target was timed",
+                t.name,
+                lost * 100.0
+            ));
+        }
         if t.figures.as_ref().is_some_and(|f| f.ratio.is_none()) {
             unreliable.push(format!(
                 "every_pair_dropped: {}: every pair of runs was disturbed",
@@ -159,11 +172,13 @@ fn run(opts: &Options) -> Result<u8, String> {
             "pairs_dropped": figures.as_ref().map(|f| f.pairs_dropped),
             "short_run": figures.as_ref().map(|f| f.short_run),
             "runs": out["runs"],
+            "watched_beside": out["watched_beside"],
         }));
         timed.push(Timed {
             name: t.name.clone(),
             failed,
             figures,
+            kept_off_beside: out["watched_beside"]["kept_off_the_cpu"].as_f64(),
         });
     }
     let (verdict, exit_status, reasons, flags) = judge(&timed, &gate);
@@ -351,16 +366,47 @@ fn time(
         let request: J = serde_json::from_str(&request).map_err(|e| e.to_string())?;
         targets.push(json!({"name": t.name, "request": request, "calls_per_run": t.calls_per_run}));
     }
-    let result_path = work.join("result.json");
-    let plan = json!({
-        "harness_driver": harness,
-        "measure": measure,
-        "debug_log": opts.debug_log,
-        "result": result_path,
-        "runs": loaded.declaration.runs,
-        "sides": sides,
-        "targets": targets,
-    });
+    // One driver process for each target, with decide's process computing
+    // beside it for as long as it runs: load that begins and ends inside a
+    // run falls between the loops timed before and after it.
+    let mut result = json!({"targets": []});
+    for (i, target) in targets.into_iter().enumerate() {
+        let result_path = work.join(format!("result-{i}.json"));
+        let plan = json!({
+            "harness_driver": harness,
+            "measure": measure,
+            "debug_log": opts.debug_log,
+            "result": result_path,
+            "runs": loaded.declaration.runs,
+            "sides": sides,
+            "targets": [target],
+        });
+        let watch = carcinify_decide::watch::Watch::start(&opts.python);
+        let ran = drive(opts, work, &driver, &plan, &result_path);
+        let beside = watch.finish();
+        let mut ran = ran?;
+        let mut out = ran["targets"][0].take();
+        out["watched_beside"] = beside.map_or(
+            J::Null,
+            |r| json!({"seconds": r.seconds, "kept_off_the_cpu": r.kept_off_the_cpu}),
+        );
+        result["python"] = ran["python"].take();
+        result["targets"]
+            .as_array_mut()
+            .ok_or("no targets")?
+            .push(out);
+    }
+    Ok(result)
+}
+
+/// One run of the timing driver on `plan`, and its result.
+fn drive(
+    opts: &Options,
+    work: &Path,
+    driver: &Path,
+    plan: &J,
+    result_path: &Path,
+) -> Result<J, String> {
     let log_path = work.join("driver.log");
     let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
     // As carcinify diff starts a side: no user site-packages, no PYTHON*
@@ -371,7 +417,7 @@ fn time(
         .arg("-s")
         .arg("-X")
         .arg(format!("pycache_prefix={}", work.join("pycache").display()))
-        .arg(&driver)
+        .arg(driver)
         .stdin(Stdio::piped())
         .stdout(log.try_clone().map_err(|e| e.to_string())?)
         .stderr(log);
@@ -396,7 +442,7 @@ fn time(
     // shortcut: no time limit; a port that hangs hangs the run. Add one if
     // a port ever does.
     let status = child.wait().map_err(|e| e.to_string())?;
-    let text = std::fs::read_to_string(&result_path).map_err(|_| {
+    let text = std::fs::read_to_string(result_path).map_err(|_| {
         let log = std::fs::read_to_string(&log_path).unwrap_or_default();
         format!(
             "the timing driver gave no result ({status}):\n{}",
@@ -461,6 +507,7 @@ mod tests {
                 pairs_dropped: if ratio.is_none() { 3 } else { 0 },
                 short_run,
             }),
+            kept_off_beside: None,
         }
     }
 
@@ -483,6 +530,18 @@ mod tests {
             reasons[0].starts_with("every_pair_dropped: b"),
             "{reasons:?}"
         );
+    }
+
+    #[test]
+    fn a_target_whose_process_beside_was_kept_off_the_cpu_is_unreliable() {
+        let mut busy = timed("a", None, Some((2.0, 1.9, 2.1)), false);
+        busy.kept_off_beside = Some(0.2);
+        let (verdict, exit, reasons, _) = judge(&[busy], &quiet());
+        assert_eq!((verdict, exit), ("unreliable", 1));
+        assert!(reasons[0].starts_with("busy_beside: a: "), "{reasons:?}");
+        let mut quiet_beside = timed("a", None, Some((2.0, 1.9, 2.1)), false);
+        quiet_beside.kept_off_beside = Some(0.1);
+        assert_eq!(judge(&[quiet_beside], &quiet()).0, "pass");
     }
 
     #[test]

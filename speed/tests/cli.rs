@@ -195,12 +195,13 @@ fn built(declaration: &Path) -> PathBuf {
     wheels
 }
 
-/// Whether every pair of some target was dropped as disturbed: the
-/// machine was too busy for the run.
+/// Whether every pair of some target was dropped as disturbed, or the
+/// process beside a target was kept off the CPU: the machine was too busy
+/// for the run.
 fn too_busy(report: &J) -> bool {
     report["reasons"].as_array().into_iter().flatten().any(|r| {
         r.as_str()
-            .is_some_and(|r| r.starts_with("every_pair_dropped"))
+            .is_some_and(|r| r.starts_with("every_pair_dropped") || r.starts_with("busy_beside"))
     })
 }
 
@@ -384,6 +385,18 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     );
     let nap = &report["targets"][0];
     assert_eq!(nap["name"], "nap");
+    // decide's process beside the measurement, kept for each target on a
+    // machine with 4 CPUs or more.
+    let cpus = std::thread::available_parallelism().map_or(0, |n| n.get());
+    let beside = &nap["watched_beside"];
+    if cpus >= 4 {
+        assert!(
+            beside["kept_off_the_cpu"].is_f64() && beside["seconds"].as_f64().unwrap() > 0.1,
+            "{nap:#}"
+        );
+    } else {
+        assert!(beside.is_null(), "{nap:#}");
+    }
     let ratio = nap["ratio"]["median"].as_f64().unwrap();
     assert!(
         (0.05..0.2).contains(&ratio),
