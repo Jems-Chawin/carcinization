@@ -2515,6 +2515,37 @@ fn a_lone_process_that_dies_names_its_side_and_target() {
     );
 }
 
+/// RUST-198: the time limit is each target's in a side's lone process too.
+/// Two targets whose port call takes 3 s each, under a 5 s limit: the port
+/// alone calls both in one process, 6 s in all, and builds.
+#[test]
+fn each_target_has_the_whole_time_limit_in_a_lone_process() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-lone-limit");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let mut cases = std::fs::read_to_string(repo.0.join("cases.jsonl")).unwrap();
+    cases += "{\"id\": \"nap-300\", \"fn\": \"nap\", \"args\": [300]}\n";
+    std::fs::write(repo.0.join("cases.jsonl"), cases).unwrap();
+    repo.commit("a case whose port call takes 3 s");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+    "targets": [
+        {"name": "a", "case": {"file": "cases.jsonl", "id": "nap-300"}, "calls_per_run": 1},
+        {"name": "b", "case": {"file": "cases.jsonl", "id": "nap-300"}, "calls_per_run": 1},
+    ]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let wheels = dir.join("wheels");
+    let _ = std::fs::remove_dir_all(&wheels);
+    let (code, err) = speed_as_given(&[
+        "build",
+        declaration.to_str().unwrap(),
+        "--out",
+        wheels.to_str().unwrap(),
+        "--timeout-secs",
+        "5",
+    ]);
+    assert_eq!(code, 0, "{err}");
+}
+
 /// RUST-190: a module a side imports only through a caller target's calls
 /// is held by each side alone too, as a direct target's is. The original's
 /// own colorsys.py, imported inside nap, which the caller reaches: alone,

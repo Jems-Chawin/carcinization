@@ -40,8 +40,9 @@ options:
                         4294967295 [drawn at random; the report records it]
   --debug-log <file>    run: one line for each step of the timing
   --timeout-secs <n>    limit for each target's driver: in build, its
-                        untimed calls, left for run to judge if killed;
-                        in run, its timing, and the target fails   [120]
+                        untimed calls, alone too, left for run to judge
+                        if killed (alone, the build stops); in run, its
+                        timing, and the target fails   [120]
 
 exit status: 0 pass, with or without flags; 1 a target refused or failed,
 or the run unreliable; 2 refused, or the run could not be carried out.

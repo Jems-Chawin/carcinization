@@ -758,11 +758,23 @@ pub fn drive(
             .write_all(plan.to_string().as_bytes())
             .map_err(|e| e.to_string())?;
     }
-    // The time limit, as carcinify diff has one for each case and side.
-    let deadline = std::time::Instant::now() + opts.timeout;
+    // The time limit, as carcinify diff has one for each case and side. A
+    // side's lone process calls every target, so its limit starts again
+    // each time the driver writes down the next target's name (RUST-198).
+    let mut deadline = std::time::Instant::now() + opts.timeout;
+    let calling = plan["calling"]
+        .as_str()
+        .filter(|_| plan["lone"].is_string());
+    let mut called = None;
     let status = loop {
         if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
             break status;
+        }
+        if let Some(name) = calling.and_then(|p| std::fs::read_to_string(p).ok())
+            && called.as_ref() != Some(&name)
+        {
+            called = Some(name);
+            deadline = std::time::Instant::now() + opts.timeout;
         }
         if std::time::Instant::now() >= deadline {
             let _ = child.kill();
