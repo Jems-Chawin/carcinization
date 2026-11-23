@@ -1893,7 +1893,7 @@ def run_prepared_with_hidden_products(n, loop, times):
 /// With the real NumPy. Needs an interpreter that has it, named in
 /// `CARCINIFY_NUMPY_PYTHON`:
 ///
-///     python3 -m venv target/numpy-venv && target/numpy-venv/bin/pip install numpy
+///     python3 -m venv target/numpy-venv && target/numpy-venv/bin/pip install numpy==2.5.4
 ///     CARCINIFY_NUMPY_PYTHON=$PWD/target/numpy-venv/bin/python \
 ///         cargo test --locked -p carcinify --test decide -- --ignored
 #[test]

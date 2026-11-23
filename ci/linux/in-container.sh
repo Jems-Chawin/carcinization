@@ -28,7 +28,7 @@ export CARCINIFY_PYTHON=$venv/bin/python CARCINIFY_MATURIN=$venv/bin/maturin
 if [ "${NUMPY:-0}" = 1 ]; then
   # A second environment, so that the first stays as the tests expect it.
   "${PYTHON:-python3}" -m venv /work/numpy-venv
-  /work/numpy-venv/bin/pip install --quiet numpy
+  /work/numpy-venv/bin/pip install --quiet numpy==2.5.4
   export CARCINIFY_NUMPY_PYTHON=/work/numpy-venv/bin/python
 fi
 exec /work/checkout/ci/run-all.sh /work/checkout "/out/${OUT_NAME:-run}"

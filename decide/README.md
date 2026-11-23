@@ -676,7 +676,7 @@ saying so: a faster interpreter has twice made a test workload too short.
 One test uses the real NumPy and is ignored by default:
 
 ```sh
-python3 -m venv target/numpy-venv && target/numpy-venv/bin/pip install numpy
+python3 -m venv target/numpy-venv && target/numpy-venv/bin/pip install numpy==2.5.4
 CARCINIFY_NUMPY_PYTHON=$PWD/target/numpy-venv/bin/python \
     cargo test --locked -p carcinify --test decide -- --ignored
 ```

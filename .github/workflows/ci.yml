@@ -50,7 +50,7 @@ jobs:
           python -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet maturin==1.16.0
           python -m venv "$RUNNER_TEMP/numpy-venv"
-          "$RUNNER_TEMP/numpy-venv/bin/pip" install --quiet numpy
+          "$RUNNER_TEMP/numpy-venv/bin/pip" install --quiet numpy==2.5.4
       - name: The comparison script's own tests
         run: python ci/test_compare.py
       - name: ci/run-all.sh
