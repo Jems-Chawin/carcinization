@@ -18,6 +18,7 @@ skill/
       declarations/       (step 6) declaration files for the examples the tool is run on
 harness/                  carcinify diff, the program step 3 uses (built first, lives at the top level)
 structure/                carcinify structure, the program step 6 uses
+speed/                    carcinify speed, the program step 7 uses to time the port
 deps/                     carcinify deps, the program step 2 uses
 decide/                   carcinify decide, the program step 1 uses
 examples/                 the harness's own worked example
@@ -27,7 +28,8 @@ The seven steps: 1 decide whether to port, 2 check dependencies on
 crates.io, 3 compare against the original (`harness/`), 4 design ownership,
 5 port a small piece through PyO3, 6 report on structure, 7 manage the
 period when old and new run side by side. Steps 1, 2, 4 and 6 have
-directories; steps 3, 5 and 7 are not written. The harness predates this
+directories, and so has step 7's timing (`07-speed`); steps 3 and 5, and
+the rest of step 7, are not written. The harness predates this
 layout and stays where it is.
 
 Why this shape:
