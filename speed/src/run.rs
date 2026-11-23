@@ -231,33 +231,26 @@ fn run(opts: &Options) -> Result<u8, String> {
     let no_relaxation = Relax::default();
     let mut timed = Vec::new();
     let mut targets = Vec::new();
-    for ((t, what), out) in loaded
+    for (k, ((t, what), out)) in loaded
         .declaration
         .targets
         .iter()
         .zip(&loaded.timed)
         .zip(result["targets"].as_array().into_iter().flatten())
+        .enumerate()
     {
-        // A caller target compares its outputs with no relaxation, the
-        // harness's default, and is held to the calls speed build checked.
-        let (relax, case, caller, built) = match (what, &t.case, &t.caller) {
-            (Some(declaration::Timed::Case(i)), Some(c), None) => {
-                let case = &loaded.cases[*i];
-                let named = json!({"file": c.file, "id": c.id, "source": case.source});
-                (&case.relax, named, J::Null, None)
-            }
-            (Some(declaration::Timed::Caller(_)), None, Some(c)) => {
-                let named = json!({"file": c.file, "function": c.function, "fn": c.func, "replace": c.replace});
-                let built = &record["callers"][&t.name];
-                (
-                    &no_relaxation,
-                    J::Null,
-                    named,
-                    Some((c.func.as_str(), built)),
-                )
-            }
+        let (case, caller) = match (what, &t.case, &t.caller) {
+            (Some(declaration::Timed::Case(i)), Some(c), None) => (
+                json!({"file": c.file, "id": c.id, "source": loaded.cases[*i].source}),
+                J::Null,
+            ),
+            (Some(declaration::Timed::Caller(_)), None, Some(c)) => (
+                J::Null,
+                json!({"file": c.file, "function": c.function, "fn": c.func, "replace": c.replace}),
+            ),
             _ => return Err("a refused target was timed".into()),
         };
+        let (relax, built) = held_to(&loaded, &record, k, &no_relaxation);
         let runs: Vec<Run> = out["runs"]
             .as_array()
             .into_iter()
@@ -573,45 +566,56 @@ fn time(
         let request: J = serde_json::from_str(&request).map_err(|e| e.to_string())?;
         targets.push(json!({"name": t.name, "request": request, "calls_per_run": t.calls_per_run}));
     }
-    // One driver process for each target, with decide's process computing
-    // beside it for as long as it runs: load that begins and ends inside a
-    // run falls between the loops timed before and after it.
+    // One driver process for each target's timed runs, with decide's
+    // process computing beside it for as long as it runs: load that begins
+    // and ends inside a run falls between the loops timed before and after
+    // it. Then another for its cold thread, which is not judged by load.
     let mut result = json!({"targets": [], "imported": []});
+    // A driver that gave no result fails its own target alone.
+    let target_of = |ran: Driven, name: &J| match ran {
+        Driven::Result(mut ran) => ran["targets"][0].take(),
+        Driven::TimedOut => json!({"name": name, "runs": [], "outputs": {}, "timeout": format!(
+            "no result within {} s; the driver was killed",
+            opts.timeout.as_secs()
+        )}),
+        Driven::Crashed(why) => json!({"name": name, "runs": [], "outputs": {}, "crashed": why}),
+    };
+    let no_relaxation = Relax::default();
     for (i, target) in targets.into_iter().enumerate() {
+        let name = target["name"].clone();
         let result_path = work.join(format!("result-{i}.json"));
         let mut plan = base.clone();
         plan["result"] = json!(result_path);
         plan["targets"] = json!([target]);
         let watch = carcinify_decide::watch::Watch::start(&opts.python);
-        let ran = drive(opts, work, &driver, &plan, &result_path);
+        let ran = drive(opts, work, &driver, &plan, &result_path)?;
         let beside = watch.finish();
-        // A driver that gave no result fails its own target alone.
-        let failed = |why: &str, text: String| json!({"targets": [{"name": plan["targets"][0]["name"], "runs": [], "outputs": {}, why: text}]});
-        let mut ran = match ran? {
-            Driven::Result(ran) => ran,
-            Driven::TimedOut => failed(
-                "timeout",
-                format!(
-                    "no result within {} s; the driver was killed",
-                    opts.timeout.as_secs()
-                ),
-            ),
-            Driven::Crashed(why) => failed("crashed", why),
-        };
-        let mut out = ran["targets"][0].take();
+        take_in(&mut result, &ran);
+        let mut out = target_of(ran, &name);
         out["watched_beside"] = beside.map_or(
             J::Null,
             |r| json!({"seconds": r.seconds, "kept_off_the_cpu": r.kept_off_the_cpu}),
         );
-        if !ran["python"].is_null() {
-            result["python"] = ran["python"].take();
-            result["package_dirs"] = ran["package_dirs"].take();
-        }
-        if let (Some(all), Some(these)) = (
-            result["imported"].as_array_mut(),
-            ran["imported"].as_array(),
-        ) {
-            all.extend(these.iter().cloned());
+        // The cold thread, in a driver of its own, only for a target that
+        // has not already failed: a failed port's figures mean nothing, and
+        // what it does on a new thread must not hide why it failed.
+        let (relax, built) = held_to(loaded, record, i, &no_relaxation);
+        if check_output(&out, relax, built).0.is_some() {
+            out["cold_thread"] =
+                json!({"threads": [], "outputs": [], "not_measured": "target failed"});
+        } else {
+            let cold_path = work.join(format!("result-{i}-cold.json"));
+            plan["result"] = json!(cold_path);
+            plan["cold"] = json!(true);
+            let ran = drive(opts, work, &driver, &plan, &cold_path)?;
+            take_in(&mut result, &ran);
+            let mut cold = target_of(ran, &name);
+            out["cold_thread"] = cold["cold_thread"].take();
+            for why in ["timeout", "crashed", "error"] {
+                if let Some(text) = cold[why].as_str() {
+                    out[why] = json!(format!("in the cold thread's driver: {text}"));
+                }
+            }
         }
         result["targets"]
             .as_array_mut()
@@ -632,6 +636,38 @@ pub enum Driven {
 }
 
 /// One run of the timing driver on `plan`.
+/// The interpreter a driver ran, and the files it imported, into the
+/// run's result.
+fn take_in(result: &mut J, ran: &Driven) {
+    let Driven::Result(ran) = ran else { return };
+    if !ran["python"].is_null() {
+        result["python"] = ran["python"].clone();
+        result["package_dirs"] = ran["package_dirs"].clone();
+    }
+    if let (Some(all), Some(these)) = (
+        result["imported"].as_array_mut(),
+        ran["imported"].as_array(),
+    ) {
+        all.extend(these.iter().cloned());
+    }
+}
+
+/// What a target's outputs are held to: its case's relaxations, or for a
+/// caller none, the harness's default, with the calls speed build checked.
+fn held_to<'a>(
+    loaded: &'a Loaded,
+    record: &'a J,
+    i: usize,
+    none: &'a Relax,
+) -> (&'a Relax, Option<(&'a str, &'a J)>) {
+    let t = &loaded.declaration.targets[i];
+    match (&loaded.timed[i], &t.caller) {
+        (Some(declaration::Timed::Case(c)), _) => (&loaded.cases[*c].relax, None),
+        (_, Some(c)) => (none, Some((c.func.as_str(), &record["callers"][&t.name]))),
+        _ => (none, None),
+    }
+}
+
 pub fn drive(
     opts: &Options,
     work: &Path,

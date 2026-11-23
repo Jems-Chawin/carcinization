@@ -11,10 +11,11 @@ imported side by side. For each target, after one untimed call of each
 side, the sides alternate in pairs of runs, original then port, then port
 then original (ABBA). A run is `calls_per_run` calls, timed together, after
 an untimed gc.collect(); a loop of pure computation (decide's) is timed
-before and after each run. Then the cold thread: in new threads, a cheap
-call into the port's module, then the port's first call there and its next,
-each timed alone. The driver judges nothing: the figures are carcinify
-speed's.
+before and after each run. Started again for a target that did not fail,
+with "cold" in the plan, it makes the cold thread instead: in new threads, a
+cheap call into the port's module, then the port's first call there and its
+next, each timed alone. The driver judges nothing: the figures are
+carcinify speed's.
 
 The arguments are decoded, and the outputs encoded, by carcinify diff's own
 driver. Runs on Python 3.9 and later. Standard library only.
@@ -291,8 +292,10 @@ def main():
                     run = timed_caller(caller, fns, out, n, name, measure, log)
                 else:
                     run = timed_case(req, fns, out, n, name, harness, log)
-                time_sides(out, run, plan, n, name, measure, harness, log)
-                cold_thread(out, run, modules["port"], fns["port"], plan["runs"], name, harness, log)
+                if plan.get("cold"):
+                    cold_thread(out, run, modules["port"], fns["port"], plan["runs"], name, harness, log)
+                else:
+                    time_sides(out, run, plan, n, name, measure, harness, log)
         except BaseException:  # pyo3's PanicException is a BaseException
             out["error"] = traceback.format_exc()[-4000:]
     gil = getattr(sys, "_is_gil_enabled", lambda: True)()

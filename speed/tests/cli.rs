@@ -1664,3 +1664,44 @@ fn a_port_that_answers_otherwise_on_a_new_thread_fails() {
     assert!(doubled["difference"].is_object(), "{doubled:#}");
     assert!(report["targets"][1]["failed"].is_null(), "{report:#}");
 }
+
+/// Step 5, decision 6: a target that already failed gets no cold thread.
+/// Its driver never makes one, and the report says why.
+#[test]
+fn a_target_that_already_failed_gets_no_cold_thread() {
+    let declaration = declare(
+        "cold-failed",
+        "suite-python.json",
+        &[
+            ("wrong", "cases.jsonl", "wrong-1"),
+            ("nap", "cases.jsonl", "nap-2"),
+        ],
+    );
+    let wheels = built(&declaration);
+    let log = declaration.with_file_name("debug.log");
+    let (code, err, report) = quiet(&mut || {
+        let _ = std::fs::remove_file(&log);
+        run(
+            &declaration,
+            &wheels,
+            &[Path::new("--debug-log"), &log],
+            &[],
+        )
+    });
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let wrong = &report["targets"][0]["cold_thread"];
+    assert_eq!(
+        (&wrong["not_measured"], &wrong["threads"]),
+        (&json!("target failed"), &json!(0)),
+        "{wrong:#}"
+    );
+    let log = std::fs::read_to_string(&log).unwrap();
+    assert!(
+        !log.contains("wrong: cold thread") && log.contains("nap: cold thread, 3 threads"),
+        "{log}"
+    );
+}
