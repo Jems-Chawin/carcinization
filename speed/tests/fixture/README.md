@@ -29,6 +29,8 @@
   answers otherwise on a new thread.
 - The Python port's `lazy` imports its sibling `lazy_helper` only when
   called.
+- The Python port's `fails` raises ValueError where the original
+  returns.
 - The PyO3 port's `fill(n)` makes n boxes in one vector, all freed: n + 1
   allocations and 16n bytes. Its first call also makes a 4096-byte
   workspace and keeps it. Built with the feature `count_allocations`, the

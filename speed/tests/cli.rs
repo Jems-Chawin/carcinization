@@ -676,6 +676,12 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
         &[],
     );
     assert_eq!(code, 0, "{err}");
+    assert!(
+        err.contains(
+            "target \"hang\": the original was killed after 5 s on its case; speed run will fail it"
+        ),
+        "{err}"
+    );
     // Each attempt timed alone: the retries quiet() makes when the machine
     // is busy, and the waits for other tests' runs, are not this run's.
     let mut took = Vec::new();
@@ -2148,4 +2154,40 @@ fn a_port_with_no_cheap_call_that_raises_on_a_new_thread_fails() {
         failed.starts_with("raised_in_new_thread: AttributeError"),
         "{lookup:#}"
     );
+}
+
+/// RUST-170's follow-up: speed build says when a side's untimed call
+/// raised, crashed or was killed, naming the target and the side, and
+/// still builds: speed run is the judge.
+#[test]
+fn speed_build_says_which_sides_untimed_call_failed() {
+    let declaration = declare(
+        "build-says",
+        "suite-python.json",
+        &[
+            ("fails", "cases.jsonl", "fails-1"),
+            ("crash", "cases.jsonl", "crash-1"),
+            ("nap", "cases.jsonl", "nap-2"),
+        ],
+    );
+    let wheels = declaration.with_file_name("wheels");
+    let (code, err) = speed(
+        &[
+            Path::new("build"),
+            &declaration,
+            Path::new("--out"),
+            &wheels,
+        ],
+        &[],
+    );
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        err.contains("target \"fails\": the port raised on its case (ValueError: the port fails on 1); speed run will fail it"),
+        "{err}"
+    );
+    assert!(
+        err.contains("target \"crash\": the port crashed on its case (the driver exited ("),
+        "{err}"
+    );
+    assert!(!err.contains("target \"nap\""), "{err}");
 }

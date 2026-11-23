@@ -539,9 +539,37 @@ fn callers(
             continue;
         };
         let called = work.join(format!("called-{i}.json"));
+        let calling = work.join(format!("calling-{i}"));
         plan["targets"] = json!([crate::run::case_target(t, &loaded.cases[*c], work, i)?]);
         plan["result"] = json!(called);
+        plan["calling"] = json!(calling);
         let ran = crate::run::drive(opts, work, &driver, &plan, &called)?;
+        // Said here, judged by speed run: it saves a wait for the gate.
+        let failed = match &ran {
+            crate::run::Driven::Result(r) => r["targets"][0]["error"].as_str().map(|e| {
+                let last = e.trim_end().lines().last().unwrap_or("");
+                format!("raised on its case ({last})")
+            }),
+            crate::run::Driven::TimedOut => Some(format!(
+                "was killed after {} s on its case",
+                opts.timeout.as_secs()
+            )),
+            crate::run::Driven::Crashed(why) => {
+                let first = why.lines().next().unwrap_or("").split(';').next();
+                Some(format!("crashed on its case ({})", first.unwrap_or("")))
+            }
+        };
+        if let Some(failed) = failed {
+            let side = std::fs::read_to_string(&calling).unwrap_or_default();
+            let who = match side.as_str() {
+                "original" | "port" => format!("the {side}"),
+                _ => "a side".to_string(),
+            };
+            eprintln!(
+                "carcinify speed: target {:?}: {who} {failed}; speed run will fail it",
+                t.name
+            );
+        }
         crate::run::take_in(&mut result, &ran);
     }
     // Run with no callers too: it says what the sides import.

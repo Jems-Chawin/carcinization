@@ -84,3 +84,7 @@ def lazy(n):
 
 def fill(n):
     return sum(range(n))
+
+
+def fails(n):
+    raise ValueError("the port fails on %d" % n)

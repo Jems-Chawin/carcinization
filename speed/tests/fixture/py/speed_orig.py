@@ -69,3 +69,7 @@ def lazy(n):
 
 def fill(n):
     return sum(range(n))
+
+
+def fails(n):
+    return n

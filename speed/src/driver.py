@@ -378,8 +378,13 @@ def main():
                 out["recorded"] = [measure.record(spec), measure.record(spec)]
             elif plan.get("record"):
                 # One untimed call of each side, so that speed build sees
-                # what the call imports.
-                timed_case(req, fns, out, n, name, harness, log)
+                # what the call imports. The side is written down first, so
+                # that speed build can name it if the call never returns.
+                for side in fns:
+                    with open(plan["calling"], "w") as f:
+                        f.write(side)
+                    args, kwargs = case_args(req, harness)
+                    fns[side](*args, **kwargs)
             elif plan.get("count"):
                 # The counted wheel's port alone is called, and nothing
                 # before: its first call here is its first.
