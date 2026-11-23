@@ -1082,3 +1082,32 @@ fn a_caller_refused_for_an_input_no_case_has_passes_with_the_case_added() {
         "{report:#}"
     );
 }
+
+/// speed build's work directory goes however the build ends.
+#[test]
+fn a_refused_build_leaves_no_work_directory_behind() {
+    let declaration = declare_targets(
+        "refused-work",
+        "suite-python.json",
+        vec![caller("no-case", "a_nap_no_case_has", "nap")],
+    );
+    let child = Command::new(env!("CARGO_BIN_EXE_carcinify"))
+        .args(["speed", "build"])
+        .arg(&declaration)
+        .arg("--out")
+        .arg(declaration.with_file_name("wheels"))
+        .arg("--allow-dirty")
+        .env_remove("GATE_RUN_ID")
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    let work = std::env::temp_dir().join(format!("carcinify-speed-build-{}", child.id()));
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!work.exists(), "{} is left behind", work.display());
+}

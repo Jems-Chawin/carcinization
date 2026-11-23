@@ -69,9 +69,7 @@ fn build(opts: &Options) -> Result<(), Failure> {
                 .map_err(|e| format!("shared entry {}: {e}", path.display()))?,
         );
     }
-    let work = std::env::temp_dir().join(format!("carcinify-speed-build-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&work);
-    std::fs::create_dir_all(&work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
+    let work = Work::new()?;
     let tools = Tools {
         python: opts.python.clone(),
         maturin: opts.maturin.clone(),
@@ -139,8 +137,34 @@ fn build(opts: &Options) -> Result<(), Failure> {
     let text = serde_json::to_string_pretty(&record).map_err(|e| e.to_string())?;
     std::fs::write(out.join(RECORD), text + "\n")
         .map_err(|e| format!("cannot write {}: {e}", out.join(RECORD).display()))?;
-    let _ = std::fs::remove_dir_all(&work);
     Ok(())
+}
+
+/// The build's work directory, removed however the build ends.
+struct Work(PathBuf);
+
+impl Work {
+    fn new() -> Result<Work, String> {
+        let dir =
+            std::env::temp_dir().join(format!("carcinify-speed-build-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
+        Ok(Work(dir))
+    }
+}
+
+impl std::ops::Deref for Work {
+    type Target = Path;
+    fn deref(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for Work {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 /// Design §3: each caller target called twice, untimed, with the original
