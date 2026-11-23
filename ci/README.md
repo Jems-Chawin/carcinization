@@ -188,10 +188,13 @@ LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
 
 - `<repo>` holds the suite: this repository or a port's own, mounted
   read-only and cloned at its commit, at its own path inside the container,
-  so that the declaration's paths hold. carcinify is built from this
-  repository's commit, as above. `<speed.json>` is outside `<repo>` or
-  committed in it; `<out>`, outside `<repo>`, gets `wheels/` and
-  `report.json`.
+  so that the declaration's paths hold. It must be a full clone: a linked
+  worktree's `.git` names a path that is not mounted. carcinify is built
+  from this repository's commit, as above. `<speed.json>` is outside
+  `<repo>` or committed in it; `<out>` gets `wheels/` and `report.json`.
+  The script refuses an `<out>` inside `<repo>` or holding it.
+- It exits with speed's status, or with 2, as speed does when it cannot
+  run, when one of its own steps fails.
 - `speed build` runs first, not gated. Then this host's `ci/gate.sh` wraps a
   `docker exec` of `speed run`, which gets `GATE_RUN_ID` by name and reads
   the host's log through a read-only mount: in Docker on a Mac,

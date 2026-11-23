@@ -3,9 +3,12 @@
 #
 #   LOG=<host gate log> ci/linux/speed.sh <repo> <speed.json> <out>
 #
-# <repo>: the repository that holds the suite, this one or a port's own.
+# <repo>: the repository that holds the suite, this one or a port's own; a
+# full clone, not a linked worktree, whose .git names a path not mounted.
 # <speed.json>: the declaration; outside <repo>, or committed in it.
-# <out>: where wheels/ and report.json go, outside <repo>. GATE_EVERY,
+# <out>: where wheels/ and report.json go; <out> and <repo> must not hold
+# one another. The script exits with speed's status, or with 2, as speed
+# does, when it cannot run: its own steps failed. GATE_EVERY,
 # GATE_READINGS and GATE_LIMIT pass to ci/gate.sh, for checking this script.
 # RUSTFLAGS, when set, passes to speed build, so that the port can be built
 # for another target CPU.
@@ -19,19 +22,35 @@
 # wraps a docker exec of speed run, given GATE_RUN_ID by name [RUST-149],
 # which reads the host's log through a read-only mount.
 set -eu
+trap 'exit 2' ERR
+if [ $# -ne 3 ] || [ -z "${LOG:-}" ]; then
+  echo "usage: LOG=<host gate log> $0 <repo> <speed.json> <out>" >&2
+  exit 2
+fi
 carc=$(cd "$(dirname "$0")/../.." && pwd)
 repo=$(cd "$1" && pwd)
 decl=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")
-mkdir -p "$3" && out=$(cd "$3" && pwd)
-log=${LOG:?set LOG to the host gate log}
-touch "$log" && logdir=$(cd "$(dirname "$log")" && pwd)
+mkdir -p "$3"
+out=$(cd "$3" && pwd)
+# <out> is mounted read-write: inside <repo> it would write into the suite's
+# tree, and holding <repo> it would show the host's tree where the clone goes.
+o=$(cd "$out" && pwd -P)/ r=$(cd "$repo" && pwd -P)/
+if [[ $o == "$r"* || $r == "$o"* ]]; then
+  echo "$0: <out> $out and <repo> $repo hold one another; give an <out> outside <repo>" >&2
+  exit 2
+fi
+log=$LOG
+touch "$log"
+logdir=$(cd "$(dirname "$log")" && pwd)
 BUILD_ONLY=1 "$carc/ci/linux/run.sh" linux/arm64
 c=carcinify-speed-$$
 mounts=(-v "$carc:/carc:ro" -v "$repo:/src:ro" -v "$out:$out" -v "$logdir:/gate:ro")
 case $decl in "$repo"/*) ;; *) mounts+=(-v "$decl:$decl:ro") ;; esac
 docker run -d --rm --name "$c" --platform linux/arm64 --entrypoint sleep "${mounts[@]}" \
   carcinify-ci:linux-arm64 infinity > /dev/null
-trap 'docker rm -f "$c" > /dev/null' EXIT
+# Not failing here: under the ERR trap, a container already gone would turn
+# speed's status into 2.
+trap 'docker rm -f "$c" > /dev/null || true' EXIT
 # A docker exec returns 0 when interrupted; without these the script would
 # go on, and could end with 0, the pass status.
 trap 'exit 130' INT
@@ -40,16 +59,20 @@ docker exec "$c" bash -euc '
   git config --global --add safe.directory "*"
   for pair in /carc:/work/carc "/src:$1"; do
     from=${pair%%:*} to=${pair#*:}
-    git clone -q --no-checkout "$from" "$to" && git -C "$to" checkout -q "$(git -C "$from" rev-parse HEAD)"
+    git clone -q --no-checkout "$from" "$to"
+    git -C "$to" checkout -q "$(git -C "$from" rev-parse HEAD)"
   done
-  cd /work/carc && cargo build --locked -q -p carcinify
-  python3 -m venv /work/venv && /work/venv/bin/pip install --quiet maturin==1.16.0' _ "$repo"
+  cd /work/carc
+  cargo build --locked -q -p carcinify
+  python3 -m venv /work/venv
+  /work/venv/bin/pip install --quiet maturin==1.16.0' _ "$repo"
 tools=(-e CARCINIFY_PYTHON=/work/venv/bin/python -e CARCINIFY_MATURIN=/work/venv/bin/maturin)
 [ -z "${RUSTFLAGS:-}" ] || tools+=(-e RUSTFLAGS)
 speed=/work/carc/target/debug/carcinify
-docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels"
+# speed's own statuses, passed through.
+docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels" || exit $?
 # Not an earlier run's report read as this one's.
 rm -f "$out/report.json"
 LOG=$log "$carc/ci/gate.sh" docker exec -e GATE_RUN_ID "${tools[@]}" "$c" \
   "$speed" speed run "$decl" --wheels "$out/wheels" --report "$out/report.json" \
-  --load-log "/gate/$(basename "$log")"
+  --load-log "/gate/$(basename "$log")" || exit $?
