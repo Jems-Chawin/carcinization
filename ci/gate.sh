@@ -43,6 +43,15 @@ done
 echo "$(stamp) gate open; start: $*" >> "$log"
 ( while sleep "$every"; do echo "$(stamp) load $(load)" >> "$log"; done ) &
 sampler=$!
+# Interrupted, as from the terminal: the sampler, started without job
+# control, ignores SIGINT and would write on, and a docker exec returns 0.
+interrupted() {
+  kill "$sampler" 2>/dev/null
+  echo "$(stamp) end, exit $1 (interrupted); load $(load)" >> "$log"
+  exit "$1"
+}
+trap 'interrupted 130' INT
+trap 'interrupted 143' TERM
 GATE_RUN_ID=$id "$@"
 status=$?
 kill "$sampler" 2>/dev/null

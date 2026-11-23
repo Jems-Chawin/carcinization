@@ -32,6 +32,10 @@ case $decl in "$repo"/*) ;; *) mounts+=(-v "$decl:$decl:ro") ;; esac
 docker run -d --rm --name "$c" --platform linux/arm64 --entrypoint sleep "${mounts[@]}" \
   carcinify-ci:linux-arm64 infinity > /dev/null
 trap 'docker rm -f "$c" > /dev/null' EXIT
+# A docker exec returns 0 when interrupted; without these the script would
+# go on, and could end with 0, the pass status.
+trap 'exit 130' INT
+trap 'exit 143' TERM
 docker exec "$c" bash -euc '
   git config --global --add safe.directory "*"
   for pair in /carc:/work/carc "/src:$1"; do
@@ -44,6 +48,8 @@ tools=(-e CARCINIFY_PYTHON=/work/venv/bin/python -e CARCINIFY_MATURIN=/work/venv
 [ -z "${RUSTFLAGS:-}" ] || tools+=(-e RUSTFLAGS)
 speed=/work/carc/target/debug/carcinify
 docker exec "${tools[@]}" "$c" "$speed" speed build "$decl" --out "$out/wheels"
+# Not an earlier run's report read as this one's.
+rm -f "$out/report.json"
 LOG=$log "$carc/ci/gate.sh" docker exec -e GATE_RUN_ID "${tools[@]}" "$c" \
   "$speed" speed run "$decl" --wheels "$out/wheels" --report "$out/report.json" \
   --load-log "/gate/$(basename "$log")"

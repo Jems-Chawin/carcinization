@@ -2887,3 +2887,62 @@ fn ratios_below_one_keep_three_figures_and_apart_never_prints_as_the_threshold()
         "{out}"
     );
 }
+
+/// RUST-183 and RUST-186: a gated command interrupted from its terminal,
+/// a signal to the whole process group, ends with the signal's status and
+/// a last log line that says so, and leaves no load sampler writing on.
+#[test]
+fn an_interrupted_gate_says_so_and_leaves_no_sampler() {
+    use std::os::unix::process::CommandExt;
+    use std::time::{Duration, Instant};
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-gate-interrupted");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let gate = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ci/gate.sh");
+    let group = |signal: &str, pgid: u32| {
+        let kill = format!("kill -{signal} -- -{pgid} 2>/dev/null");
+        Command::new("bash")
+            .args(["-c", &kill])
+            .status()
+            .unwrap()
+            .success()
+    };
+    for (signal, status) in [("INT", 130), ("TERM", 143)] {
+        let log = dir.join(format!("{signal}.log"));
+        let read = || std::fs::read_to_string(&log).unwrap_or_default();
+        let mut child = Command::new("bash")
+            .arg(&gate)
+            .args(["sleep", "30"])
+            .env("LOG", &log)
+            .env("GATE_EVERY", "1")
+            .env("GATE_READINGS", "1")
+            .env("GATE_LIMIT", "1000")
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let pgid = child.id();
+        let start = Instant::now();
+        while !read().contains("gate open") && start.elapsed() < Duration::from_secs(30) {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        // A reading or so from the sampler first, as in a real run.
+        std::thread::sleep(Duration::from_millis(1500));
+        group(signal, pgid);
+        let ended = child.wait().unwrap();
+        let last = read().lines().last().unwrap_or_default().to_string();
+        std::thread::sleep(Duration::from_millis(2500));
+        let after = read();
+        let left = group("0", pgid);
+        // Whatever the checks say, nothing of this test's is left running.
+        group("KILL", pgid);
+        assert_eq!(ended.code(), Some(status), "{signal}: {ended:?}\n{after}");
+        let line = format!("end, exit {status} (interrupted)");
+        assert!(last.contains(&line), "{signal}: {line}\n{after}");
+        assert_eq!(
+            after.lines().last().unwrap_or_default(),
+            last,
+            "{signal}: the log grew\n{after}"
+        );
+        assert!(!left, "{signal}: a process of the gate's group was left");
+    }
+}
