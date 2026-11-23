@@ -607,6 +607,26 @@ fn check_output(out: &J, relax: &Relax, built: Option<(&str, &J)>) -> (Option<St
     if let Some(crashed) = out["crashed"].as_str() {
         return (Some(format!("crashed: {crashed}")), None);
     }
+    // What the call does to its arguments a caller sees, as it sees the
+    // output.
+    let changed = &out["arguments_changed_by_call"];
+    if changed.is_object() && changed["original"] != changed["port"] {
+        let did = |side: &str| {
+            if changed[side] == true {
+                "changed its arguments"
+            } else {
+                "left its arguments as they were"
+            }
+        };
+        return (
+            Some(format!(
+                "arguments_changed_differently: the original's call {}, and the port's {}",
+                did("original"),
+                did("port")
+            )),
+            None,
+        );
+    }
     let refused = &out["refused"];
     if !refused.is_null() {
         let detail = refused["detail"].as_str().unwrap_or("");

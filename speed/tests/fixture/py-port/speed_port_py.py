@@ -29,3 +29,7 @@ def square(n):
 
 def crash(n):
     os.abort()
+
+
+def first(xs):
+    return xs.pop(0)

@@ -16,6 +16,8 @@
 - `square(n)` is cached in the original (`functools.lru_cache`): every
   timed call would be a cache hit, so carcinify diff refuses it, and speed
   too.
+- `first(xs)` returns the list's first item; the Python port pops it,
+  which the original does not.
 - `crash(n)` returns n in the original and aborts the interpreter in the
   Python port.
 - `callers/` holds caller targets: `callers.py` calls `library.py`, which

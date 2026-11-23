@@ -31,3 +31,7 @@ def square(n):
 
 def crash(n):
     return n
+
+
+def first(xs):
+    return xs[0]

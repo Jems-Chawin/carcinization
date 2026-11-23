@@ -623,9 +623,16 @@ fn a_function_that_changes_its_arguments_gets_a_fresh_copy_for_each_call() {
     );
     let pop = &report["targets"][0];
     assert!(pop["failed"].is_null(), "{pop:#}");
-    assert_eq!(pop["arguments_changed_by_call"], true, "{pop:#}");
+    assert_eq!(
+        pop["arguments_changed_by_call"],
+        json!({"original": true, "port": true}),
+        "{pop:#}"
+    );
     assert!(pop["ratio"]["median"].is_f64(), "{pop:#}");
-    assert_eq!(report["targets"][1]["arguments_changed_by_call"], false);
+    assert_eq!(
+        report["targets"][1]["arguments_changed_by_call"],
+        json!({"original": false, "port": false})
+    );
 }
 
 #[test]
@@ -1136,5 +1143,34 @@ fn a_target_whose_driver_crashes_fails_and_the_next_is_still_timed() {
     assert!(
         report["targets"][1]["ratio"]["median"].is_f64(),
         "{report:#}"
+    );
+}
+
+/// A port that consumes or edits the caller's data where the original does
+/// not differs in what a caller sees, though the outputs agree.
+#[test]
+fn a_port_that_changes_its_arguments_where_the_original_does_not_fails() {
+    let declaration = declare(
+        "changes-differently",
+        "suite-python.json",
+        &[("first", "cases.jsonl", "first-1")],
+    );
+    let wheels = built(&declaration);
+    let (code, err, report) = run(&declaration, &wheels, &[], &[]);
+    assert_eq!(
+        (code, &report["verdict"]),
+        (1, &json!("fail")),
+        "{err}\n{report:#}"
+    );
+    let target = &report["targets"][0];
+    assert_eq!(
+        target["arguments_changed_by_call"],
+        json!({"original": false, "port": true}),
+        "{target:#}"
+    );
+    let failed = target["failed"].as_str().unwrap_or("");
+    assert!(
+        failed.starts_with("arguments_changed_differently: "),
+        "{target:#}"
     );
 }

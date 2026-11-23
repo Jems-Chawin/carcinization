@@ -77,8 +77,8 @@ def caller_spec(caller, original):
 def timed_case(req, fns, out, n, name, harness, log):
     """A direct target's timed run for a side, after one untimed call of
     each side, so that the runs are warm, each on its own copy of the case's
-    arguments: if either call changed them, every timed call gets a fresh
-    copy, made before the run."""
+    arguments: whether each side's call changed them is reported, and if
+    either did, every timed call gets a fresh copy, made before the run."""
 
     def fresh():
         """A new copy of the case's arguments, decoded again."""
@@ -92,13 +92,14 @@ def timed_case(req, fns, out, n, name, harness, log):
         except Exception:  # no longer a value the format holds
             return None
 
-    changed = False
+    by_side = {}
     for side in fns:
         args, kwargs = fresh()
         before = encoded(args, kwargs)
         fns[side](*args, **kwargs)
-        changed = changed or before is None or encoded(args, kwargs) != before
-    out["arguments_changed_by_call"] = changed
+        by_side[side] = before is None or encoded(args, kwargs) != before
+    out["arguments_changed_by_call"] = by_side
+    changed = any(by_side.values())
     if changed:
         log("%s: the call changes its arguments: each call gets a fresh copy, made before its run" % name)
     args, kwargs = fresh()
