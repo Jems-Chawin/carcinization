@@ -304,6 +304,10 @@ def main():
                 measure.load(spec)  # the caller's directory on sys.path, for its imports
                 put_in_place(caller, fns["original"])
                 out["recorded"] = [measure.record(spec), measure.record(spec)]
+            elif plan.get("record"):
+                # One untimed call of each side, so that speed build sees
+                # what the call imports.
+                timed_case(req, fns, out, n, name, harness, log)
             else:
                 if caller:
                     run = timed_caller(caller, fns, out, n, name, measure, log)

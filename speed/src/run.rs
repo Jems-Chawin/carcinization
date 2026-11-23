@@ -425,6 +425,19 @@ pub fn callers_of(loaded: &Loaded) -> Vec<PathBuf> {
         .collect()
 }
 
+/// A direct target as the timing driver takes it: its case's request, as
+/// carcinify diff writes it, with scratch space of its own.
+pub fn case_target(
+    t: &declaration::Target,
+    case: &suite::Case,
+    work: &Path,
+    i: usize,
+) -> Result<J, String> {
+    let request = suite::request(case, &work.join(format!("scratch-{i}")))?;
+    let request: J = serde_json::from_str(&request).map_err(|e| e.to_string())?;
+    Ok(json!({"name": t.name, "request": request, "calls_per_run": t.calls_per_run}))
+}
+
 /// A caller target as the timing driver takes it.
 pub fn caller_target(t: &declaration::Target, path: &Path) -> J {
     let c = t.caller.as_ref();
@@ -554,17 +567,11 @@ fn time(
         .zip(&loaded.timed)
         .enumerate()
     {
-        let case = match timed {
-            Some(declaration::Timed::Case(c)) => &loaded.cases[*c],
-            Some(declaration::Timed::Caller(path)) => {
-                targets.push(caller_target(t, path));
-                continue;
-            }
+        targets.push(match timed {
+            Some(declaration::Timed::Case(c)) => case_target(t, &loaded.cases[*c], work, i)?,
+            Some(declaration::Timed::Caller(path)) => caller_target(t, path),
             None => return Err("a refused target was timed".into()),
-        };
-        let request = suite::request(case, &work.join(format!("scratch-{i}")))?;
-        let request: J = serde_json::from_str(&request).map_err(|e| e.to_string())?;
-        targets.push(json!({"name": t.name, "request": request, "calls_per_run": t.calls_per_run}));
+        });
     }
     // One driver process for each target's timed runs, with decide's
     // process computing beside it for as long as it runs: load that begins
@@ -638,7 +645,7 @@ pub enum Driven {
 /// One run of the timing driver on `plan`.
 /// The interpreter a driver ran, and the files it imported, into the
 /// run's result.
-fn take_in(result: &mut J, ran: &Driven) {
+pub fn take_in(result: &mut J, ran: &Driven) {
     let Driven::Result(ran) = ran else { return };
     if !ran["python"].is_null() {
         result["python"] = ran["python"].clone();

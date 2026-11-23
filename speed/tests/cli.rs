@@ -645,7 +645,23 @@ fn a_target_that_runs_past_the_time_limit_fails_and_the_next_is_still_timed() {
             ("nap", "cases.jsonl", "nap-2"),
         ],
     );
-    let wheels = built(&declaration);
+    // speed build calls hang once too, untimed, under the same limit.
+    let wheels = declaration.with_file_name("wheels");
+    let limit = [Path::new("--timeout-secs"), Path::new("5")];
+    let (code, err) = speed(
+        &[
+            &[
+                Path::new("build"),
+                &declaration,
+                Path::new("--out"),
+                &wheels,
+            ][..],
+            &limit,
+        ]
+        .concat(),
+        &[],
+    );
+    assert_eq!(code, 0, "{err}");
     let start = std::time::Instant::now();
     let (code, err, report) = quiet(&mut || {
         run(
@@ -1808,4 +1824,45 @@ fn a_function_whose_parameters_all_have_defaults_needs_speed_noop() {
         report["targets"][0]["cold_thread"]["cold_minus_warm"].is_null(),
         "{report:#}"
     );
+}
+
+/// RUST-170: speed build calls each direct target once on each side,
+/// untimed, so that a module imported only when called is seen. Refused
+/// without --allow-dirty when git does not track it; with it, recorded,
+/// and the run proceeds.
+#[test]
+fn a_module_imported_only_when_called_is_seen_by_speed_build() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-lazy-ignored");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    std::fs::write(repo.0.join(".gitignore"), "py-port/lazy_helper.py\n").unwrap();
+    repo.commit("git ignores the lazy helper");
+    std::fs::copy(
+        fixture().join("py-port/lazy_helper.py"),
+        repo.0.join("py-port/lazy_helper.py"),
+    )
+    .unwrap();
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "lazy", "case": {"file": "cases.jsonl", "id": "lazy-1"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let (d, w, r) = (
+        declaration.to_str().unwrap().to_string(),
+        dir.join("wheels").to_str().unwrap().to_string(),
+        dir.join("report.json").to_str().unwrap().to_string(),
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w]);
+    assert_eq!(code, 2, "{err}");
+    assert!(
+        err.contains("py-port/lazy_helper.py (imported by the timing driver)"),
+        "{err}"
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w, "--allow-dirty"]);
+    assert_eq!(code, 0, "{err}");
+    let built = read(&dir.join("wheels/build.json"));
+    assert!(
+        built["untracked_imported"]["py-port/lazy_helper.py"].is_string(),
+        "{built:#}"
+    );
+    let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r, "--allow-dirty"]);
+    assert_eq!(code, 1, "timed, not under the gate: {err}");
 }

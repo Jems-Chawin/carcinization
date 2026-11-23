@@ -366,7 +366,7 @@ fn callers(
         .iter()
         .map(|(t, _, path)| crate::run::caller_target(t, path))
         .collect();
-    let result = match crate::run::drive(opts, work, &driver, &plan, &result_path)? {
+    let mut result = match crate::run::drive(opts, work, &driver, &plan, &result_path)? {
         crate::run::Driven::Result(result) => result,
         crate::run::Driven::TimedOut => {
             return Err(format!(
@@ -376,6 +376,25 @@ fn callers(
         }
         crate::run::Driven::Crashed(why) => return Err(format!("recording the callers: {why}")),
     };
+    // RUST-170: each direct target called once on each side, untimed, in a
+    // driver of its own, so that what the call imports is seen. How the
+    // call ends, a crash or a hang among them, is the run's to judge.
+    for (i, (t, timed)) in loaded
+        .declaration
+        .targets
+        .iter()
+        .zip(&loaded.timed)
+        .enumerate()
+    {
+        let Some(Timed::Case(c)) = timed else {
+            continue;
+        };
+        let called = work.join(format!("called-{i}.json"));
+        plan["targets"] = json!([crate::run::case_target(t, &loaded.cases[*c], work, i)?]);
+        plan["result"] = json!(called);
+        let ran = crate::run::drive(opts, work, &driver, &plan, &called)?;
+        crate::run::take_in(&mut result, &ran);
+    }
     // Run with no callers too: it says what the sides import.
     if callers.is_empty() {
         return Ok((recorded, refused, result));

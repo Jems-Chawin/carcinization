@@ -28,8 +28,9 @@ options:
   --hash-seed <n>       run: PYTHONHASHSEED of the timing process, 0 to
                         4294967295 [drawn at random; the report records it]
   --debug-log <file>    run: one line for each step of the timing
-  --timeout-secs <n>    run: limit for each target's timing; the driver
-                        is killed and the target fails   [120]
+  --timeout-secs <n>    limit for each target's driver: in build, its
+                        untimed calls, left for run to judge if killed;
+                        in run, its timing, and the target fails   [120]
 
 exit status: 0 pass, with or without flags; 1 a target refused or failed,
 or the run unreliable; 2 refused, or the run could not be carried out";
