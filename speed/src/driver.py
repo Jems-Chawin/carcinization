@@ -250,7 +250,8 @@ def count(out, ready, counts, note=None):
     counting allocator of a wheel built with count_allocations, over the
     target's first call in this process, apart, then over a warm call, each
     with its result still held, as by its caller. Then, by tracemalloc, the
-    Python objects a warm call leaves to its caller, and its peak.
+    Python objects a warm call leaves to its caller, and its peak: every
+    block the call touches, with no help from free lists.
     `ready()` gives the next call, its arguments made. `note`, if any, is
     what the Python figure holds beside the call's own."""
     if counts is None:
@@ -273,15 +274,16 @@ def count(out, ready, counts, note=None):
         return c
 
     def traced(read):
+        # From emptied free lists (gc.collect() empties them), so that
+        # every block the call takes is a new one, traced, its result's
+        # among them (RUST-178). A second collection, with the result
+        # held, empties them again: the call's freed temporaries, waiting
+        # there, are released, and only the result and what it holds stay.
         call = ready()
         gc.collect()
-        # One untraced call between: gc.collect() empties the interpreter's
-        # free lists, so the traced call's freed temporaries would wait on
-        # them, traced, as if left to the caller (RUST-174). After a call
-        # they hold its temporaries again, as in a caller's steady state.
-        ready()()
         tracemalloc.start()
         result = call()
+        gc.collect()
         seen = read()
         tracemalloc.stop()
         del result
@@ -520,7 +522,7 @@ def main():
 
                     note = None
                     if written_out(fns["port"], *case_args(req, harness))[1]:
-                        note = "the case's keyword names cannot all be written as names, so the call goes through functools.partial: the figure includes the blocks the interpreter keeps for such a keyword call"
+                        note = "the case's keyword names cannot all be written as names, so the call goes through functools.partial, as a caller's call would not: the figures may include blocks partial takes for the call"
                 count(out, ready, getattr(modules["port"], "_speed_allocations", None), note)
             else:
                 if caller:

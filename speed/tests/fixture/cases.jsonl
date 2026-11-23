@@ -21,3 +21,5 @@
 {"id": "blob-1000", "fn": "blob", "args": [1000]}
 {"id": "log-push-1", "fn": "log_push", "args": [1]}
 {"id": "options-odd-key", "fn": "options", "kwargs": {"a-b": 1}}
+{"id": "pair-1000", "fn": "pair", "args": [1000]}
+{"id": "half-1000", "fn": "half", "args": [1000]}

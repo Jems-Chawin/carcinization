@@ -1944,6 +1944,8 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
             ("fill-kw", "cases.jsonl", "fill-kw-100"),
             ("temp", "cases.jsonl", "temp-1000"),
             ("options", "cases.jsonl", "options-odd-key"),
+            ("pair", "cases.jsonl", "pair-1000"),
+            ("half", "cases.jsonl", "half-1000"),
         ],
     );
     let wheels = built(&declaration);
@@ -1997,6 +1999,12 @@ fn the_ports_allocations_are_counted_warm_with_the_first_call_apart() {
     assert!(options["failed"].is_null(), "{options:#}");
     let note = options["counts"]["python"]["note"].as_str().unwrap_or("");
     assert!(note.contains("functools.partial"), "{options:#}");
+    // RUST-178: a result of a type the interpreter recycles is counted in
+    // full: pair's tuple and its two ints, half's float.
+    let left = |i: usize| &report["targets"][i]["counts"]["python"]["objects_left_to_the_caller"];
+    assert_eq!(left(4)["blocks"], 3, "{report:#}");
+    assert_eq!(left(5)["blocks"], 1, "{report:#}");
+    assert!(what.contains("with no help from free lists"), "{what}");
     assert!(!what.contains("caller target"), "{what}");
 }
 

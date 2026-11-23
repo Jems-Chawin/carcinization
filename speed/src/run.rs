@@ -307,7 +307,7 @@ fn run(opts: &Options) -> Result<u8, String> {
         let counted = &record["counts"][&t.name];
         let counts = if counted["warm"].is_object() {
             let mut about = String::from(
-                "the port's Rust allocations over the full call, as a Python caller pays them, with nothing subtracted; carcinify structure's report gives the core's counts per hot path",
+                "the port's Rust allocations over the full call, as a Python caller pays them, with nothing subtracted; carcinify structure's report gives the core's counts per hot path. The Python figures, by tracemalloc, start from emptied free lists: the objects a warm call leaves to its caller, and its peak, every block the call touches, with no help from free lists",
             );
             if t.caller.is_some() {
                 about += ". For a caller target: the Rust counts are the extension's alone, over the caller's whole call; the Python figure includes the caller's own objects";

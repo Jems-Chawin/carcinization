@@ -97,6 +97,18 @@ mod speed_port {
         Ok(n)
     }
 
+    /// A tuple of two new ints: a result of a type the interpreter recycles.
+    #[pyfunction]
+    fn pair(n: u64) -> (u64, u64) {
+        (n + 1, n + 2)
+    }
+
+    /// A float, another recycled type.
+    #[pyfunction]
+    fn half(n: u64) -> f64 {
+        n as f64 * 1.5
+    }
+
     /// How many keyword arguments it was given, whatever their keys.
     #[pyfunction]
     #[pyo3(signature = (**kwargs))]

@@ -95,3 +95,11 @@ def log_push(n):
 
 def options(**kwargs):
     return len(kwargs)
+
+
+def pair(n):
+    return (n + 1, n + 2)
+
+
+def half(n):
+    return n * 1.5
