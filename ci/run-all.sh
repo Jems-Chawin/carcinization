@@ -109,8 +109,14 @@ if [ "${RUN_LIVE:-0}" = 1 ]; then
 fi
 # speed: so far the reader of the host gate's log, ci/gate.sh itself, the
 # platform facts, speed build, and speed run on direct targets.
+# A speed test whose run was too busy (every pair dropped, or the process
+# beside it kept off the CPU) runs it again, up to five times. The repeats
+# are counted here, as decide's are.
+export CARCINIFY_SPEED_ATTEMPTS=$out/speed-attempts.log
+: > "$CARCINIFY_SPEED_ATTEMPTS"
 suite speed -p carcinify-speed -p carcinify --lib --test speed
 suite speed-maturin -p carcinify --test speed -- --ignored
+printf 'note\tspeed tests: %s run(s) repeated because the machine was too busy\n' "$(wc -l < "$CARCINIFY_SPEED_ATTEMPTS" | tr -d ' ')" | tee -a "$results"
 # The worked examples' own tests. Each is a workspace of its own.
 export PYO3_PYTHON=$py
 SUITE_DIR=examples/float_roundtrip/rust suite example-float

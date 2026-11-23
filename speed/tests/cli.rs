@@ -212,11 +212,34 @@ fn too_busy(report: &J) -> bool {
 }
 
 /// A run, again while the machine was too busy for it, up to five times.
+/// Each repeat is printed, and written to the file named in
+/// `CARCINIFY_SPEED_ATTEMPTS` when that is set; ci/run-all.sh counts them,
+/// so that a drop rule which began to fire on a quiet machine would show.
 fn quiet(attempt: &mut dyn FnMut() -> (i32, String, J)) -> (i32, String, J) {
     let mut last = attempt();
-    for _ in 1..5 {
+    for n in 1..5 {
         if !too_busy(&last.2) {
             break;
+        }
+        let name = std::thread::current().name().unwrap_or("?").to_string();
+        let why: Vec<&str> = last.2["reasons"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(J::as_str)
+            .filter(|r| r.starts_with("every_pair_dropped") || r.starts_with("busy_beside"))
+            .collect();
+        let line = format!("{name}\tattempt {n} too busy: {}", why.join("; "));
+        eprintln!("{line}");
+        if let Ok(log) = std::env::var("CARCINIFY_SPEED_ATTEMPTS") {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(log)
+            {
+                let _ = writeln!(f, "{line}");
+            }
         }
         last = attempt();
     }
