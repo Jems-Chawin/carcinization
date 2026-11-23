@@ -257,20 +257,26 @@ def cold_thread(out, run, module, fn, threads, name, harness, log):
             return "the compared function with no arguments raised %s, not TypeError, so its body may have run and warmed the thread: export _speed_noop from the port's module" % type(e).__name__
         return "the compared function with no arguments ran, so it would warm the thread: export _speed_noop from the port's module"
 
+    def calls(timed):
+        """The port's first and next calls on this thread: their outputs,
+        for the output check, and their times if `timed`."""
+        try:
+            first, first_result = run("port", 1)
+            after, after_result = run("port", 1)
+            if timed:
+                cold["threads"].append({"cold": first, "warm": after})
+            cold["outputs"].append([encoded_output(harness, first_result), encoded_output(harness, after_result)])
+        except BaseException:  # pyo3's PanicException is a BaseException
+            raised.append(traceback.format_exc()[-4000:])
+
     def thread():
         try:
             cold["not_measured"] = cheap()
-        except BaseException:  # pyo3's PanicException is a BaseException
+        except BaseException:
             cold["not_measured"] = "the cheap call raised:\n" + traceback.format_exc()[-2000:]
             return
         if cold["not_measured"] is None:
-            try:
-                first, first_result = run("port", 1)
-                after, after_result = run("port", 1)
-                cold["threads"].append({"cold": first, "warm": after})
-                cold["outputs"].append([encoded_output(harness, first_result), encoded_output(harness, after_result)])
-            except BaseException:
-                raised.append(traceback.format_exc()[-4000:])
+            calls(timed=True)
 
     def original():
         try:
@@ -289,10 +295,17 @@ def cold_thread(out, run, module, fn, threads, name, harness, log):
         if cold["not_measured"] or raised:
             cold["threads"], cold["outputs"] = [], []
             break
+    if cold["not_measured"] and not raised:
+        # No cheap call, so nothing is timed; but what a caller sees on a
+        # new thread, a raise or another output, is still checked.
+        log("%s: one new thread, untimed, for the checks alone" % name)
+        on_new_thread(lambda: calls(timed=False))
     if raised:
         on_new_thread(original)
         if len(raised) > 1:
-            cold["not_measured"] = "the port raised on a new thread, and the original raised there too:\n" + raised[0]
+            cold["not_measured"] = cold["not_measured"] or (
+                "the port raised on a new thread, and the original raised there too:\n" + raised[0]
+            )
         else:
             cold["raised_in_new_thread"] = raised[0]
     log("%s: cold thread, %d threads" % (name, len(cold["threads"])))

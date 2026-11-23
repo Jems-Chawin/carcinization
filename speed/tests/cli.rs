@@ -2110,3 +2110,42 @@ fn the_cold_threads_process_is_warmed_by_the_timed_runs_order() {
     );
     assert_eq!(sides(", untimed"), timed, "{log}");
 }
+
+/// Step 5's raise check holds without a cheap call: a port whose function
+/// binds with no arguments has its cold thread flagged as not measured,
+/// but one new thread still makes its first and next calls, untimed, and
+/// a raise there that the original does not make fails the target.
+#[test]
+fn a_port_with_no_cheap_call_that_raises_on_a_new_thread_fails() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-no-cheap-call");
+    let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
+    let port = repo.0.join("py-port/speed_port_py.py");
+    let text = std::fs::read_to_string(&port).unwrap();
+    assert!(text.contains("def lookup(key):"));
+    std::fs::write(
+        &port,
+        text.replacen("def lookup(key):", "def lookup(key=\"a\"):", 1),
+    )
+    .unwrap();
+    repo.commit("lookup binds with no arguments, so no cheap call is allowed");
+    let declaration = dir.join("speed.json");
+    let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
+        "targets": [{"name": "lookup", "case": {"file": "cases.jsonl", "id": "lookup-a"}, "calls_per_run": 2}]});
+    std::fs::write(&declaration, text.to_string()).unwrap();
+    let (d, w, r) = (
+        declaration.to_str().unwrap().to_string(),
+        dir.join("wheels").to_str().unwrap().to_string(),
+        dir.join("report.json").to_str().unwrap().to_string(),
+    );
+    let (code, err) = speed_as_given(&["build", &d, "--out", &w]);
+    assert_eq!(code, 0, "{err}");
+    let (code, err) = speed_as_given(&["run", &d, "--wheels", &w, "--report", &r]);
+    assert_eq!(code, 1, "{err}");
+    let report = read(Path::new(&r));
+    let lookup = &report["targets"][0];
+    let failed = lookup["failed"].as_str().unwrap_or("");
+    assert!(
+        failed.starts_with("raised_in_new_thread: AttributeError"),
+        "{lookup:#}"
+    );
+}
