@@ -19,26 +19,26 @@ pub fn machine() -> Vec<Fact> {
     }
 }
 
-/// The build's target CPU and its target features, for the arguments
-/// Cargo gave rustc (see [`rustc_args`]): the CPU the last `-C
-/// target-cpu` names, else "default of <triple>: <name>", the name being
-/// `unknown` where `rustc --print target-cpus` marks no default; and the
-/// features `rustc --print cfg` gives for the same CPU, features and
-/// target.
-pub fn target(rustc_args: &[String]) -> Vec<Fact> {
-    target_with(rustc_args, &|args: &[String]| {
-        let args: Vec<&str> = std::iter::once("rustc")
-            .chain(args.iter().map(String::as_str))
-            .collect();
-        output(&args)
+/// The build's target CPU and its target features, for the command Cargo
+/// ran rustc with (see [`rustc_args`]), each asked of that same rustc: the
+/// CPU the last `-C target-cpu` names, else "default of <triple>: <name>",
+/// the name being `unknown` where `rustc --print target-cpus` marks no
+/// default; the features `rustc --print cfg` gives for the same CPU,
+/// features and target; and the rustc's version.
+pub fn target(rustc_command: &[String]) -> Vec<Fact> {
+    target_with(rustc_command, &|command: &[String]| {
+        let command: Vec<&str> = command.iter().map(String::as_str).collect();
+        output(&command)
     })
 }
 
-/// The arguments Cargo gave rustc for the crate `name` (its library name),
-/// from a build's verbose output (`cargo build -v`, `maturin build -v`):
-/// the effective flags, whether they came from `RUSTFLAGS` or a Cargo
-/// configuration file. None when Cargo compiled no such crate (it prints
-/// "Fresh" for a crate it did not rebuild).
+/// The command Cargo ran rustc with for the crate `name` (its library
+/// name), from a build's verbose output (`cargo build -v`, `maturin build
+/// -v`): the rustc, which is the word before `--crate-name` (a
+/// RUSTC_WRAPPER comes before it), then the effective flags, whether they
+/// came from `RUSTFLAGS` or a Cargo configuration file. None when Cargo
+/// compiled no such crate (it prints "Fresh" for a crate it did not
+/// rebuild).
 ///
 /// shortcut: split at spaces, though Cargo quotes an argument holding one;
 /// the options read here hold none.
@@ -49,7 +49,7 @@ pub fn rustc_args(verbose: &str, name: &str) -> Option<Vec<String>> {
         let at = args
             .windows(2)
             .position(|w| w[0] == "--crate-name" && w[1] == name)?;
-        Some(args[at..].to_vec())
+        Some(args[at.checked_sub(1)?..].to_vec())
     })
 }
 
@@ -144,13 +144,18 @@ fn codegen(args: &[String]) -> Vec<String> {
     out
 }
 
-fn target_with(args: &[String], rustc: &dyn Fn(&[String]) -> Option<String>) -> Vec<Fact> {
+fn target_with(command: &[String], rustc: &dyn Fn(&[String]) -> Option<String>) -> Vec<Fact> {
+    let (program, args) = command
+        .split_first()
+        .map_or((None, &[][..]), |(p, a)| (Some(p), a));
     let flags = codegen(args);
     let ask = |what: &[&str], with: &[String]| {
-        let mut all: Vec<String> = what.iter().map(|w| w.to_string()).collect();
+        let mut all = vec![program?.clone()];
+        all.extend(what.iter().map(|w| w.to_string()));
         all.extend(with.iter().cloned());
         rustc(&all)
     };
+    let verbose = ask(&["-vV"], &[]);
     let target: Vec<String> = flags
         .iter()
         .filter(|f| f.starts_with("--target="))
@@ -163,7 +168,7 @@ fn target_with(args: &[String], rustc: &dyn Fn(&[String]) -> Option<String>) -> 
         .next_back();
     let triple = match target.last() {
         Some(t) => Some(t["--target=".len()..].to_string()),
-        None => ask(&["-vV"], &[]).and_then(|v| {
+        None => verbose.as_ref().and_then(|v| {
             v.lines()
                 .find_map(|l| l.strip_prefix("host: ").map(String::from))
         }),
@@ -195,6 +200,10 @@ fn target_with(args: &[String], rustc: &dyn Fn(&[String]) -> Option<String>) -> 
         (
             "target_feature_list",
             or_unknown(features.map(|f| f.join(","))),
+        ),
+        (
+            "rustc",
+            or_unknown(verbose.and_then(|v| v.lines().next().map(String::from))),
         ),
     ]
 }
@@ -279,7 +288,10 @@ mod tests {
             "     Running `/opt/rust/bin/rustc --crate-name einsum_greedy --edition=2024 src/lib.rs --crate-type cdylib --cfg 'feature=\"default\"' -C opt-level=3 -C target-cpu=apple-m1 -Ctarget-feature=-fp16 --target aarch64-unknown-linux-gnu -C link-arg=-s`\n",
         );
         let args = rustc_args(verbose, "einsum_greedy").unwrap();
-        assert_eq!(args[..2], strings(&["--crate-name", "einsum_greedy"]));
+        assert_eq!(
+            args[..3],
+            strings(&["/opt/rust/bin/rustc", "--crate-name", "einsum_greedy"])
+        );
         assert_eq!(args.last().unwrap(), "link-arg=-s");
         assert!(
             args.contains(&"target-cpu=apple-m1".to_string()),
@@ -287,6 +299,41 @@ mod tests {
         );
         assert_eq!(rustc_args(verbose, "once_cell"), None);
         assert_eq!(rustc_args(verbose, "einsum"), None);
+        // A RUSTC_WRAPPER comes before the compiler; the compiler is kept.
+        let wrapped = "     Running `/usr/bin/sccache /opt/rust/bin/rustc --crate-name einsum_greedy src/lib.rs`\n";
+        let args = rustc_args(wrapped, "einsum_greedy").unwrap();
+        assert_eq!(args[0], "/opt/rust/bin/rustc");
+    }
+
+    /// rustup picks a toolchain by directory, so the `rustc` on PATH need
+    /// not be the one that compiled the crate.
+    #[test]
+    fn the_facts_come_from_the_rustc_that_compiled_the_crate_and_name_its_version() {
+        let asked = std::cell::RefCell::new(Vec::new());
+        let facts = target_with(
+            &strings(&[
+                "/toolchain/bin/rustc",
+                "--crate-name",
+                "probe",
+                "-C",
+                "target-cpu=generic",
+            ]),
+            &|command: &[String]| {
+                asked.borrow_mut().push(command.to_vec());
+                match command[1].as_str() {
+                    "-vV" => Some("rustc 1.99.0 (0123abcd 2026-01-01)\nhost: aarch64-apple-darwin\nrelease: 1.99.0".into()),
+                    _ => Some("target_feature=\"neon\"".into()),
+                }
+            },
+        );
+        let asked = asked.into_inner();
+        assert!(!asked.is_empty());
+        assert!(
+            asked.iter().all(|c| c[0] == "/toolchain/bin/rustc"),
+            "{asked:?}"
+        );
+        assert_eq!(value(&facts, "rustc"), "rustc 1.99.0 (0123abcd 2026-01-01)");
+        assert_eq!(value(&facts, "target_feature_list"), "neon");
     }
 
     /// A real build of an empty crate, read as `speed build` reads the
@@ -323,6 +370,7 @@ mod tests {
             let log = String::from_utf8_lossy(&out.stderr).into_owned();
             assert!(out.status.success(), "{log}");
             let facts = target(&rustc_args(&log, "probe").expect(&log));
+            assert!(value(&facts, "rustc").starts_with("rustc "), "{facts:?}");
             value(&facts, "target_cpu").to_string()
         };
         assert_eq!(cpu(None), "generic");
@@ -334,20 +382,24 @@ mod tests {
     /// generic CPU enables neon alone, the M1 28 features.
     #[test]
     fn the_target_cpu_follows_the_flags_and_else_the_targets_default() {
-        let generic = target(&strings(&["-C", "target-cpu=generic"]));
+        let generic = target(&strings(&["rustc", "-C", "target-cpu=generic"]));
         assert_eq!(value(&generic, "target_cpu"), "generic");
-        let last = target(&strings(&["-Ctarget-cpu=native", "-Ctarget-cpu=generic"]));
+        let last = target(&strings(&[
+            "rustc",
+            "-Ctarget-cpu=native",
+            "-Ctarget-cpu=generic",
+        ]));
         assert_eq!(value(&last, "target_cpu"), "generic");
         if cfg!(target_arch = "aarch64") {
             assert_eq!(value(&generic, "target_features"), "1");
             assert_eq!(value(&generic, "target_feature_list"), "neon");
-            let m1 = target(&strings(&["-C", "target-cpu=apple-m1"]));
+            let m1 = target(&strings(&["rustc", "-C", "target-cpu=apple-m1"]));
             assert_eq!(
                 (value(&m1, "target_cpu"), value(&m1, "target_features")),
                 ("apple-m1", "28")
             );
         }
-        let default = target(&[]);
+        let default = target(&strings(&["rustc"]));
         if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
             assert_eq!(
                 (
@@ -374,7 +426,11 @@ mod tests {
                 ("default of aarch64-apple-darwin: unknown", "28")
             );
         }
-        let linux = target(&strings(&["--target", "aarch64-unknown-linux-gnu"]));
+        let linux = target(&strings(&[
+            "rustc",
+            "--target",
+            "aarch64-unknown-linux-gnu",
+        ]));
         assert_eq!(
             value(&linux, "target_cpu"),
             "default of aarch64-unknown-linux-gnu: generic"
