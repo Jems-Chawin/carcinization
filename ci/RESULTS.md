@@ -332,6 +332,39 @@ not come into play in these runs.
   23.3. The decide suite: 30 and 1 ignored in 571 s; the NumPy test passed
   in 526 s; both structure suites 52.
 
+At 30c65e3, on 2026-11-24 (after `carcinify speed`, step seven's tool,
+and its two test suites; the decide suite is 37 tests now), one run on
+each system, one after the other, each started by `ci/gate.sh` after 30
+readings of the 1-minute load average under 6, 10 s apart, with the
+crates.io tests and the NumPy test. Both exit 1 on the same one row, and
+that row was out of date: `example structure harness` gave 6 flags where
+`expected.tsv` said 7. Its flag list, set beside that of the last full
+runs (2df729c, 2026-11-23, the same on both systems), differs in two
+lines:
+
+- gone: "run_in has 183 lines, over 150, at harness/src/lib.rs:306
+  (S6)". bdfc48f moved the completion of both sides' init out of
+  `run_in`, which left it 143 lines long;
+- still raised, with new figures: `python::prepare`, 257 lines at
+  `harness/src/python/mod.rs:104` then, 266 lines at `:143` now. It grew
+  in three of `carcinify speed`'s build commits. Splitting it, like
+  `mutants::run` and `report::build`, is left for later.
+
+Both systems give the same list. The row says 6 now (3c7d7a8), and
+`compare.py` finds both runs' `results.tsv` as expected against it: 38
+rows each.
+
+- macOS, 27 minutes after 9 of waiting, load average 2.9 at the end,
+  above 12 for about 4 minutes, above 20 for 2 and up to 48. The decide
+  suite: 37 passed and 1 ignored in 760 s, no run repeated; the NumPy test
+  passed in 77 s; both structure suites 54; speed 99 passed and 8 ignored
+  (2 runs repeated for a busy machine), and its 8 tests with maturin.
+- Linux arm64, 34 minutes after 7 of waiting, load average on the host
+  4.7 at the end, above 12 for about 11 minutes, above 20 for 9 and up to
+  44. The decide suite: 37 and 1 ignored in 581 s, no run repeated; the
+  NumPy test passed in 596 s; both structure suites 54; speed 99 and 8
+  ignored, no run repeated, and its 8 with maturin.
+
 ### On GitHub's runners
 
 The first hosted run, on 2026-11-18 at 6e209ff (the same code and tests as
