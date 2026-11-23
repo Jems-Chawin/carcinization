@@ -40,7 +40,8 @@ pub struct Timed {
     pub kept_off_beside: Option<f64>,
 }
 
-/// The verdict, its exit status, the reasons for it and the flags.
+/// The verdict, its exit status, the reasons (every target's, each by its
+/// name, and the gate's) and the flags.
 pub fn judge(
     targets: &[Timed],
     gate: &Result<Load, Unreliable>,
@@ -49,9 +50,6 @@ pub fn judge(
         .iter()
         .filter_map(|t| t.failed.as_ref().map(|f| format!("{}: {f}", t.name)))
         .collect();
-    if !failed.is_empty() {
-        return ("fail", 1, failed, Vec::new());
-    }
     let mut unreliable = Vec::new();
     if let Err(u) = gate {
         let (kind, detail) = u.reason();
@@ -63,14 +61,14 @@ pub fn judge(
             .filter(|l| *l > carcinify_decide::report::BUSY_WHILE_RUNNING)
         {
             unreliable.push(format!(
-                "busy_beside: {}: a second process that does nothing but compute was kept off the CPU for {:.0}% of its time: other programs were taking the CPU while the target was timed",
+                "{}: busy_beside: a second process that does nothing but compute was kept off the CPU for {:.0}% of its time: other programs were taking the CPU while the target was timed",
                 t.name,
                 lost * 100.0
             ));
         }
         if t.figures.as_ref().is_some_and(|f| f.ratio.is_none()) {
             unreliable.push(format!(
-                "every_pair_dropped: {}: every pair of runs was disturbed",
+                "{}: every_pair_dropped: every pair of runs was disturbed",
                 t.name
             ));
         }
@@ -91,11 +89,20 @@ pub fn judge(
             ));
         }
     }
-    match (unreliable.is_empty(), flags.is_empty()) {
-        (false, _) => ("unreliable", 1, unreliable, flags),
-        (true, false) => ("pass_with_flags", 0, Vec::new(), flags),
-        (true, true) => ("pass", 0, Vec::new(), flags),
-    }
+    // The worst verdict, with every reason for it and for any milder one,
+    // so that one target's failure hides no other's disturbed runs.
+    let (verdict, exit) = match (failed.is_empty(), unreliable.is_empty(), flags.is_empty()) {
+        (false, _, _) => ("fail", 1),
+        (true, false, _) => ("unreliable", 1),
+        (true, true, false) => ("pass_with_flags", 0),
+        (true, true, true) => ("pass", 0),
+    };
+    (
+        verdict,
+        exit,
+        failed.into_iter().chain(unreliable).collect(),
+        flags,
+    )
 }
 
 fn run(opts: &Options) -> Result<u8, String> {
@@ -750,7 +757,7 @@ mod tests {
         let (verdict, exit, reasons, _) = judge(&targets, &quiet());
         assert_eq!((verdict, exit), ("unreliable", 1));
         assert!(
-            reasons[0].starts_with("every_pair_dropped: b"),
+            reasons[0].starts_with("b: every_pair_dropped: "),
             "{reasons:?}"
         );
     }
@@ -761,7 +768,7 @@ mod tests {
         busy.kept_off_beside = Some(0.2);
         let (verdict, exit, reasons, _) = judge(&[busy], &quiet());
         assert_eq!((verdict, exit), ("unreliable", 1));
-        assert!(reasons[0].starts_with("busy_beside: a: "), "{reasons:?}");
+        assert!(reasons[0].starts_with("a: busy_beside: "), "{reasons:?}");
         let mut quiet_beside = timed("a", None, Some((2.0, 1.9, 2.1)), false);
         quiet_beside.kept_off_beside = Some(0.1);
         assert_eq!(judge(&[quiet_beside], &quiet()).0, "pass");
@@ -780,6 +787,26 @@ mod tests {
         assert!(
             flags[0].starts_with("load_beside_not_watched: a: "),
             "{flags:?}"
+        );
+    }
+
+    /// The verdict is the worst, and the reasons are every target's, each
+    /// named: a failed target does not hide another's disturbed runs.
+    #[test]
+    fn a_failed_run_lists_every_targets_reasons_each_by_its_name() {
+        let targets = [
+            timed("a", Some("output_differs: at $"), None, false),
+            timed("b", None, None, false),
+        ];
+        let gate = Err(Unreliable::NoGate("none".into()));
+        let (verdict, exit, reasons, _) = judge(&targets, &gate);
+        assert_eq!((verdict, exit), ("fail", 1));
+        assert_eq!(reasons.len(), 3, "{reasons:?}");
+        assert_eq!(reasons[0], "a: output_differs: at $");
+        assert!(reasons[1].starts_with("no_gate: "), "{reasons:?}");
+        assert!(
+            reasons[2].starts_with("b: every_pair_dropped: "),
+            "{reasons:?}"
         );
     }
 
