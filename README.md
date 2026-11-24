@@ -20,26 +20,34 @@ Development stopped on 2026-11-18 and was resumed on 2026-11-19. The
 project moves Python to Rust and no other pair of languages.
 
 What exists and was tested: `carcinify decide`, `carcinify deps`,
-`carcinify structure` and the comparison harness `carcinify diff`, with the
-texts of steps 1, 2, 4 and 6, which are meant to be read and followed by a
-coding agent. The pilot for step four stands as it was reported: the
-pattern was observed in 1 of 4 runs, which is inconclusive by the rule
-fixed before the runs.
+`carcinify structure`, the comparison harness `carcinify diff` and
+`carcinify speed`, with the texts of steps 1, 2, 4 and 6 and the timing
+part of step 7, which are meant to be read and followed by a coding agent.
+The pilot for step four stands as it was reported: the pattern was
+observed in 1 of 4 runs, which is inconclusive by the rule fixed before
+the runs.
 
 They have been used on one real port, outside this repository: NumPy's
 greedy path search for `einsum` (`_greedy_path`), moved to Rust through
-PyO3. Its answers match the original's on 594 comparison cases. On a
-made-up network of 40 operands the search is 26 to 28 times faster on macOS
-and on Linux arm64 (in a container on the same Mac). On one of 120 operands
-it is 18 times faster on macOS and 7.7 times on Linux arm64; the cause of
-the difference is not known. Through `np.einsum_path` the gain is 6 to 7
-times. What the port showed the tools lack sets the next work.
+PyO3. Its answers match the original's on 595 comparison cases. Timed with
+`carcinify speed`, the search is 31 times faster on macOS and 28 times on
+Linux arm64 (in a container on the same Mac) on a made-up network of 40
+operands, and 22 and 8.5 times on one of 120 operands. Through
+`np.einsum_path` the gain is 6.8 times on macOS and 5.9 on Linux arm64.
+The earlier figures, 26 to 28 and 18, came from a script whose inputs
+shared one string object per label, which made the original's set
+operations faster. At 120 operands, Linux's default CPU target has LLVM
+vectorize one loop of the port, and on Linux in Docker that vectorized
+loop is the slow one; on macOS it is not. Step 7's text says what this
+means for anyone shipping a Linux aarch64 wheel. What the port showed the
+tools lack sets the next work.
 
 What is planned and is not built, with no date for any of it:
 
 - Step 3 as a step: the comparison tool exists, its instructions do not.
 - Step 5, the port of one piece through PyO3.
-- Step 7, the period when the old and the new code run side by side.
+- The rest of step 7, the period when the old and the new code run side
+  by side. Its timing part exists.
 - A top-level `SKILL.md` that ties the steps together.
 
 Another tool for the port exists:
@@ -52,7 +60,7 @@ first.
 
 ## What exists
 
-One command, `carcinify`, with four subcommands. Each is a library crate in
+One command, `carcinify`, with five subcommands. Each is a library crate in
 this workspace behind the one binary in [`carcinify/`](carcinify/):
 
 | tool | what it does | step |
@@ -61,6 +69,7 @@ this workspace behind the one binary in [`carcinify/`](carcinify/):
 | [`carcinify deps`](deps/README.md) | Reads the imports of the code to be ported and looks up on crates.io what the proposal names for each | [2 dependency check](skill/steps/02-dependency-check/STEP.md) |
 | [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only; the step is not written) |
 | [`carcinify structure`](structure/README.md) | Counts allocations on the port's hot path at two input sizes and lists the copies made in the code reachable from it | [6 structure report](skill/steps/06-structure-report/STEP.md) |
+| [`carcinify speed`](speed/README.md) | Times the Python original and the port from the Python caller, behind a load gate, on macOS and Linux arm64, compares the two platforms, and counts what the binding allocates | [7 speed](skill/steps/07-speed/STEP.md) |
 
 One step has no tool: [4 ownership design](skill/steps/04-ownership-design/STEP.md),
 a design note written before the port. Whether ports made without it show
