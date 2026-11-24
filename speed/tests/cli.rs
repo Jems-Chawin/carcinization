@@ -1604,8 +1604,9 @@ fn a_cold_thread_is_reported_as_cold_minus_warm_paired_per_thread() {
         .unwrap_or(f64::NAN);
     // The fixture's first call costs 50 ms, well clear of how late the 20 ms
     // warm call ends. Sleeps of 20 ms ended up to about 12 ms late under
-    // load on a Mac, which a 5 ms cost was not clear of, and up to 122 ms
-    // late on GitHub's macOS runner, so the fixture spins on the clock.
+    // load on a Mac, which a 5 ms cost was not clear of. On GitHub's macOS
+    // runner, calls of one 20 ms sleep ended up to about 147 ms late, so
+    // the fixture spins on the clock.
     assert!((0.025..0.25).contains(&median), "{median}: {cold:#}");
 }
 
@@ -1732,8 +1733,9 @@ print(seen[0])
         .unwrap_or(f64::NAN);
     // The fixture's first call costs 50 ms, well clear of how late the 20 ms
     // warm call ends. Sleeps of 20 ms ended up to about 12 ms late under
-    // load on a Mac, which a 5 ms cost was not clear of, and up to 122 ms
-    // late on GitHub's macOS runner, so the fixture spins on the clock.
+    // load on a Mac, which a 5 ms cost was not clear of. On GitHub's macOS
+    // runner, calls of one 20 ms sleep ended up to about 147 ms late, so
+    // the fixture spins on the clock.
     assert!((0.025..0.25).contains(&median), "{median}: {cold:#}");
 }
 

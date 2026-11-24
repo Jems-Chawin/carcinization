@@ -486,9 +486,11 @@ not in the tool:
   CPUs. In the Linux container limited to three CPUs with `taskset` it
   failed with the same three flags. Since then it expects those flags
   under four CPUs.
-- The fixture made its time by sleeping, and on the hosted Mac a sleep
-  ended tens of milliseconds late: 2 ms took 12 to 27 ms, 20 ms took 66 to
-  142 ms, and the 50 ms workspace 53 to 185 ms. Original ÷ port came out
+- The fixture made its time by sleeping, and on the hosted Mac sleeps
+  ended late. In the reports the log keeps, calls of one 2 ms sleep took
+  12 to 27 ms, of one 20 ms sleep 66 to 167 ms, and of the 50 ms
+  workspace alone 53 to 185 ms; the PyO3 port's first calls on a
+  thread, 50 ms then 20 ms, took 117 to 221 ms. Original ÷ port came out
   at 0.22 to 0.32, not about 0.1 (three tests), and cold minus warm at
   0.018 s, under 0.025 (two tests). The drop rule cannot see this: its
   loop computes, so it measures contention for the CPU, and a late wake-up
