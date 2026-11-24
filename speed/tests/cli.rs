@@ -516,9 +516,29 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     let record = read(&wheels.join("build.json"));
     assert_eq!(report["tools"], record["tools"]);
     assert!(report["build"]["tools"].is_null(), "{report:#}");
-    // nap-0's runs are two calls that sleep 0 ms: under 1 ms.
+    // nap-0's runs are two calls that sleep 0 ms: under 1 ms. Under
+    // MIN_CPUS_TO_WATCH CPUs no process computes beside a run, and each
+    // target is flagged for it.
     assert_eq!(report["verdict"], "pass_with_flags", "{report:#}");
-    assert_eq!(report["flags"], json!(["short_run: nap-0"]), "{report:#}");
+    let cpus = std::thread::available_parallelism().map_or(0, |n| n.get());
+    let expected = if cpus < carcinify_decide::watch::MIN_CPUS_TO_WATCH {
+        vec![
+            "load_beside_not_watched: nap: ",
+            "short_run: nap-0",
+            "load_beside_not_watched: nap-0: ",
+        ]
+    } else {
+        vec!["short_run: nap-0"]
+    };
+    let flags = report["flags"].as_array().unwrap();
+    assert!(
+        flags.len() == expected.len()
+            && flags
+                .iter()
+                .zip(&expected)
+                .all(|(f, e)| f.as_str().unwrap().starts_with(e)),
+        "{report:#}"
+    );
     assert_eq!(
         report["hash_seed"],
         json!({"value": 1234, "chosen": "given"})
@@ -547,7 +567,6 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     assert_eq!(nap["name"], "nap");
     // decide's process beside the measurement, kept for each target on a
     // machine with 4 CPUs or more.
-    let cpus = std::thread::available_parallelism().map_or(0, |n| n.get());
     let beside = &nap["watched_beside"];
     if cpus >= 4 {
         assert!(
