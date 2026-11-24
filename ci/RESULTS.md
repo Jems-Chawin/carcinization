@@ -455,6 +455,55 @@ one run on one Mac with three CPUs. The macOS runners of the three hosted
 runs had 3, 5 and 3 CPUs; that is all that is known here about how many
 they have.
 
+Run 45301087971 of the workflow, on 2026-11-24 at 4d09085, started by the
+push; 00:55 to 01:30 UTC, set up as the first, with the two speed suites
+added since. Rust 1.100.0 and maturin 1.16.0 on both. Linux passed; macOS
+failed in six tests of `carcinify speed`, three in each of its suites.
+
+- Linux x86-64, image `ubuntu-26.04` version 20261116.202.1, kernel
+  7.0.0-1020-azure, 4 CPUs, Python 3.13.18: exit 0, 35 rows as expected.
+  The decide suite: 37 passed and 1 ignored in 842 s, no run repeated; the
+  NumPy test passed in 306 s; both structure suites 54; speed 99 passed
+  and 8 ignored in 119 s, speed-maturin 8 passed in 99 s, 4 speed runs
+  repeated as too busy.
+- macOS arm64, image `macos-26-arm64` version 20261117.0516.1, Darwin
+  25.6.0, 3 CPUs, Python 3.12.10: **failed**. The decide suite: 37 passed
+  and 1 ignored in 883 s, no run repeated, with the skip for fewer than
+  four CPUs printed; the NumPy test passed in 128 s; both structure suites
+  54. speed: 96 passed, 3 failed, 8 ignored in 113 s; speed-maturin: 5
+  passed, 3 failed in 94 s; 3 speed runs repeated as too busy. Every other
+  row was as expected.
+
+None of the six gave up as too busy: each failed on the figures of a run
+the drop rule had kept. Two causes, both in the tests and their fixture,
+not in the tool:
+
+- One test did not allow for fewer than four CPUs.
+  `the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth`
+  expected exactly one flag, `short_run: nap-0`. Under four CPUs `speed
+  run` also flags each target with `load_beside_not_watched`, as its
+  README says, so the test fails on any machine with fewer than four
+  CPUs. In the Linux container limited to three CPUs with `taskset` it
+  failed with the same three flags. Since then it expects those flags
+  under four CPUs.
+- The fixture made its time by sleeping, and on the hosted Mac a sleep
+  ended tens of milliseconds late: 2 ms took 12 to 27 ms, 20 ms took 66 to
+  142 ms, and the 50 ms workspace 53 to 185 ms. Original ÷ port came out
+  at 0.22 to 0.32, not about 0.1 (three tests), and cold minus warm at
+  0.018 s, under 0.025 (two tests). The drop rule cannot see this: its
+  loop computes, so it measures contention for the CPU, and a late wake-up
+  is not that. decide's `waiting` example, 20 sleeps of 30 ms, took 1.4 to
+  2.3 s on every hosted macOS job of the workflow so far, against 0.60 s
+  on hosted Linux in this run and 0.65 to 0.66 s in the local runs above.
+  Since then the fixture's `nap` and the ports' workspace spin on the
+  clock and do not sleep, with the tests' bounds unchanged. The one test
+  that needs only time to pass, a lone process's time limit, sleeps
+  through `doze`.
+
+What it does not show: that spinning is on time on a hosted Mac. Sleeps
+are on time on this Mac, so a local pass does not test that; the next
+hosted run will.
+
 ## Differences found, and what was done
 
 The first Linux run (commit d1374ae) had 25 failing tests. All had one of
@@ -524,8 +573,8 @@ and removed, the line was written, exit status 137.
 
 ## Not tested
 
-- Linux x86-64 beyond the three hosted runs above.
-- macOS with fewer than four CPUs beyond the one hosted run above, in
+- Linux x86-64 beyond the four hosted runs above.
+- macOS with fewer than four CPUs beyond the two hosted runs above, in
   which one test is skipped.
 - A Python built without the GIL.
 - musl (Alpine), other distributions, other glibc versions.
