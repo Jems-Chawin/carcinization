@@ -41,6 +41,15 @@ mod counting {
     static GLOBAL: Counting = Counting;
 }
 
+/// Waits on the clock without sleeping: on GitHub's macOS runners a sleep
+/// ended tens of ms late, and the tests assert on how long nap takes.
+fn spin(time: std::time::Duration) {
+    let end = std::time::Instant::now() + time;
+    while std::time::Instant::now() < end {
+        std::hint::spin_loop();
+    }
+}
+
 #[pymodule]
 mod speed_port {
     use super::*;
@@ -59,21 +68,21 @@ mod speed_port {
     thread_local! {
         /// Whether this thread has made its workspace: on its first nap, in
         /// 50 ms, as a real port's buffers take time to set up; well above
-        /// what a sleep overshoots by under load (L1).
+        /// what a wait overshoots by under load (L1).
         static WORKSPACE: Cell<bool> = const { Cell::new(false) };
     }
 
-    /// Sleeps ten times as long as the original: a port slow on purpose.
+    /// Takes ten times as long as the original: a port slow on purpose.
     #[pyfunction]
     fn nap(ms: u64) -> u64 {
         WORKSPACE.with(|made| {
             if !made.get() {
-                std::thread::sleep(Duration::from_millis(50));
+                spin(Duration::from_millis(50));
                 WORKSPACES.fetch_add(1, Ordering::SeqCst);
                 made.set(true);
             }
         });
-        std::thread::sleep(Duration::from_millis(10 * ms));
+        spin(Duration::from_millis(10 * ms));
         ms
     }
 

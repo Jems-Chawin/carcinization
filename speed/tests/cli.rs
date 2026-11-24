@@ -516,7 +516,7 @@ fn the_sides_alternate_in_pairs_and_a_port_ten_times_slower_gives_about_a_tenth(
     let record = read(&wheels.join("build.json"));
     assert_eq!(report["tools"], record["tools"]);
     assert!(report["build"]["tools"].is_null(), "{report:#}");
-    // nap-0's runs are two calls that sleep 0 ms: under 1 ms. Under
+    // nap-0's runs are two calls that wait 0 ms: under 1 ms. Under
     // MIN_CPUS_TO_WATCH CPUs no process computes beside a run, and each
     // target is flagged for it.
     assert_eq!(report["verdict"], "pass_with_flags", "{report:#}");
@@ -919,7 +919,7 @@ fn speed_run_refuses_what_speed_build_did_not_build_for() {
     let text = std::fs::read_to_string(&original).unwrap();
     std::fs::write(
         &original,
-        text.replace("time.sleep(ms / 1000)", "time.sleep(10 * ms / 1000)"),
+        text.replace("_spin(ms / 1000)", "_spin(10 * ms / 1000)"),
     )
     .unwrap();
     let (code, err) = speed("run", &[]);
@@ -1140,7 +1140,7 @@ fn a_caller_is_timed_with_each_sides_function_in_place() {
     assert!(target["failed"].is_null(), "{target:#}");
     assert_eq!(target["caller"]["function"], "two_naps", "{target:#}");
     let ratio = target["ratio"]["median"].as_f64().unwrap();
-    // The port's nap sleeps ten times as long.
+    // The port's nap takes ten times as long.
     assert!((0.05..0.2).contains(&ratio), "{ratio}: {target:#}");
 }
 
@@ -1602,8 +1602,10 @@ fn a_cold_thread_is_reported_as_cold_minus_warm_paired_per_thread() {
     let median = cold["cold_minus_warm"]["median"]
         .as_f64()
         .unwrap_or(f64::NAN);
-    // The fixture's first call costs 50 ms: well clear of the 20 ms sleep's
-    // overshoot under load, up to about 12 ms, which a 5 ms cost was not.
+    // The fixture's first call costs 50 ms, well clear of how late the 20 ms
+    // warm call ends. Sleeps of 20 ms ended up to about 12 ms late under
+    // load on a Mac, which a 5 ms cost was not clear of, and up to 122 ms
+    // late on GitHub's macOS runner, so the fixture spins on the clock.
     assert!((0.025..0.25).contains(&median), "{median}: {cold:#}");
 }
 
@@ -1728,8 +1730,10 @@ print(seen[0])
     let median = cold["cold_minus_warm"]["median"]
         .as_f64()
         .unwrap_or(f64::NAN);
-    // The fixture's first call costs 50 ms: well clear of the 20 ms sleep's
-    // overshoot under load, up to about 12 ms, which a 5 ms cost was not.
+    // The fixture's first call costs 50 ms, well clear of how late the 20 ms
+    // warm call ends. Sleeps of 20 ms ended up to about 12 ms late under
+    // load on a Mac, which a 5 ms cost was not clear of, and up to 122 ms
+    // late on GitHub's macOS runner, so the fixture spins on the clock.
     assert!((0.025..0.25).contains(&median), "{median}: {cold:#}");
 }
 
@@ -1909,17 +1913,11 @@ fn a_function_whose_parameters_all_have_defaults_needs_speed_noop() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-cold-defaults");
     let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
     let port = repo.0.join("py-port/speed_port_py.py");
-    let text = std::fs::read_to_string(&port)
-        .unwrap()
-        .replacen("def nap(ms):", "def nap(ms=None):", 1)
-        .replacen(
-            "    if ms:\n        time.sleep(10 * ms / 1000)\n",
-            "    time.sleep(10 * ms / 1000)\n",
-            1,
-        );
-    assert!(
-        text.contains("def nap(ms=None):") && !text.contains("    if ms:\n        time.sleep(10")
-    );
+    let text =
+        std::fs::read_to_string(&port)
+            .unwrap()
+            .replacen("def nap(ms):", "def nap(ms=None):", 1);
+    assert!(text.contains("def nap(ms=None):"));
     std::fs::write(&port, text).unwrap();
     repo.commit("nap(ms=None), whose body raises TypeError after making the workspace");
     let declaration = dir.join("speed.json");
@@ -2542,14 +2540,14 @@ fn each_target_has_the_whole_time_limit_in_a_lone_process() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("speed-lone-limit");
     let repo = Repo::new(&dir.join("repo"), &PYTHON_FIXTURE);
     let mut cases = std::fs::read_to_string(repo.0.join("cases.jsonl")).unwrap();
-    cases += "{\"id\": \"nap-300\", \"fn\": \"nap\", \"args\": [300]}\n";
+    cases += "{\"id\": \"doze-300\", \"fn\": \"doze\", \"args\": [300]}\n";
     std::fs::write(repo.0.join("cases.jsonl"), cases).unwrap();
     repo.commit("a case whose port call takes 3 s");
     let declaration = dir.join("speed.json");
     let text = json!({"schema": "carcinify/speed/declaration/1", "suite": "repo/suite-python.json", "runs": 3,
     "targets": [
-        {"name": "a", "case": {"file": "cases.jsonl", "id": "nap-300"}, "calls_per_run": 1},
-        {"name": "b", "case": {"file": "cases.jsonl", "id": "nap-300"}, "calls_per_run": 1},
+        {"name": "a", "case": {"file": "cases.jsonl", "id": "doze-300"}, "calls_per_run": 1},
+        {"name": "b", "case": {"file": "cases.jsonl", "id": "doze-300"}, "calls_per_run": 1},
     ]});
     std::fs::write(&declaration, text.to_string()).unwrap();
     let wheels = dir.join("wheels");

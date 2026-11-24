@@ -6,10 +6,24 @@ import time
 from os.path import basename  # not this module's own code
 
 
+def _spin(seconds):
+    # Waits on the clock without sleeping: on GitHub's macOS runners a sleep
+    # ended tens of ms late, and the tests assert on how long nap takes.
+    if seconds < 0:
+        raise ValueError("sleep length must be non-negative")
+    end = time.perf_counter() + seconds
+    while time.perf_counter() < end:
+        pass
+
+
 def nap(ms):
-    # No sleep at all for 0: time.sleep(0) takes about 1 ms on some Linux.
-    if ms:
-        time.sleep(ms / 1000)
+    _spin(ms / 1000)
+    return ms
+
+
+def doze(ms):
+    # Sleeps: for a test that needs only time to pass, with no CPU spent.
+    time.sleep(ms / 1000)
     return ms
 
 

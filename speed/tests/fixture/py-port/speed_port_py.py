@@ -1,4 +1,4 @@
-"""A port of speed_orig, slow on purpose: nap sleeps ten times as long."""
+"""A port of speed_orig, slow on purpose: nap takes ten times as long."""
 
 import os
 import signal
@@ -12,12 +12,25 @@ from os.path import basename  # not this module's own code
 _thread = threading.local()
 
 
+def _spin(seconds):
+    # As the original's: waits on the clock without sleeping.
+    if seconds < 0:
+        raise ValueError("sleep length must be non-negative")
+    end = time.perf_counter() + seconds
+    while time.perf_counter() < end:
+        pass
+
+
 def nap(ms):
     if not getattr(_thread, "workspace", False):
-        time.sleep(0.05)
+        _spin(0.05)
         _thread.workspace = True
-    if ms:
-        time.sleep(10 * ms / 1000)
+    _spin(10 * ms / 1000)
+    return ms
+
+
+def doze(ms):
+    time.sleep(10 * ms / 1000)
     return ms
 
 

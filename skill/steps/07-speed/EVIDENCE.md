@@ -107,9 +107,10 @@ records of those runs are not in the repository.
 `a_cold_thread_is_reported_as_cold_minus_warm_paired_per_thread` (Python
 port) and `the_cheap_call_leaves_the_pyo3_ports_workspace_to_the_first_real_call`
 (PyO3), with `a_function_with_no_required_parameter_needs_speed_noop_for_its_cold_thread`.
-The fixture's first call in a thread sleeps 50 ms to make its workspace.
+The fixture's first call in a thread takes 50 ms to make its workspace.
 At 5 ms the PyO3 test once failed under load: sleeps of 20 ms woke 2 to
-12 ms late (bd87f2e). On one real port, the einsum port (below), cold
+12 ms late (bd87f2e), and up to 122 ms on GitHub's macOS runner, so the
+fixture now spins instead. On one real port, the einsum port (below), cold
 minus warm over 15 threads per platform had these medians, macOS then
 Linux arm64. For the search alone: +2.9 and +3.0 µs at 40 operands; −9.1
 and +78.7 µs at 120, where the threads ranged from −239 to +29 µs and

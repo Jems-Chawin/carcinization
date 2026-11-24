@@ -1,8 +1,13 @@
 # Fixture for carcinify speed
 
-- `py/speed_orig.py`, the original: `nap(ms)` sleeps `ms` milliseconds.
+- `py/speed_orig.py`, the original: `nap(ms)` takes `ms` milliseconds,
+  spinning on the clock. It does not sleep: on GitHub's macOS runners a
+  sleep ended tens of milliseconds late, and the tests assert on how long
+  nap takes. `doze(ms)` sleeps `ms` milliseconds, for a test that needs
+  only time to pass.
 - The port is slow on purpose, so the expected ratio is known: its `nap`
-  sleeps ten times as long, so original ÷ port is about 0.1.
+  takes ten times as long, so original ÷ port is about 0.1. The Python
+  port's `doze` sleeps ten times as long too.
   - `py-port/speed_port_py.py` is a Python port, for the tests that need
     no build (`suite-python.json`);
   - `rs/` is the same port in Rust behind PyO3, built by maturin
@@ -19,7 +24,7 @@
 - `first(xs)` returns the list's first item; the Python port pops it,
   which the original does not.
 - The ports' `nap` makes a workspace on a thread's first call, in 50 ms,
-  well above what a sleep overshoots by under load;
+  well above what a wait overshoots by under load;
   the PyO3 port's `workspaces()` counts them. carcinify speed's cold
   thread measures it.
 - `zero()` has no required parameter, so a call with no arguments runs it.
