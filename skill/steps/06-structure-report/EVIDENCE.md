@@ -56,7 +56,7 @@ For someone deciding how far to trust `STEP.md` and the tool behind it.
   examples' counts did not change.
 - **That it is blind to a stale index: measured.** The second example's
   plain-index port, which gives wrong results, passes every check.
-- **On a larger crate: one run.** The harness (about 5,000 lines) is read
+- **On a larger crate: one run.** The harness (about 6,000 lines without its tests) is read
   in full and gets one S6 flag, for cli::main at 216 lines (its one
   file over 1,000 lines is 640 without its tests); it declares that it has no hot path, with the
   reason, so nothing was measured there and the verdict is
