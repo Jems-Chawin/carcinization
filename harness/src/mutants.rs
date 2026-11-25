@@ -346,12 +346,8 @@ fn patch_report(
     ran: Result<crate::report::Report, String>,
     wrote: &[String],
     base: &crate::report::Report,
+    base_original: &BTreeMap<&str, &CaseReport>,
 ) -> Result<Patch, String> {
-    // What the original gave on each case, unmutated. Only the candidate is
-    // patched, so the original must give the same in every patch's run: by
-    // hash, or as the sides are compared where the case relaxes that.
-    let base_original: BTreeMap<&str, &CaseReport> =
-        base.cases.iter().map(|c| (c.id.as_str(), c)).collect();
     let original_changed = |c: &CaseReport| {
         let Some(now) = c.original_sha256.as_deref() else {
             return false;
@@ -563,6 +559,11 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
         ));
     }
 
+    // What the original gave on each case, unmutated. Only the candidate is
+    // patched, so the original must give the same in every patch's run: by
+    // hash, or as the sides are compared where the case relaxes that.
+    let base_original: BTreeMap<&str, &CaseReport> =
+        base.cases.iter().map(|c| (c.id.as_str(), c)).collect();
     let mut patches = Vec::new();
     for file in &files {
         let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", name(file)))?;
@@ -571,7 +572,14 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
         // The build or the run may have written where the patch could not.
         let wrote = rule.refused_in(&clone)?;
         reset(&clone, &wrote)?;
-        patches.push(patch_report(file, &text, ran, &wrote, &base)?);
+        patches.push(patch_report(
+            file,
+            &text,
+            ran,
+            &wrote,
+            &base,
+            &base_original,
+        )?);
     }
 
     let reasons = reasons(&patches);
