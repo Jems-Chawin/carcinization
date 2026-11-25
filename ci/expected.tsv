@@ -52,7 +52,7 @@ example	structure fleet-designed	pass_with_flags 8 units: 0.0 allocations, 0.0 b
 example	structure fleet-appeasement	fail 8 units: 102.0 allocations, 4578.0 bytes; 24 units: 708.0 allocations, 39278.0 bytes ; flags 2 ; S3 4	exit 1
 example	structure board-checked	pass_with_flags seed 7: 0.0005 allocations, 49.152 bytes ; flags 3 ; S3 0	exit 0
 example	structure board-plain_index	pass_with_flags seed 7: 0.001 allocations, 61.44 bytes ; flags 3 ; S3 0	exit 0
-example	structure harness	pass_with_flags  ; flags 6 ; S3 0	exit 0
+example	structure harness	pass_with_flags  ; flags 3 ; S3 0	exit 0
 example	decide waiting-decide	consistent mostly_waiting ; flags not judged by time: none	exit 0
 example	decide native-decide	consistent mostly_compiled_code ; flags not judged by time: many_objects_crossing	exit 0
 example	decide own-python-decide-original	consistent mostly_own_python ; flags not judged by time: none	exit 0
