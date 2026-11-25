@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 170" role="img" aria-label="A grey python slithers right in an S. A runner gains two orange plates, a shrimp is half orange, and a lobster keeps a grey tail tip. A larger orange crab raises both claws at the end of the line.">
+  <title>At the tide line</title>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke="#8B93A1" stroke-width="1.4" d="M5 139h92m9 0h118m13 0h108m12 0h117m14 0h145M54 139v4m130-4v4m132-4v4m122-4v4m126-4v4"/>
+    <!-- One travelling bend, with the weight on the belly and the head reaching ahead. -->
+    <g transform="translate(4)" stroke="#8B93A1">
+      <path stroke-width="3.95" d="M1 123c12-2 14-19 23-32 9-14 22-15 32-3 9 10 10 27 19 29 9 1 11-10 15-21 3-9 8-16 16-19 4-4 11-4 15-1l6 4q2 3-2 5l-8 4q-5 2-10 0c-6 4-5 17-12 30-6 12-15 18-24 16-18-3-21-21-28-32-5-9-9-10-14-5-8 9-13 26-28 25Z"/>
+      <path stroke-width="2.1" d="M14 117q6-7 11-16m24 2c7 11 12 25 23 27 10 2 16-5 21-14m7-18q1-9 6-13m4 0q5 1 13-3"/>
+      <path fill="#8B93A1" stroke="none" d="M20 101q3-9 9-13l-2 7-4 3Zm11-13q6-5 12-4l-5 5-7 2Zm16-1q7 3 10 12l-6-3Zm11 14 5 5 1 9-4-4Zm10 16 6 4 7-2-4 6-6-1Zm18-5 4-9 3-2-1 8-5 6Zm21-32q5-4 10-2-4 6-9 4Z"/>
+      <path stroke-width="1.8" d="m54 110 3-2m0 8 3-2m0 8 3-3m1 7 3-3m2 6 3-3"/>
+      <path stroke-width="2.3" d="m126 83 6 1 5-3m-5 3 4 3"/>
+    </g>
+    <!-- A plated skink swings a forefoot ahead of its long, low belly. -->
+    <g transform="translate(135 9.7) scale(.93)">
+      <g stroke="#8B93A1">
+        <path stroke-width="3.83" d="M0 97c2 13 14 18 25 13 13-6 14-20 23-31 10-12 22-15 34-14 5-2 9-9 16-10 7-1 13 3 19 6q4 4-1 8l-13 8-8 3c-5 9-5 20-14 28-10 11-24 14-41 15-20 2-36-5-40-26Z"/>
+        <path stroke-width="2.12" d="M4 106q12 14 32 8m-21 3q11 4 20 2m6-1c11-1 21-5 26-11m28-40q10 0 20-6m-21-4q6-6 12-4m-16 8q-6 6-7 14"/>
+        <path fill="#8B93A1" stroke="none" d="m28 109 4-8 5-3-3 7Zm9-14 5-10 5-2-4 9Zm58-31q3-5 9-4-3 5-8 6Z"/>
+        <path stroke-width="3.25" d="M47 120q0 6-6 10l-8 3m55-34 6 8 8-5m-2 1 5 1"/>
+        <path fill="#8B93A1" stroke="none" d="M13 115q17 7 34-4-9 11-22 10Zm70-16q10-9 12-18l-6 5Zm10-23q9 0 18-5-6 7-14 9Z"/>
+        <path stroke-width="1.9" d="m33 115 4 3m2-5 4 3m2-6 4 3m2-6 4 3m34-30 4-5"/>
+      </g>
+      <g stroke="#E0672B">
+        <path stroke-width="3.7" d="M43 91q3-13 13-18 13 5 15 20-7 5-15 12-2-10-13-14Zm17-20q10-6 20-5 10 6 9 18l-14 8q-3-15-15-21Z"/>
+        <path stroke-width="1.85" d="m48 88 7-8 9 8m3-16 11-2 6 8"/>
+        <path fill="#E0672B" stroke="none" d="M43 91q11 4 13 13l14-10-4 7-12 8q-1-11-11-18Zm19-18q11 6 13 19l12-7-3 6-11 6q-2-17-11-24Z"/>
+      </g>
+      <path stroke="#8B93A1" stroke-width="3.55" d="M61 112c5 10-4 14-12 16l7 7m-3-3-9-4q1-8 10-12m2 19 7 1m-8-1 4 3m18-34q10-8 15 1l-1 11q7 5 12 4m-23-12 4 13 11 4m5-5 6-3m-8 5 8 1"/>
+      <path fill="#8B93A1" d="M60 112q9 10-6 15l-5 0 6-5Zm17-8q10-9 15 0l-1 10-3-9q-4-3-11 2Z"/>
+    </g>
+    <!-- An arched, overlapping coat; legs emerge along the underside. -->
+    <g transform="translate(253 12.5) scale(.91)">
+      <g stroke="#8B93A1">
+        <path stroke-width="3.55" d="M0 111q10-1 18-13l6-14q5-11 14-15l3 26q-9 16-19 20-12 4-22-4Z"/>
+        <path stroke-width="2.12" d="M10 111q6 0 13-6m-3-9q5 1 9 6m-6-14q7 1 11 8"/>
+        <path stroke-width="3.1" d="m38 110-5 13-10 5m35-18 4 13 7 4m11-25 8 9 7-1"/>
+        <path stroke-width="3.83" d="M31 78q8-19 20-21 13 7 16 32-9 12-22 18 2-21-14-29Z"/>
+        <path stroke-width="2.05" d="M37 75q8-12 14-13m-12 17q8 5 10 17"/>
+        <path stroke-width="3.7" d="M45 109q-3 10-15 16l-10 7 12-4 14-8 7-14"/>
+        <path fill="#8B93A1" stroke="none" d="M33 80q13 6 15 24l15-9-4 6-15 9q2-19-11-30Z"/>
+        <path stroke-width="1.8" d="m48 70 4-4m-1 8 5-4m-2 9 5-4"/>
+      </g>
+      <g stroke="#E0672B">
+        <path stroke-width="3.83" d="M55 57q10-5 22-1 12 11 12 25-8 9-18 10-2-24-16-34Zm25 0q16 1 23 13l-2 9-11 4q0-14-10-26Z"/>
+        <path stroke-width="2.05" d="M60 61q9 5 13 16m13-14 6 5m3 8 5-2"/>
+        <path stroke-width="3.7" d="M62 98q4 7-1 16l-7 11-1 12 5-3 1-7 10-12 3-16m2-9q10 2 12 12l-3 13 9 8-13-5-1-16-7-7"/>
+        <path stroke-width="2.95" d="M89 85q9 3 11 11l7 3 6-6m-13 3 5 8 8-2m-11-30q4-15 16-17m-16 20q6-10 17-10"/>
+        <path fill="#E0672B" stroke="none" d="M58 59q14 9 16 29l11-5-5 6-9 4q-2-22-13-34Zm30 26q7-1 13-6l-5 8-6 1Z"/>
+        <path stroke-width="1.8" d="m71 67 5-4m-2 8 5-4m8 7 4-3"/>
+      </g>
+      <circle cx="99" cy="69" r="2.2" fill="#E0672B"/>
+    </g>
+    <!-- The abdomen folds flat under the squat lobster as the far claw lifts. -->
+    <g transform="translate(365 18) scale(.87)">
+      <g stroke="#8B93A1" stroke-width="3.55">
+        <path d="M6 104q-5-6-4-13 6-1 13 5l-3-14q8 1 13 12l-4 12Zm8-8q9-16 19-21l8 16q-7 12-19 15Z"/>
+        <path stroke-width="2" d="m8 95 6 6m5-14 2 7m1-5 8 6m-4-13 9 7"/>
+      </g>
+      <g stroke="#E0672B">
+        <path stroke-width="3.55" d="M30 78q3-13 12-17 10 8 12 27l-12 9q-1-13-12-19Zm13-19q10-8 24-7 12 2 20 12l-6 3 3 7-6 5q-9 10-22 11-2-23-13-31Z"/>
+        <path stroke-width="2" d="M35 75q2-7 6-9m8-5q8 6 12 18m-2-20q8-3 14 2m-9 19q7 1 12-4"/>
+        <path stroke-width="3.1" d="m41 99-9 11-15 8m39-26-5 15 6 12m15-39 13 10 12-2"/>
+        <path stroke-width="3.95" d="m43 96-8 12-15 17-9 3 12-2 18-15 10-17m10-1-2 17-11 18-1 9 5-4 1-5 13-18 3-19m3-6 10 10 3 16 14 6-11-11-1-16-8-9"/>
+        <path stroke-width="3.25" d="m68 54 3-11 9-8 4 4-7 8-1 10m3-20q-5-11 5-19l-1 9 14-8q-2 12-13 19Z
+          M83 74q7 3 12 1l8-9 4 3-9 13q-11 4-19-2m22-12q-5-9 3-15l2 7 11-9q1 11-10 18Z"/>
+        <path stroke-width="2.12" d="M85 62q9-14 23-14m-22 18q12-11 26-10"/>
+        <path fill="#E0672B" stroke="none" d="M31 80q10 5 12 14l9-7-3 7-9 7q0-14-9-21Zm17-19q9 9 12 26 10-2 17-8-4 10-21 13-1-18-8-31Zm32-26q8-4 13-10-3 10-11 13Zm22 30q6-1 12-8-2 8-10 11Z"/>
+        <path stroke-width="1.8" d="m54 62 3-3m0 7 4-4m-1 8 5-4m5 10 3-1m-8 31-3 7"/>
+      </g>
+      <circle cx="86" cy="60" r="3" fill="#E0672B"/>
+    </g>
+    <!-- The crab braces its outer feet and holds both open claws above the shell. -->
+    <g transform="translate(475 -11) scale(1.235 1.08)" stroke="#E0672B">
+      <path stroke-width="2.8" d="m36 85-17 3-12 15m28-7-12 11-1 15m45-22 16 6 7 16m-7-34 15 4 13 11"/>
+      <path stroke-width="3.95" d="M35 86q-8 5-16 8L1 116l7-4 15-14 18-5m3 8-17 12-7 18-7 6 12-3 8-17 21-13m9 2 15 11 9 17 11 4-7-8-7-17-13-11m14-9 17 8 10 19 1-8-7-17-14-9"/>
+      <path stroke-width="4.05" d="M30 77Q13 73 10 53l8-2q4 12 17 17M10 53C0 48 0 35 5 27q3 10 9 11 9-3 15-15 4 17-10 29Z
+        M91 72q9 3 14-8l2-11 8 3-3 16q-6 13-22 13m16-29q-8-11-2-23 5-8 16-12-6 9-5 17 6 0 13-9 0 15-14 26Z"/>
+      <path stroke-width="4.2" d="M22 74q1-13 14-20l4-6 6 3q10-6 23-5l6-4 5 5 8-1 2 6 6 3-3 7 3 7q-1 18-18 30-14 10-31 6-19-5-25-31Z"/>
+      <path stroke-width="2.18" d="M28 72q2-10 14-16m-10 24q2 10 8 15m-3-28q8-8 17-7l6 4 7-6 8 1m-27 30q8 2 13 8 10-2 17-9m-7-17 8-5 8 2m-43 8 4-4m14 11 4-3m-6 8 3-2M6 39q3 7 8 8m96-3 5-4"/>
+      <path fill="#E0672B" stroke="none" d="M23 77q6 18 16 22 25 12 48-9-13 19-31 18-25-1-33-31ZM4 36q3 11 11 12 8-4 13-12-3 12-13 17Q5 49 4 36Zm103 16q13-5 19-15-1 12-13 19Z"/>
+      <path stroke-width="1.8" d="m28 81 3-3m-2 8 4-4m-2 9 5-5m-2 9 5-5m-2 9 5-5m36 1 5-5m-3 0 5-5m-3-1 4-4m-35-7 2-1m4-3 1-1m11-8 2-1m16 42 4 5m9-17 4 4"/>
+      <path stroke-width="4.2" d="m67 47 3-10m13 12 7-9"/>
+      <circle cx="71" cy="35" r="3.4" fill="#E0672B"/><circle cx="92" cy="38" r="3.6" fill="#E0672B"/>
+    </g>
+  </g>
+</svg>

@@ -1,8 +1,8 @@
-<p align="center"><img src="assets/roads.svg" width="560" alt="Five roads run together and end at a crab"></p>
+<p align="center"><img src="assets/tide-line.svg" width="560" alt="A python slithers right, grows plates and legs through a shrimp and a lobster, and ends as a crab"></p>
 
 <h1 align="center">carcinization</h1>
 
-<p align="center"><em>“All roads eventually lead to crab.”</em></p>
+<p align="center"><em>“Eventually, crab.”</em></p>
 
 <p align="center">Move a Python codebase to Rust one piece at a time, and measure every step: <code>carcinify</code>.</p>
 
