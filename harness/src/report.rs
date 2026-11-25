@@ -761,19 +761,13 @@ fn not_called(side: &Side) -> Vec<String> {
         .collect()
 }
 
-pub fn build(mut p: Parts) -> Result<Report, String> {
-    let mut summary = Summary {
-        cases: p.cases.len(),
-        ..Summary::default()
-    };
-    for c in &p.cases {
-        match c.result {
-            CaseResult::Identical => summary.identical += 1,
-            CaseResult::IdenticalWithRelaxations => summary.identical_with_relaxations += 1,
-            CaseResult::Different => summary.different += 1,
-            CaseResult::Error => summary.errors += 1,
-        }
-    }
+/// Why the run does not pass, in the report's order: the cases, the
+/// measured calls, then the functions never compared on a returned value.
+fn reasons(
+    summary: &Summary,
+    measured: &[crate::measured::FileReport],
+    functions: &[FunctionCheck],
+) -> Vec<String> {
     let mut reasons = Vec::new();
     if summary.cases == 0 {
         reasons.push("no cases were run".to_string());
@@ -795,8 +789,7 @@ pub fn build(mut p: Parts) -> Result<Report, String> {
         }
         text
     };
-    let missing: Vec<String> = p
-        .measured
+    let missing: Vec<String> = measured
         .iter()
         .flat_map(|m| {
             m.missing
@@ -811,8 +804,7 @@ pub fn build(mut p: Parts) -> Result<Report, String> {
             listed(missing)
         ));
     }
-    let unwaived: Vec<String> = p
-        .measured
+    let unwaived: Vec<String> = measured
         .iter()
         .filter(|m| m.not_comparable.is_none())
         .flat_map(|m| {
@@ -828,7 +820,6 @@ pub fn build(mut p: Parts) -> Result<Report, String> {
             listed(unwaived)
         ));
     }
-    let functions = function_checks(&p)?;
     for f in functions
         .iter()
         .filter(|f| f.compared_on_a_returned_value == "fail")
@@ -838,6 +829,24 @@ pub fn build(mut p: Parts) -> Result<Report, String> {
             f.func, f.cases
         ));
     }
+    reasons
+}
+
+pub fn build(mut p: Parts) -> Result<Report, String> {
+    let mut summary = Summary {
+        cases: p.cases.len(),
+        ..Summary::default()
+    };
+    for c in &p.cases {
+        match c.result {
+            CaseResult::Identical => summary.identical += 1,
+            CaseResult::IdenticalWithRelaxations => summary.identical_with_relaxations += 1,
+            CaseResult::Different => summary.different += 1,
+            CaseResult::Error => summary.errors += 1,
+        }
+    }
+    let functions = function_checks(&p)?;
+    let reasons = reasons(&summary, &p.measured, &functions);
     let crate_dir = p
         .candidate
         .1

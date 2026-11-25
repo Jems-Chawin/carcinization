@@ -137,6 +137,178 @@ pub fn cargo_workspace(name: &str, crate_dir: &Path) -> Result<PathBuf, String> 
         .ok_or_else(|| "cargo gave no workspace path".to_string())
 }
 
+/// maturin's command line for a PyO3 side, and the target directory it
+/// builds in.
+fn wheel_command(
+    tools: &Tools,
+    crate_dir: &Path,
+    workspace_dir: &Path,
+    out: &Path,
+    features: &[String],
+    no_default_features: bool,
+) -> Result<(Vec<String>, PathBuf), String> {
+    let mut cmd = vec![
+        utf8(&tools.maturin)?,
+        "build".to_string(),
+        "--release".to_string(),
+        "--locked".to_string(),
+        "--interpreter".to_string(),
+        utf8(&tools.python)?,
+        "--manifest-path".to_string(),
+        utf8(&crate_dir.join("Cargo.toml"))?,
+        "--out".to_string(),
+        utf8(out)?,
+    ];
+    // Cargo puts the finished library at one path per target
+    // directory whatever the features, so two runs of the same crate
+    // with different features could hand each other's library to
+    // maturin. Each feature set gets a target directory of its own.
+    let mut variant = features.to_vec();
+    variant.sort();
+    variant.insert(
+        0,
+        if no_default_features {
+            "bare"
+        } else {
+            "default"
+        }
+        .to_string(),
+    );
+    let variant: String = variant
+        .join("+")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || "+-_".contains(c) {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if tools.recompile_crate {
+        // Cargo's command line for each crate it compiles goes to
+        // the build log: carcinify speed reads the flags from it.
+        cmd.push("-v".to_string());
+    }
+    cmd.push("--target-dir".to_string());
+    let target_dir = workspace_dir.join("target/carcinify-diff").join(variant);
+    cmd.push(utf8(&target_dir)?);
+    if no_default_features {
+        cmd.push("--no-default-features".to_string());
+    }
+    if !features.is_empty() {
+        cmd.push("--features".to_string());
+        cmd.push(features.join(","));
+    }
+    Ok((cmd, target_dir))
+}
+
+/// The one wheel maturin wrote into `out`, unpacked into `unpacked`.
+fn unpack_wheel(name: &str, tools: &Tools, out: &Path, unpacked: &Path) -> Result<PathBuf, String> {
+    let wheels: Vec<PathBuf> = std::fs::read_dir(out)
+        .map_err(|e| e.to_string())?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "whl"))
+        .collect();
+    let [wheel] = wheels.as_slice() else {
+        return Err(format!(
+            "{name}: expected one wheel from maturin, found {}",
+            wheels.len()
+        ));
+    };
+    let unzip = Command::new(&tools.python)
+        .args(["-I", "-m", "zipfile", "-e"])
+        .arg(wheel)
+        .arg(unpacked)
+        .output()
+        .map_err(|e| format!("{name}: cannot unpack wheel: {e}"))?;
+    if !unzip.status.success() {
+        return Err(format!(
+            "{name}: cannot unpack wheel: {}",
+            String::from_utf8_lossy(&unzip.stderr)
+        ));
+    }
+    Ok(wheel.clone())
+}
+
+/// How the side is started: the interpreter with its options and
+/// environment, and the driver's `init`.
+fn side_config(
+    name: &'static str,
+    module: &str,
+    built: &Built,
+    shared: &[PathBuf],
+    driver: &Path,
+    work: &Path,
+    tools: &Tools,
+) -> Result<SideConfig, String> {
+    let strings = |dirs: &[PathBuf]| dirs.iter().map(|p| utf8(p)).collect::<Result<Vec<_>, _>>();
+    let roots = strings(&built.load_roots)?;
+    let shared_roots = strings(shared)?;
+    let sys_path = [roots.clone(), shared_roots.clone()].concat();
+    let init = serde_json::json!({
+        "op": "init",
+        "module": module,
+        // The side's own directories first, then the shared ones.
+        "sys_path": sys_path,
+        "must_load_from": roots,
+        "shared_roots": shared_roots,
+        // Set by the caller.
+        "shared_hashes": [],
+        // Filled in by the caller once both sides are prepared.
+        "other_roots": [],
+        // A PyO3 side's functions must be the compiled ones, unless the
+        // suite names them as Python on purpose.
+        "require_extension": built.kind == "pyo3",
+        "python_functions": built.python_functions,
+        // Set by the caller.
+        "count_calls": true,
+        // The driver checks that this is what it runs under.
+        "hash_seed": tools.hash_seed,
+    });
+    Ok(SideConfig {
+        name,
+        program: tools.python.clone(),
+        // What `-I` gave, except that the hash seed takes effect (`-I`
+        // includes `-E`, which drops PYTHONHASHSEED with every other
+        // variable): no PYTHONPATH, no user site-packages, no script
+        // directory or current directory on sys.path. The module comes from
+        // where the suite says, or not at all.
+        // -s: no user site-packages.
+        // env_remove: every PYTHON* variable the harness was started with,
+        // which is what `-E` ignored; then PYTHONHASHSEED, and
+        // PYTHONSAFEPATH=1, which is `-P` on Python 3.11 and later (no
+        // script directory on sys.path). Earlier versions ignore it, so the
+        // driver sits alone in its own directory and takes that off sys.path
+        // itself. A version probe would cost a process start for a flag.
+        // pycache_prefix: bytecode is cached in the work directory, which is
+        // new on every run. Python trusts a cache file whose recorded source
+        // time and size match, so a cache left beside the source by an
+        // earlier run could be executed in place of a source file that was
+        // changed without its time or size changing. This way none is read
+        // from the repository and none is written into it.
+        args: vec![
+            "-s".to_string(),
+            "-X".to_string(),
+            format!(
+                "pycache_prefix={}",
+                utf8(&work.join(format!("{name}-pycache")))?
+            ),
+            utf8(driver)?,
+        ],
+        env_remove: std::env::vars_os()
+            .map(|(name, _)| name)
+            .filter(|name| name.as_encoded_bytes().starts_with(b"PYTHON"))
+            .collect(),
+        env: vec![
+            ("PYTHONHASHSEED".to_string(), tools.hash_seed.to_string()),
+            ("PYTHONSAFEPATH".to_string(), "1".to_string()),
+        ],
+        init,
+        log: work.join(format!("{name}.log")),
+    })
+}
+
 /// Gets one side ready to run. For a PyO3 crate that means building a wheel
 /// with maturin now, from the working tree, and unpacking it into `work`:
 /// the module that runs is the one just built, never one already installed.
@@ -186,59 +358,14 @@ pub fn prepare(
             let workspace_dir = cargo_workspace(name, &crate_dir)?;
             let out = work.join(format!("{name}-wheel"));
             let unpacked = work.join(format!("{name}-module"));
-            let mut cmd = vec![
-                utf8(&tools.maturin)?,
-                "build".to_string(),
-                "--release".to_string(),
-                "--locked".to_string(),
-                "--interpreter".to_string(),
-                utf8(&tools.python)?,
-                "--manifest-path".to_string(),
-                utf8(&crate_dir.join("Cargo.toml"))?,
-                "--out".to_string(),
-                utf8(&out)?,
-            ];
-            // Cargo puts the finished library at one path per target
-            // directory whatever the features, so two runs of the same crate
-            // with different features could hand each other's library to
-            // maturin. Each feature set gets a target directory of its own.
-            let mut variant = features.clone();
-            variant.sort();
-            variant.insert(
-                0,
-                if *no_default_features {
-                    "bare"
-                } else {
-                    "default"
-                }
-                .to_string(),
-            );
-            let variant: String = variant
-                .join("+")
-                .chars()
-                .map(|c| {
-                    if c.is_ascii_alphanumeric() || "+-_".contains(c) {
-                        c
-                    } else {
-                        '_'
-                    }
-                })
-                .collect();
-            if tools.recompile_crate {
-                // Cargo's command line for each crate it compiles goes to
-                // the build log: carcinify speed reads the flags from it.
-                cmd.push("-v".to_string());
-            }
-            cmd.push("--target-dir".to_string());
-            let target_dir = workspace_dir.join("target/carcinify-diff").join(variant);
-            cmd.push(utf8(&target_dir)?);
-            if *no_default_features {
-                cmd.push("--no-default-features".to_string());
-            }
-            if !features.is_empty() {
-                cmd.push("--features".to_string());
-                cmd.push(features.join(","));
-            }
+            let (cmd, target_dir) = wheel_command(
+                tools,
+                &crate_dir,
+                &workspace_dir,
+                &out,
+                features,
+                *no_default_features,
+            )?;
             let build = fresh::Build {
                 repo_root,
                 crate_dir: &crate_dir,
@@ -291,29 +418,7 @@ pub fn prepare(
                 ));
             }
             build.record()?;
-            let wheels: Vec<PathBuf> = std::fs::read_dir(&out)
-                .map_err(|e| e.to_string())?
-                .filter_map(|e| e.ok().map(|e| e.path()))
-                .filter(|p| p.extension().is_some_and(|x| x == "whl"))
-                .collect();
-            let [wheel] = wheels.as_slice() else {
-                return Err(format!(
-                    "{name}: expected one wheel from maturin, found {}",
-                    wheels.len()
-                ));
-            };
-            let unzip = Command::new(&tools.python)
-                .args(["-I", "-m", "zipfile", "-e"])
-                .arg(wheel)
-                .arg(&unpacked)
-                .output()
-                .map_err(|e| format!("{name}: cannot unpack wheel: {e}"))?;
-            if !unzip.status.success() {
-                return Err(format!(
-                    "{name}: cannot unpack wheel: {}",
-                    String::from_utf8_lossy(&unzip.stderr)
-                ));
-            }
+            let wheel = &unpack_wheel(name, tools, &out, &unpacked)?;
             drop(lock);
             let built = Built {
                 kind: "pyo3",
@@ -339,71 +444,7 @@ pub fn prepare(
     };
     let mut built = built;
     built.shared_roots = shared.to_vec();
-    let strings = |dirs: &[PathBuf]| dirs.iter().map(|p| utf8(p)).collect::<Result<Vec<_>, _>>();
-    let roots = strings(&built.load_roots)?;
-    let shared_roots = strings(shared)?;
-    let sys_path = [roots.clone(), shared_roots.clone()].concat();
-    let init = serde_json::json!({
-        "op": "init",
-        "module": module,
-        // The side's own directories first, then the shared ones.
-        "sys_path": sys_path,
-        "must_load_from": roots,
-        "shared_roots": shared_roots,
-        // Set by the caller.
-        "shared_hashes": [],
-        // Filled in by the caller once both sides are prepared.
-        "other_roots": [],
-        // A PyO3 side's functions must be the compiled ones, unless the
-        // suite names them as Python on purpose.
-        "require_extension": built.kind == "pyo3",
-        "python_functions": built.python_functions,
-        // Set by the caller.
-        "count_calls": true,
-        // The driver checks that this is what it runs under.
-        "hash_seed": tools.hash_seed,
-    });
-    let cfg = SideConfig {
-        name,
-        program: tools.python.clone(),
-        // What `-I` gave, except that the hash seed takes effect (`-I`
-        // includes `-E`, which drops PYTHONHASHSEED with every other
-        // variable): no PYTHONPATH, no user site-packages, no script
-        // directory or current directory on sys.path. The module comes from
-        // where the suite says, or not at all.
-        // -s: no user site-packages.
-        // env_remove: every PYTHON* variable the harness was started with,
-        // which is what `-E` ignored; then PYTHONHASHSEED, and
-        // PYTHONSAFEPATH=1, which is `-P` on Python 3.11 and later (no
-        // script directory on sys.path). Earlier versions ignore it, so the
-        // driver sits alone in its own directory and takes that off sys.path
-        // itself. A version probe would cost a process start for a flag.
-        // pycache_prefix: bytecode is cached in the work directory, which is
-        // new on every run. Python trusts a cache file whose recorded source
-        // time and size match, so a cache left beside the source by an
-        // earlier run could be executed in place of a source file that was
-        // changed without its time or size changing. This way none is read
-        // from the repository and none is written into it.
-        args: vec![
-            "-s".to_string(),
-            "-X".to_string(),
-            format!(
-                "pycache_prefix={}",
-                utf8(&work.join(format!("{name}-pycache")))?
-            ),
-            utf8(&driver)?,
-        ],
-        env_remove: std::env::vars_os()
-            .map(|(name, _)| name)
-            .filter(|name| name.as_encoded_bytes().starts_with(b"PYTHON"))
-            .collect(),
-        env: vec![
-            ("PYTHONHASHSEED".to_string(), tools.hash_seed.to_string()),
-            ("PYTHONSAFEPATH".to_string(), "1".to_string()),
-        ],
-        init,
-        log: work.join(format!("{name}.log")),
-    };
+    let cfg = side_config(name, module, &built, shared, &driver, work, tools)?;
     Ok((cfg, built))
 }
 

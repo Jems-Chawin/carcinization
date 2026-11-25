@@ -251,6 +251,224 @@ fn not_the_candidates(cases: &[CaseReport]) -> Vec<String> {
         .collect()
 }
 
+fn name(p: &Path) -> String {
+    p.file_name()
+        .map_or(String::new(), |n| n.to_string_lossy().into_owned())
+}
+
+/// The rule for every path a patch changes, and every path its build and
+/// run leave changed: inside the candidate, and nothing the comparison
+/// reads. The candidate's ignored target directory passes.
+struct Rule<'a> {
+    root: &'a Path,
+    short_dirs: String,
+    allowed: Vec<PathBuf>,
+    read: Vec<(PathBuf, &'static str)>,
+}
+
+impl Rule<'_> {
+    fn refused(&self, path: &str) -> Option<String> {
+        let full = self.root.join(path);
+        if let Some((_, what)) = self.read.iter().find(|(p, _)| full.starts_with(p)) {
+            return Some(format!("{path}, which the comparison reads ({what})"));
+        }
+        let inside = !Path::new(path)
+            .components()
+            .any(|c| c == Component::ParentDir)
+            && self.allowed.iter().any(|d| full.starts_with(d));
+        (!inside).then(|| {
+            format!(
+                "{path}, which is outside the candidate ({})",
+                self.short_dirs
+            )
+        })
+    }
+
+    fn refused_in(&self, clone: &Path) -> Result<Vec<String>, String> {
+        Ok(changed(clone)?
+            .iter()
+            .filter_map(|p| self.refused(p))
+            .collect())
+    }
+}
+
+/// Puts the clone back to the commit.
+fn reset(clone: &Path, refused: &[String]) -> Result<(), String> {
+    git(clone, &["checkout", "-q", "--", "."])?;
+    git(clone, &["clean", "-fdq"])?;
+    // Ignored files that should not be there go too; the candidate's
+    // target directory stays, so that the next patch builds on it.
+    for r in refused {
+        let path = r.split(", which ").next().unwrap_or(r);
+        git(clone, &["clean", "-fdxq", "--", path])?;
+    }
+    Ok(())
+}
+
+/// A clone of the repository at `commit`, in a scratch directory removed
+/// when the run ends unless `keep_work`.
+fn scratch_clone(root: &Path, commit: &str, keep_work: bool) -> Result<(Scratch, PathBuf), String> {
+    sweep_leftovers();
+    let scratch = Scratch(
+        std::env::temp_dir().join(format!(
+            "{PREFIX}{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos())
+        )),
+        keep_work,
+    );
+    let clone = scratch.0.join("repo");
+    let clone_str = clone.to_str().ok_or("temporary directory is not UTF-8")?;
+    let root_str = root.to_str().ok_or("repository path is not UTF-8")?;
+    git(
+        root,
+        &[
+            "clone",
+            "-q",
+            "--shared",
+            "--no-checkout",
+            root_str,
+            clone_str,
+        ],
+    )?;
+    git(&clone, &["checkout", "-q", "--detach", commit])?;
+    Ok((scratch, clone))
+}
+
+/// One patch's entry, from its run and from what its build and run changed
+/// where a patch may not (`wrote`): which cases caught it and how, or why
+/// the result says nothing about the cases.
+fn patch_report(
+    file: &Path,
+    text: &str,
+    ran: Result<crate::report::Report, String>,
+    wrote: &[String],
+    base: &crate::report::Report,
+) -> Result<Patch, String> {
+    // What the original gave on each case, unmutated. Only the candidate is
+    // patched, so the original must give the same in every patch's run: by
+    // hash, or as the sides are compared where the case relaxes that.
+    let base_original: BTreeMap<&str, &CaseReport> =
+        base.cases.iter().map(|c| (c.id.as_str(), c)).collect();
+    let original_changed = |c: &CaseReport| {
+        let Some(now) = c.original_sha256.as_deref() else {
+            return false;
+        };
+        let Some(was) = base_original.get(c.id.as_str()) else {
+            return true;
+        };
+        match (&was.original_relaxed, &c.original_relaxed) {
+            (Some((was, relax)), Some((now, _))) => compare(was, now, relax).is_err(),
+            _ => was.original_sha256.as_deref() != Some(now),
+        }
+    };
+    let mut p = Patch {
+        file: name(file),
+        sha256: crate::provenance::sha256_file(file)?,
+        expected_to_survive: expected_to_survive(text),
+        result: "survived",
+        how: BTreeSet::new(),
+        cases_run: 0,
+        not_identical: 0,
+        not_identical_by_case_file: BTreeMap::new(),
+        first_cases: Vec::new(),
+        stopped_after_timeout: false,
+        error: None,
+    };
+    match ran {
+        Err(e) => {
+            p.result = "did_not_run";
+            let lines: Vec<&str> = e.lines().collect();
+            p.error = Some(lines[lines.len().saturating_sub(12)..].join("\n"));
+        }
+        Ok(r) => {
+            p.cases_run = r.cases.len();
+            for c in r.cases.iter().filter(|c| {
+                !matches!(
+                    c.result,
+                    CaseResult::Identical | CaseResult::IdenticalWithRelaxations
+                )
+            }) {
+                p.not_identical += 1;
+                let source = c.source.rsplit_once(':').map_or(c.source.as_str(), |s| s.0);
+                let source = source.rsplit('/').next().unwrap_or(source).to_string();
+                *p.not_identical_by_case_file.entry(source).or_default() += 1;
+                if p.first_cases.len() < 5 {
+                    p.first_cases.push(c.id.clone());
+                }
+                p.how.insert(how(c));
+            }
+            p.stopped_after_timeout = p.how.contains("timed out") && p.cases_run < base.cases.len();
+            if p.not_identical > 0 {
+                p.result = "killed";
+            }
+            let mut wrong = Vec::new();
+            let original = not_the_candidates(&r.cases);
+            if !original.is_empty() {
+                wrong.push(format!(
+                    "not the candidate alone failed, so the result says nothing: {}",
+                    original.join(", ")
+                ));
+            }
+            let changed: Vec<&str> = r
+                .cases
+                .iter()
+                .filter(|c| original_changed(c))
+                .map(|c| c.id.as_str())
+                .collect();
+            if !changed.is_empty() {
+                wrong.push(format!(
+                    "the original's output in {} changed from the unmutated run: something changed what it reads, or it does not give the same output twice",
+                    changed.join(", ")
+                ));
+            }
+            if !wrong.is_empty() {
+                p.result = "invalid";
+                p.error = Some(wrong.join("; "));
+            }
+        }
+    }
+    if !wrote.is_empty() {
+        p.result = "invalid";
+        p.error = Some(format!(
+            "its build or run changed {}; the comparison did not read what the commit holds",
+            wrote.join("; ")
+        ));
+    }
+    Ok(p)
+}
+
+/// Why the run fails: each patch whose result is not the one it should
+/// have.
+fn reasons(patches: &[Patch]) -> Vec<String> {
+    let mut reasons = Vec::new();
+    for p in patches {
+        match (p.result, &p.expected_to_survive) {
+            ("killed", None) | ("survived", Some(_)) => {}
+            ("killed", Some(_)) => reasons.push(format!(
+                "{}: killed, though it says it is expected to survive; its description is wrong",
+                p.file
+            )),
+            ("survived", None) => reasons.push(format!(
+                "{}: survived: no case tells it from the port",
+                p.file
+            )),
+            ("invalid", _) => reasons.push(format!(
+                "{}: invalid: {}",
+                p.file,
+                p.error.as_deref().unwrap_or("")
+            )),
+            _ => reasons.push(format!(
+                "{}: did not run (it did not build or import), so it tests nothing",
+                p.file
+            )),
+        }
+    }
+    reasons
+}
+
 pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
     if opts.allow_dirty {
         return Err(
@@ -289,70 +507,17 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
     }
     let allowed = candidate_dirs(&suite, suite_dir)?;
     let read = read_by_comparison(&suite, &suite_path, suite_dir)?;
-    let name = |p: &Path| {
-        p.file_name()
-            .map_or(String::new(), |n| n.to_string_lossy().into_owned())
-    };
-
-    let short_dirs = allowed
-        .iter()
-        .map(|d| d.strip_prefix(root).unwrap_or(d).display().to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    // The rule for every path a patch changes, and every path its build and
-    // run leave changed: inside the candidate, and nothing the comparison
-    // reads. The candidate's ignored target directory passes.
-    let refused = |path: &str| -> Option<String> {
-        let full = root.join(path);
-        if let Some((_, what)) = read.iter().find(|(p, _)| full.starts_with(p)) {
-            return Some(format!("{path}, which the comparison reads ({what})"));
-        }
-        let inside = !Path::new(path)
-            .components()
-            .any(|c| c == Component::ParentDir)
-            && allowed.iter().any(|d| full.starts_with(d));
-        (!inside).then(|| format!("{path}, which is outside the candidate ({short_dirs})"))
-    };
-    let refused_in = |clone: &Path| -> Result<Vec<String>, String> {
-        Ok(changed(clone)?.iter().filter_map(|p| refused(p)).collect())
-    };
-    let reset = |clone: &Path, refused: &[String]| -> Result<(), String> {
-        git(clone, &["checkout", "-q", "--", "."])?;
-        git(clone, &["clean", "-fdq"])?;
-        // Ignored files that should not be there go too; the candidate's
-        // target directory stays, so that the next patch builds on it.
-        for r in refused {
-            let path = r.split(", which ").next().unwrap_or(r);
-            git(clone, &["clean", "-fdxq", "--", path])?;
-        }
-        Ok(())
-    };
-    sweep_leftovers();
-    let scratch = Scratch(
-        std::env::temp_dir().join(format!(
-            "{PREFIX}{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_nanos())
-        )),
-        opts.keep_work,
-    );
-    let clone = scratch.0.join("repo");
-    let clone_str = clone.to_str().ok_or("temporary directory is not UTF-8")?;
-    let root_str = root.to_str().ok_or("repository path is not UTF-8")?;
-    git(
+    let rule = Rule {
         root,
-        &[
-            "clone",
-            "-q",
-            "--shared",
-            "--no-checkout",
-            root_str,
-            clone_str,
-        ],
-    )?;
-    git(&clone, &["checkout", "-q", "--detach", &git_info.commit])?;
+        short_dirs: allowed
+            .iter()
+            .map(|d| d.strip_prefix(root).unwrap_or(d).display().to_string())
+            .collect::<Vec<_>>()
+            .join(", "),
+        allowed,
+        read,
+    };
+    let (scratch, clone) = scratch_clone(root, &git_info.commit, opts.keep_work)?;
     // Every patch is checked before anything runs: it must apply to the
     // commit, and what it changes must pass the rule.
     let mut problems = Vec::new();
@@ -362,7 +527,7 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
             problems.push(format!("{}: does not apply to {short}: {e}", name(file)));
             continue;
         }
-        let wrong = refused_in(&clone)?;
+        let wrong = rule.refused_in(&clone)?;
         problems.extend(wrong.iter().map(|w| format!("{}: changes {w}", name(file))));
         reset(&clone, &wrong)?;
     }
@@ -398,131 +563,18 @@ pub fn run(opts: &Options, dir: &Path) -> Result<Report, String> {
         ));
     }
 
-    // What the original gave on each case, unmutated. Only the candidate is
-    // patched, so the original must give the same in every patch's run: by
-    // hash, or as the sides are compared where the case relaxes that.
-    let base_original: BTreeMap<&str, &CaseReport> =
-        base.cases.iter().map(|c| (c.id.as_str(), c)).collect();
-    let original_changed = |c: &CaseReport| {
-        let Some(now) = c.original_sha256.as_deref() else {
-            return false;
-        };
-        let Some(was) = base_original.get(c.id.as_str()) else {
-            return true;
-        };
-        match (&was.original_relaxed, &c.original_relaxed) {
-            (Some((was, relax)), Some((now, _))) => compare(was, now, relax).is_err(),
-            _ => was.original_sha256.as_deref() != Some(now),
-        }
-    };
     let mut patches = Vec::new();
     for file in &files {
         let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", name(file)))?;
         git(&clone, &["apply", file.to_str().unwrap_or_default()])?;
         let ran = crate::run(&run_opts(true));
         // The build or the run may have written where the patch could not.
-        let wrote = refused_in(&clone)?;
+        let wrote = rule.refused_in(&clone)?;
         reset(&clone, &wrote)?;
-        let mut p = Patch {
-            file: name(file),
-            sha256: crate::provenance::sha256_file(file)?,
-            expected_to_survive: expected_to_survive(&text),
-            result: "survived",
-            how: BTreeSet::new(),
-            cases_run: 0,
-            not_identical: 0,
-            not_identical_by_case_file: BTreeMap::new(),
-            first_cases: Vec::new(),
-            stopped_after_timeout: false,
-            error: None,
-        };
-        match ran {
-            Err(e) => {
-                p.result = "did_not_run";
-                let lines: Vec<&str> = e.lines().collect();
-                p.error = Some(lines[lines.len().saturating_sub(12)..].join("\n"));
-            }
-            Ok(r) => {
-                p.cases_run = r.cases.len();
-                for c in r.cases.iter().filter(|c| {
-                    !matches!(
-                        c.result,
-                        CaseResult::Identical | CaseResult::IdenticalWithRelaxations
-                    )
-                }) {
-                    p.not_identical += 1;
-                    let source = c.source.rsplit_once(':').map_or(c.source.as_str(), |s| s.0);
-                    let source = source.rsplit('/').next().unwrap_or(source).to_string();
-                    *p.not_identical_by_case_file.entry(source).or_default() += 1;
-                    if p.first_cases.len() < 5 {
-                        p.first_cases.push(c.id.clone());
-                    }
-                    p.how.insert(how(c));
-                }
-                p.stopped_after_timeout =
-                    p.how.contains("timed out") && p.cases_run < base.cases.len();
-                if p.not_identical > 0 {
-                    p.result = "killed";
-                }
-                let mut wrong = Vec::new();
-                let original = not_the_candidates(&r.cases);
-                if !original.is_empty() {
-                    wrong.push(format!(
-                        "not the candidate alone failed, so the result says nothing: {}",
-                        original.join(", ")
-                    ));
-                }
-                let changed: Vec<&str> = r
-                    .cases
-                    .iter()
-                    .filter(|c| original_changed(c))
-                    .map(|c| c.id.as_str())
-                    .collect();
-                if !changed.is_empty() {
-                    wrong.push(format!(
-                        "the original's output in {} changed from the unmutated run: something changed what it reads, or it does not give the same output twice",
-                        changed.join(", ")
-                    ));
-                }
-                if !wrong.is_empty() {
-                    p.result = "invalid";
-                    p.error = Some(wrong.join("; "));
-                }
-            }
-        }
-        if !wrote.is_empty() {
-            p.result = "invalid";
-            p.error = Some(format!(
-                "its build or run changed {}; the comparison did not read what the commit holds",
-                wrote.join("; ")
-            ));
-        }
-        patches.push(p);
+        patches.push(patch_report(file, &text, ran, &wrote, &base)?);
     }
 
-    let mut reasons = Vec::new();
-    for p in &patches {
-        match (p.result, &p.expected_to_survive) {
-            ("killed", None) | ("survived", Some(_)) => {}
-            ("killed", Some(_)) => reasons.push(format!(
-                "{}: killed, though it says it is expected to survive; its description is wrong",
-                p.file
-            )),
-            ("survived", None) => reasons.push(format!(
-                "{}: survived: no case tells it from the port",
-                p.file
-            )),
-            ("invalid", _) => reasons.push(format!(
-                "{}: invalid: {}",
-                p.file,
-                p.error.as_deref().unwrap_or("")
-            )),
-            _ => reasons.push(format!(
-                "{}: did not run (it did not build or import), so it tests nothing",
-                p.file
-            )),
-        }
-    }
+    let reasons = reasons(&patches);
     let pass = reasons.is_empty();
     Ok(Report {
         schema: SCHEMA,
