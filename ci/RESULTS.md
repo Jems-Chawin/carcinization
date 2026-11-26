@@ -544,6 +544,43 @@ faster of the two timings, by more than they differ (decide/README.md,
 to be faster on this machine. What this does not show: that the second
 timing catches what happened here. Only hosted runs can show that.
 
+Run 45836248153 of the workflow, on 2026-11-26 at 1e4fdf3, started by the
+push; 14:10 to 14:46 UTC, on the same images and tools as the two runs
+before it. Linux passed; macOS failed in two tests of speed-maturin. The
+decide suite passed on both, 41 tests and 1 ignored, with the alternative
+timed between two timings of the workload.
+
+- Linux x86-64, image `ubuntu-26.04` version 20261116.202.1, kernel
+  7.0.0-1020-azure, 4 CPUs, Python 3.13.18: exit 0. The decide suite in
+  625 s, no run repeated; speed-maturin 8 passed in 66 s.
+- macOS arm64, image `macos-26-arm64` version 20261117.0516.1, Darwin
+  25.6.0, 3 CPUs, Python 3.12.10: **failed**. The decide suite in 1,039 s,
+  3 runs repeated as busy; speed 99 passed and 8 ignored; speed-maturin 6
+  passed and 2 failed in 122 s, 8 speed runs repeated as too busy. Every
+  other row was as expected.
+
+Two causes, one in the tool and one in a test:
+
+- `speed_run_times_the_pyo3_port_from_the_wheel_speed_build_wrote`:
+  `speed build` stopped with "no dep-info file beside the built library".
+  Every PyO3 build of `speed build` first cleans the port's crate, so that
+  Cargo prints its compiler command, and the clean deletes the dep-info
+  file beside the library. The clean runs under a lock on the target
+  directory, but the dep-info was read after the lock was let go. Six
+  tests build the fixture into one target directory, and on 3 CPUs three
+  tests run at once: one build cleaned the crate between another's build
+  and its read. Since then the dep-info is read under the lock and carried
+  with the build. A user who builds one crate twice at once had the same
+  race.
+- `a_caller_is_timed_with_the_pyo3_ports_function_in_place`: all five of
+  its runs were too busy, and after the fifth the test read a ratio that
+  was not there. Since then the test gives up as too busy in words. And
+  since then a `speed build` in the tests waits for any timed run, as runs
+  wait for each other: the suite's own PyO3 builds, each from a clean
+  crate, had run beside the timed runs. Whether that alone keeps the
+  hosted Mac quiet enough is not known; decide and the plain speed suite
+  also repeated runs as busy in this run.
+
 ## Differences found, and what was done
 
 The first Linux run (commit d1374ae) had 25 failing tests. All had one of
