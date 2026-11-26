@@ -657,6 +657,25 @@ fn result_lines_printed_by_the_workload_are_not_results() {
 
 #[test]
 fn the_algorithm_question_is_set_against_the_decision() {
+    // On failure, the runs the answer came from: the original's, the
+    // alternative's, and the original's again after it.
+    let runs = |report: &J| {
+        let m = &report["language_or_algorithm"]["alternative_measured"];
+        let lines = |runs: &J| {
+            runs.as_array()
+                .into_iter()
+                .flatten()
+                .map(|r| format!("  {r}\n"))
+                .collect::<String>()
+        };
+        format!(
+            "\n==== runs from report.json ====\nthe original:\n{}the alternative:\n{}the original again:\n{}judged by: {}",
+            lines(&report["workload"]["measured_with_nothing_attached"]["runs"]),
+            lines(&m["measured"]["runs"]),
+            lines(&m["workload_timed_again_after_it"]["runs"]),
+            m["judged_by"]
+        )
+    };
     // A better algorithm is said to exist and has not been tried.
     let untried = r#"{"statement": "the loop can be replaced by a formula", "better_algorithm_in_python": "exists_untried"}"#;
     let (code, report, text) = run(&repo(BUSY, CANDIDATE, untried, PORT));
@@ -669,29 +688,57 @@ fn the_algorithm_question_is_set_against_the_decision() {
     // It was tried, the tool measured it, and it removes the cost.
     let tried = r#"{"statement": "the loop can be replaced by a formula", "better_algorithm_in_python": "tried", "tried": {"description": "the formula", "function": "run_better", "args": [8000000]}}"#;
     let (code, report, text) = run(&repo(BUSY, CANDIDATE, tried, PORT));
-    assert_eq!(code, 1, "{text}");
+    assert_eq!(code, 1, "{text}{}", runs(&report));
     let m = &report["language_or_algorithm"]["alternative_measured"];
-    assert!(m["times_faster"].as_f64().unwrap() > 100.0, "{text}");
+    assert!(
+        m["times_faster"].as_f64().unwrap() > 100.0,
+        "{text}{}",
+        runs(&report)
+    );
     assert_eq!(m["measured"]["runs"].as_array().unwrap().len(), 3);
+    // The original is timed again after the alternative.
+    assert_eq!(
+        m["workload_timed_again_after_it"]["runs"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        m["judged_by"]["decision"],
+        "port",
+        "{text}{}",
+        runs(&report)
+    );
+    assert_eq!(m["judged_by"]["found"], "faster", "{text}{}", runs(&report));
     assert!(
         all(&report, "contradictions")
             .contains("Make that change, then run this tool on the improved code and decide there"),
-        "{text}"
+        "{text}{}",
+        runs(&report)
     );
     // With the decision the measurements point to, it is consistent.
     let fix =
         r#"{"choice": "fix_algorithm_first", "reason": "the formula does the same in no time"}"#;
     let (code, report, text) = run(&repo(BUSY, CANDIDATE, tried, fix));
-    assert_eq!(code, 0, "{text}");
+    assert_eq!(code, 0, "{text}{}", runs(&report));
     assert_eq!(report["verdict"], "consistent");
 
     // An alternative that is no faster does not support "fix it first".
     let same = r#"{"statement": "believed to be the algorithm", "better_algorithm_in_python": "tried", "tried": {"description": "the same thing again", "function": "run", "args": [8000000]}}"#;
     let (code, report, text) = run(&repo(BUSY, CANDIDATE, same, fix));
-    assert_eq!(code, 1, "{text}");
+    assert_eq!(code, 1, "{text}{}", runs(&report));
     assert!(
-        all(&report, "contradictions").contains("it is not faster"),
-        "{text}"
+        all(&report, "contradictions")
+            .contains("the alternative measured is not shown to be faster on this machine"),
+        "{text}{}",
+        runs(&report)
+    );
+    assert_eq!(
+        report["language_or_algorithm"]["alternative_measured"]["judged_by"]["found"],
+        "not shown to be faster on this machine",
+        "{text}{}",
+        runs(&report)
     );
 
     // Memory safety alone is not a reason: Python has it.

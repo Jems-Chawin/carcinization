@@ -30,6 +30,9 @@ pub const MIN_SHARE_TO_PORT_FOR_SPEED: f64 = 0.20;
 /// original's time has removed most of the cost; the decision is then made
 /// on the improved code.
 pub const ALGORITHM_REMOVED_MOST: f64 = 0.5;
+/// "Fix the algorithm first" is contradicted unless the alternative in
+/// Python is shown to take at most this fraction of the original's time.
+pub const ALTERNATIVE_FASTER_AT_MOST: f64 = 0.9;
 /// One category holding at least this share names the workload.
 pub const DOMINANT: f64 = 0.5;
 /// A statement or reason needs at least this many words.
@@ -252,8 +255,9 @@ struct Phases {
     /// With a candidate: the hook on it, and the calls made while it runs.
     boundary: Option<J>,
     calls: Option<J>,
-    /// The alternative's plain runs, with its file.
-    tried: Option<(J, PathBuf)>,
+    /// The alternative's plain runs, the original's plain runs made again
+    /// after them, and the alternative's file.
+    tried: Option<(J, J, PathBuf)>,
     /// The stand-in workload: its plain runs, the calls made while the
     /// candidate runs in it, the hook on the candidate, and its file.
     stand_in: Option<(J, J, J, PathBuf)>,
@@ -461,6 +465,16 @@ fn busy_during(what: &str, phase: &J, busy: &mut Vec<String>, flags: &mut Flags)
             m["logical_cpus"]
         ));
     }
+}
+
+/// Whether an alternative is shown to take at most `limit` of the
+/// original's time, from the fastest runs of the original before it and
+/// after it and of the alternative. Against the faster of the two
+/// originals, and by more than they differ: a machine whose speed drifted
+/// between processes could account for less.
+fn shown_faster(limit: f64, before: f64, after: f64, alternative: f64) -> bool {
+    let faster = before.min(after);
+    alternative <= limit * faster && faster - alternative > (before - after).abs()
 }
 
 /// Busy plain runs: none usable is a reason not to trust the report, some
@@ -745,7 +759,13 @@ pub fn run(opts: &Options) -> Result<J, String> {
         {
             Some(t) => {
                 let (spec, f) = other(t, "the alternative")?;
-                Some((runner.phase("plain", &spec)?, f))
+                // The original again, so that the alternative is timed
+                // between two timings of it.
+                Some((
+                    runner.phase("plain", &spec)?,
+                    runner.phase("plain", &main_spec)?,
+                    f,
+                ))
             }
             None => None,
         };
@@ -1171,23 +1191,43 @@ pub fn run(opts: &Options) -> Result<J, String> {
         "mixed".to_string()
     };
 
-    // The alternative in Python, measured the same way.
+    // The alternative in Python, measured the same way, between two
+    // timings of the original: the fastest runs of the original before it,
+    // the original after it, and the alternative.
     let mut alternative = J::Null;
-    let mut ratio = None;
-    if let Some((plain, f)) = &tried {
+    let mut bracket = None;
+    if let Some((plain, again, f)) = &tried {
         let t = summary(plain)?;
         busy_plain("the alternative", &t, &mut busy, &mut flags);
+        let after = summary(again)?;
+        busy_plain(
+            "the workload, timed again after the alternative",
+            &after,
+            &mut busy,
+            &mut flags,
+        );
         let w = t["fastest_run"]["wall_seconds"].as_f64().unwrap_or(0.0);
-        ratio = (wall > 0.0).then(|| w / wall);
+        let o = after["fastest_run"]["wall_seconds"].as_f64().unwrap_or(0.0);
+        bracket = Some((wall, o, w));
+        let faster = wall.min(o);
+        let ratio = (faster > 0.0).then(|| w / faster);
         if w < MIN_WALL_SECONDS {
             flags.push("alternative_too_short", true, format!("the alternative ran for {:.1} milliseconds. That is too short to time well, so \"how many times faster\" is rough; that it is much faster is not in doubt", w * 1e3));
         }
         alternative = json!({
             "file": shown(f), "file_sha256": sha256_file(f)?, "measured": t,
+            "workload_timed_again_after_it": after,
+            "workload_fastest_seconds_before_and_after_it": [wall, o],
             "time_as_a_fraction_of_the_original": ratio.map(|r| round(r, 4)),
             "times_faster": ratio.filter(|r| *r > 0.0).map(|r| round(1.0 / r, 2)),
+            "judged_by": J::Null,
         });
     }
+    // Which rule judged the alternative, and what it found.
+    let judged = |decision: &str, limit: f64, shown: bool| {
+        json!({"decision": decision, "faster_at_most_this_fraction_of_the_original": limit,
+               "found": if shown { "faster" } else { "not shown to be faster on this machine" }})
+    };
 
     // The declared statements against the measurements.
     match &decl.language_or_algorithm {
@@ -1253,8 +1293,13 @@ pub fn run(opts: &Options) -> Result<J, String> {
                         if algorithm_state == Some("exists_untried") {
                             contradictions.push("the decision is to port for speed while the author says a better algorithm exists in Python and has not been tried. Try it first: it is cheaper than a port, and the port's gain has to be counted from there".to_string());
                         }
-                        if let Some(r) = ratio.filter(|r| *r <= ALGORITHM_REMOVED_MOST) {
-                            contradictions.push(format!("the decision is to port for speed, and the alternative in Python already takes {:.0}% of the original's time ({:.1} times faster). Make that change, then run this tool on the improved code and decide there", r * 100.0, 1.0 / r));
+                        if let Some((before, after, w)) = bracket {
+                            let shown = shown_faster(ALGORITHM_REMOVED_MOST, before, after, w);
+                            alternative["judged_by"] = judged("port", ALGORITHM_REMOVED_MOST, shown);
+                            if shown {
+                                let r = w / before.min(after);
+                                contradictions.push(format!("the decision is to port for speed, and the alternative in Python already takes {:.0}% of the original's time ({:.1} times faster). Make that change, then run this tool on the improved code and decide there", r * 100.0, 1.0 / r));
+                            }
                         }
                         // What speed is needed, set against the best case.
                         match &d.need {
@@ -1293,10 +1338,16 @@ pub fn run(opts: &Options) -> Result<J, String> {
                         flags.push("port_not_for_speed", false, "the port is not for speed. Time measurements neither support nor contradict the stated goals; the cost of the boundary still applies".to_string());
                     }
                 }
-                "fix_algorithm_first" => match (algorithm_state, ratio) {
+                "fix_algorithm_first" => match (algorithm_state, bracket) {
                     (Some("exists_untried"), _) => {}
-                    (Some("tried"), Some(r)) if r > 0.9 => contradictions.push(format!("the decision is to fix the algorithm first, and the alternative measured takes {:.0}% of the original's time: it is not faster", r * 100.0)),
-                    (Some("tried"), _) => {}
+                    (Some("tried"), Some((before, after, w))) => {
+                        let shown = shown_faster(ALTERNATIVE_FASTER_AT_MOST, before, after, w);
+                        alternative["judged_by"] = judged("fix_algorithm_first", ALTERNATIVE_FASTER_AT_MOST, shown);
+                        if !shown {
+                            contradictions.push(format!("the decision is to fix the algorithm first, and the alternative measured is not shown to be faster on this machine: its fastest run took {w:.3} s, and the original's {before:.3} s before it and {after:.3} s after it. Faster means at most {:.0}% of the faster original's time, by more than the two timings of the original differ", ALTERNATIVE_FASTER_AT_MOST * 100.0));
+                        }
+                    }
+                    (Some("tried"), None) => {}
                     _ => reasons.push("the decision is to fix the algorithm first, and `language_or_algorithm` does not say a better one exists".to_string()),
                 },
                 "do_not_port" => {}
@@ -1397,7 +1448,7 @@ pub fn run(opts: &Options) -> Result<J, String> {
         "limits_used": {
             "stand_ins_remove_little": STAND_INS_REMOVE_LITTLE, "stand_ins_leave_calls": STAND_INS_LEAVE_CALLS, "stand_in_cpu_over_wall": STAND_IN_CPU_OVER_WALL, "stand_in_surplus_per_entry_seconds": STAND_IN_SURPLUS_PER_ENTRY_SECONDS, "stand_in_object_bytes": STAND_IN_OBJECT_BYTES, "stand_in_total_bytes": STAND_IN_TOTAL_BYTES,
             "busy_calibration": BUSY_CALIBRATION, "busy_while_running": BUSY_WHILE_RUNNING, "not_watched_above_this_share_of_the_cpus": NOT_WATCHED_ABOVE_THIS_SHARE_OF_THE_CPUS, "small_saving_seconds_per_day": SMALL_SAVING_SECONDS_PER_DAY,
-            "min_share_to_port_for_speed": MIN_SHARE_TO_PORT_FOR_SPEED, "algorithm_removed_most": ALGORITHM_REMOVED_MOST, "dominant": DOMINANT,
+            "min_share_to_port_for_speed": MIN_SHARE_TO_PORT_FOR_SPEED, "algorithm_removed_most": ALGORITHM_REMOVED_MOST, "alternative_faster_at_most": ALTERNATIVE_FASTER_AT_MOST, "dominant": DOMINANT,
             "min_wall_seconds": MIN_WALL_SECONDS, "many_calls": MANY_CALLS, "small_call_seconds": SMALL_CALL_SECONDS, "many_objects": MANY_OBJECTS,
         },
     }))
@@ -1623,14 +1674,29 @@ pub fn markdown(r: &J) -> String {
             ));
             let m = &a["alternative_measured"];
             if !m.is_null() {
+                let o_at = |i: usize| {
+                    m["workload_fastest_seconds_before_and_after_it"][i]
+                        .as_f64()
+                        .unwrap_or(0.0)
+                };
                 o.push_str(&format!(
-                    "\nThe alternative, measured by the tool in the same run: {} `{}`: fastest run {:.4} s against {:.3} s, **{} times faster**, {} of the original's time.\n",
+                    "\nThe alternative, measured by the tool in the same run, between two timings of the original: {} `{}`: fastest run {:.4} s against {:.3} s before it and {:.3} s after it, {} times faster than the faster of the two, {} of its time.{}\n",
                     s(&d["tried"]["description"]),
                     s(&d["tried"]["function"]),
                     m["measured"]["wall_seconds"]["fastest"].as_f64().unwrap_or(0.0),
-                    t["wall_seconds"]["fastest"].as_f64().unwrap_or(0.0),
+                    o_at(0),
+                    o_at(1),
                     m["times_faster"],
                     pct(&m["time_as_a_fraction_of_the_original"]),
+                    match m["judged_by"].as_object() {
+                        None => String::new(),
+                        Some(j) => format!(
+                            " By the rule for `{}` (at most {} of the faster original's time, by more than the two timings of the original differ): **{}**.",
+                            s(&j["decision"]),
+                            pct(&j["faster_at_most_this_fraction_of_the_original"]),
+                            s(&j["found"]),
+                        ),
+                    },
                 ));
             }
         }
@@ -1807,5 +1873,32 @@ mod tests {
         let mut flags = Flags::default();
         watched("the plain runs", &phase(4), &mut busy, &mut flags);
         assert!(flags.texts.is_empty());
+    }
+
+    #[test]
+    fn an_alternative_inside_the_drift_of_the_original_is_not_shown_faster() {
+        // Hosted CI run 45626449458: the same function, 0.618 s against
+        // 0.727 s. Had the original been timed again at 0.62 s, the
+        // machine's drift would account for all of it.
+        assert!(!shown_faster(
+            ALTERNATIVE_FASTER_AT_MOST,
+            0.727,
+            0.62,
+            0.618
+        ));
+    }
+
+    #[test]
+    fn a_clear_gain_is_shown_faster() {
+        assert!(shown_faster(ALTERNATIVE_FASTER_AT_MOST, 0.70, 0.71, 0.30));
+    }
+
+    #[test]
+    fn the_port_rule_asks_for_half_the_faster_original_by_more_than_the_drift() {
+        assert!(shown_faster(ALGORITHM_REMOVED_MOST, 0.70, 0.71, 0.30));
+        // Not half.
+        assert!(!shown_faster(ALGORITHM_REMOVED_MOST, 0.70, 0.71, 0.40));
+        // Half of the faster original, by less than the two originals differ.
+        assert!(!shown_faster(ALGORITHM_REMOVED_MOST, 1.0, 0.4, 0.19));
     }
 }

@@ -186,7 +186,15 @@ pub fn main(mut args: impl Iterator<Item = String>) -> ExitCode {
     }
     let m = &r["language_or_algorithm"]["alternative_measured"];
     if !m.is_null() {
-        println!("alternative in Python: {} times faster", m["times_faster"]);
+        let j = &m["judged_by"];
+        println!(
+            "alternative in Python: {} times faster than the faster of two timings of the original{}",
+            m["times_faster"],
+            match (j["decision"].as_str(), j["found"].as_str()) {
+                (Some(decision), Some(found)) => format!("; by the rule for {decision}: {found}"),
+                _ => String::new(),
+            }
+        );
     }
     match r["declared_decision"]["choice"].as_str() {
         Some(choice) => println!("decision declared by the author: {choice}"),
