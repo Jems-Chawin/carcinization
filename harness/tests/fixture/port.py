@@ -179,3 +179,85 @@ def check_sign(x):
     if x < 0:
         raise ValueError("negative")
     return x
+
+
+# NumPy arrays, for the tests that run only with CARCINIFY_NUMPY_PYTHON.
+# The same values as the original's, made another way where layout or byte
+# order is not a value.
+
+
+def arrays():
+    import numpy as np
+
+    return (
+        np.array([1.0, -0.0, float("nan"), float("inf")], dtype=">f8"),
+        np.array(1.5),
+        np.arange(6).reshape(2, 3),
+        np.array([True, False]),
+        np.zeros(3, dtype=np.float32),
+        np.array([7, -7], dtype=np.int32),
+        np.zeros((0, 2)),
+        np.array(np.arange(6.0).reshape(2, 3), order="F"),
+        np.arange(0.0, 4.0, 0.5)[::2],
+    )
+
+
+def arrays_float32():
+    import numpy as np
+
+    return np.array([1.0, 2.0], dtype=np.float32)
+
+
+def arrays_shape():
+    import numpy as np
+
+    return np.zeros((2, 2))
+
+
+def arrays_last_bit():
+    import math
+
+    import numpy as np
+
+    return (np.array([-0.5, 0.5]), np.array([0.1, math.nextafter(0.2, 1.0)]))
+
+
+def arrays_big_endian():
+    import numpy as np
+
+    return np.array([1.5, 2.5], dtype=">f8")
+
+
+def arrays_float32_ulps():
+    import numpy as np
+
+    return np.array([1.0], dtype=np.float32)
+
+
+def arrays_masked():
+    import numpy as np
+
+    return np.ma.array([1.0])
+
+
+def arrays_scalar():
+    import numpy as np
+
+    return np.float64(1.0)
+
+
+def arrays_bool_bytes():
+    import numpy as np
+
+    return np.array([1, 2], dtype=np.int8).view(np.bool_)
+
+
+def arrays_list():
+    import numpy as np
+
+    return np.array([1.0, 2.0])
+
+
+def arrays_in(a, flag):
+    a[0] = -1.0
+    return (a, type(a).__name__, a.flags.writeable, flag)

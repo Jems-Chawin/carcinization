@@ -26,7 +26,7 @@
 check	fmt		exit 0
 check	clippy		exit 0
 suite	command	2 passed, 0 failed, 0 ignored	exit 0
-suite	diff	127 passed, 0 failed, 6 ignored	exit 0
+suite	diff	140 passed, 0 failed, 13 ignored	exit 0
 suite	diff-example-maturin	5 passed, 0 failed, 0 ignored	exit 0
 suite	diff-mixed-maturin	1 passed, 0 failed, 0 ignored	exit 0
 suite	structure	54 passed, 0 failed, 0 ignored	exit 0
@@ -34,6 +34,7 @@ suite	structure-shared-target	54 passed, 0 failed, 0 ignored	exit 0
 suite	deps-recorded	25 passed, 0 failed, 2 ignored	exit 0
 suite	decide	41 passed, 0 failed, 1 ignored	exit 0
 suite	decide-numpy	1 passed, 0 failed, 0 ignored	exit 0	optional
+suite	diff-numpy	7 passed, 0 failed, 0 ignored	exit 0	optional
 suite	deps-live	2 passed, 0 failed, 0 ignored	exit 0	optional
 suite	speed	99 passed, 0 failed, 8 ignored	exit 0
 suite	speed-maturin	8 passed, 0 failed, 0 ignored	exit 0

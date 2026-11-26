@@ -200,6 +200,26 @@ class Watch:
         return out
 
 
+# NumPy dtypes the format has, by kind and size, with their names on the wire.
+ARRAY_DTYPES = {("f", 8): "<f8", ("f", 4): "<f4", ("i", 8): "<i8", ("i", 4): "<i4", ("b", 1): "|b1"}
+
+
+def enc_array(np, v):
+    """An exact numpy.ndarray -> wire value: dtype, shape, and the elements'
+    bytes in C order, little-endian. Layout and byte order are not values."""
+    dt = v.dtype
+    wire = ARRAY_DTYPES.get((dt.kind, dt.itemsize))
+    if wire is None or dt.fields is not None or dt.subdtype is not None:
+        raise Unencodable("numpy.ndarray of dtype %r" % dt.str)
+    if wire == "|b1":
+        data = v.tobytes(order="C")
+        if data.translate(None, b"\x00\x01"):  # a view can make them
+            raise Unencodable("numpy.ndarray of dtype bool holding byte values other than 0 and 1")
+    else:
+        data = v.astype(dt.newbyteorder("<"), copy=False).tobytes(order="C")
+    return {"t": "ndarray", "dtype": wire, "shape": list(v.shape), "hex": data.hex()}
+
+
 def enc(v):
     """Python value -> wire value. Exact types only: a subclass (numpy.float64,
     an IntEnum, an OrderedDict) is reported, never silently narrowed."""
@@ -228,6 +248,11 @@ def enc(v):
         return {"t": "map", "v": [[enc(k), enc(x)] for k, x in v.items()]}
     if t is set or t is frozenset:
         return {"t": "set", "v": [enc(x) for x in v]}
+    # Only a side that has imported NumPy can return an array, so NumPy is
+    # looked up, never imported here.
+    np = sys.modules.get("numpy")
+    if np is not None and t is np.ndarray:
+        return enc_array(np, v)
     raise Unencodable("%s.%s" % (t.__module__, t.__qualname__))
 
 
@@ -254,6 +279,13 @@ def dec(j):
         return {dec(k): dec(x) for k, x in j["v"]}
     if t == "set":
         return {dec(x) for x in j["v"]}
+    if t == "ndarray":
+        try:
+            import numpy as np
+        except ImportError:
+            raise ValueError("an ndarray input needs NumPy, which this side's interpreter cannot import") from None
+        data = np.frombuffer(bytes.fromhex(j["hex"]), dtype=np.dtype(j["dtype"]))
+        return data.reshape(j["shape"]).copy()  # writable, and this side's own
     if t == "_bytes_file":  # written by the harness for a file_bytes input
         with open(j["path"], "rb") as f:
             return f.read()

@@ -3108,3 +3108,139 @@ fn a_measured_file_with_no_calls_is_warned_about() {
         r.stdout
     );
 }
+
+/// With the real NumPy, on our own small arrays. Needs an interpreter that
+/// has it, named in `CARCINIFY_NUMPY_PYTHON`:
+///
+///     python3 -m venv target/numpy-venv && target/numpy-venv/bin/pip install numpy==2.5.4
+///     CARCINIFY_NUMPY_PYTHON=$PWD/target/numpy-venv/bin/python \
+///         cargo test --locked -p carcinify --test diff -- --ignored
+fn numpy_python() -> String {
+    std::env::var("CARCINIFY_NUMPY_PYTHON")
+        .expect("set CARCINIFY_NUMPY_PYTHON to an interpreter that has NumPy")
+}
+
+fn run_numpy(cases: &str) -> Run {
+    Repo::new(cases).run_python(&numpy_python(), &[])
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn arrays_are_compared_by_value_not_by_layout_or_byte_order() {
+    // The candidate's arrays hold the same values in big-endian, Fortran
+    // order and a strided view: none of that is a value.
+    let r = run_numpy(r#"{"id": "a", "fn": "arrays"}"#);
+    assert_eq!(r.code, 0, "{}\n{}", r.stdout, r.stderr);
+    assert_eq!(r.case(0)["result"], "identical");
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn an_array_differs_by_dtype_shape_and_type_before_any_element() {
+    let r = run_numpy(
+        r#"{"id": "f4", "fn": "arrays_float32"}
+{"id": "shape", "fn": "arrays_shape"}
+{"id": "list", "fn": "arrays_list"}"#,
+    );
+    assert_eq!(r.code, 1);
+    let kinds: Vec<&J> = (0..3)
+        .map(|i| &r.case(i)["first_difference"]["kind"])
+        .collect();
+    assert_eq!(kinds, ["ndarray_dtype", "ndarray_shape", "type"]);
+    assert_eq!(
+        r.case(0)["first_difference"]["candidate"]["repr"],
+        "<f4 shape (2,): [1.0, 2.0] (2 elements)"
+    );
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn a_last_bit_in_an_array_fails_until_a_named_rule_allows_it() {
+    let r = run_numpy(r#"{"id": "c", "fn": "arrays_last_bit"}"#);
+    assert_eq!(r.code, 1);
+    assert_eq!(r.case(0)["first_difference"]["path"], "$[1][1]");
+
+    let r = run_numpy(
+        r#"{"id": "c", "fn": "arrays_last_bit", "relax": {"floats": [{"path": "$[0][*]", "abs": "1e-15", "reason": "nodes"}, {"path": "$[1][*]", "ulps": 1, "reason": "weights"}]}}"#,
+    );
+    assert_eq!(r.code, 0, "{}", r.stdout);
+    assert_eq!(r.report["schema"], "carcinify/diff/report/2");
+    assert_eq!(r.report["verdict"], "pass_with_relaxations");
+    let c = r.case(0);
+    assert_eq!(c["result"], "identical_with_relaxations");
+    assert_eq!(c["relaxations_applied_total"], 1);
+    let s = &c["relaxations_in_arrays"];
+    assert_eq!(s.as_array().unwrap().len(), 1, "{s}");
+    assert_eq!(s[0]["path"], "$[1]");
+    assert_eq!(s[0]["rule"], "$[1][*]");
+    assert_eq!(
+        (s[0]["elements"].as_u64(), s[0]["needed"].as_u64()),
+        (Some(2), Some(1))
+    );
+    assert_eq!(s[0]["largest_deviation"], "1");
+    assert_eq!(s[0]["first"][0]["original"]["bits"], "0x3fc999999999999a");
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn an_ulps_rule_on_a_float32_array_is_an_error_of_the_case() {
+    let r = run_numpy(
+        r#"{"id": "c", "fn": "arrays_float32_ulps", "relax": {"floats": [{"path": "$[*]", "ulps": 1, "reason": "test"}]}}"#,
+    );
+    assert_eq!(r.code, 1);
+    let c = r.case(0);
+    assert_eq!(c["result"], "error");
+    assert_eq!(c["errors"][0]["kind"], "relaxation");
+    assert!(
+        c["errors"][0]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("ulps on float32 is not supported; use abs"),
+        "{c}"
+    );
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn subclasses_scalars_and_odd_bool_bytes_are_refused_by_name() {
+    let r = run_numpy(
+        r#"{"id": "masked", "fn": "arrays_masked"}
+{"id": "scalar", "fn": "arrays_scalar"}
+{"id": "bool", "fn": "arrays_bool_bytes"}"#,
+    );
+    assert_eq!(r.code, 1);
+    for (i, name) in [
+        (0, "MaskedArray"),
+        (1, "numpy.float64"),
+        (2, "byte values other than 0 and 1"),
+    ] {
+        let e = &r.case(i)["errors"][0];
+        assert_eq!(e["kind"], "unencodable", "{e}");
+        assert!(e["detail"].as_str().unwrap().contains(name), "{e}");
+    }
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn a_typed_array_input_reaches_each_side_as_its_own_writable_copy() {
+    // 2.0 and 4.0, little-endian; each side writes -1.0 into its copy.
+    let r = run_numpy(
+        r#"{"id": "in", "fn": "arrays_in", "encoding": "typed", "args": [{"t": "ndarray", "dtype": "<f8", "shape": [2], "hex": "00000000000000400000000000001040"}, {"t": "bool", "v": true}]}"#,
+    );
+    assert_eq!(r.code, 0, "{}\n{}", r.stdout, r.stderr);
+    assert_eq!(r.case(0)["result"], "identical");
+}
+
+#[test]
+#[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
+fn the_driver_does_not_import_numpy_for_cases_without_arrays() {
+    // A side that never touches NumPy runs as before, with NumPy installed.
+    let r = run_numpy(r#"{"id": "c", "fn": "echo", "args": [1, "a"]}"#);
+    assert_eq!(r.code, 0, "{}", r.stdout);
+    let probe = Command::new(numpy_python())
+        .args(["-c", "import sys; sys.path.insert(0, sys.argv[1]); import driver; print('numpy' in sys.modules)"])
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../harness/src/python"))
+        .output()
+        .unwrap();
+    assert_eq!(String::from_utf8_lossy(&probe.stdout).trim(), "False");
+}

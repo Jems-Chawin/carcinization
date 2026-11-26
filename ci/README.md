@@ -63,7 +63,8 @@ an example that gets that answer is run again, up to three times, and the
 row says how many runs were made.
 
 `CARCINIFY_NUMPY_PYTHON` (an interpreter with NumPy) adds the decide tool's
-test with the real package. `SUITES_ONLY=1` stops after the suites.
+test with the real package, and the diff harness's tests of NumPy arrays
+(`diff-numpy`). `SUITES_ONLY=1` stops after the suites.
 
 ## Tests a loaded machine can fail, and what it looks like
 

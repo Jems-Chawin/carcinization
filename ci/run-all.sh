@@ -9,7 +9,8 @@
 # maturin 1.16. Set RUN_LIVE=1 to run the dependency check's tests against
 # the live services as well (crates.io, docs.rs, rustsec.org, pypi.org).
 # Set CARCINIFY_NUMPY_PYTHON to an interpreter that has NumPy to run the
-# decide tool's test with the real package.
+# decide tool's test with the real package, and the diff harness's tests of
+# NumPy arrays.
 # Set SUITES_ONLY=1 to stop after the test suites.
 #
 # It does not stop at the first failure: a failure is a line in the result,
@@ -102,6 +103,7 @@ export CARCINIFY_DECIDE_ATTEMPTS=$out/decide-attempts.log
 suite decide -p carcinify-decide -p carcinify --lib --test decide
 if [ -n "${CARCINIFY_NUMPY_PYTHON:-}" ]; then
   suite decide-numpy -p carcinify --test decide -- --ignored
+  suite diff-numpy -p carcinify --test diff -- --ignored
 fi
 printf 'note\tdecide tests: %s run(s) repeated because the tool said the machine was busy\n' "$(wc -l < "$CARCINIFY_DECIDE_ATTEMPTS" | tr -d ' ')" | tee -a "$results"
 if [ "${RUN_LIVE:-0}" = 1 ]; then
