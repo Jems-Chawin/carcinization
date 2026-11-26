@@ -212,16 +212,25 @@ fn run_case(
         Ok(matched) => {
             out.notes = matched.notes;
             let applied = matched.applied;
-            out.result = if applied.is_empty() {
+            out.result = if applied.is_empty() && matched.arrays.is_empty() {
                 CaseResult::Identical
             } else {
                 CaseResult::IdenticalWithRelaxations
             };
-            out.relaxations_applied_total = applied.len();
+            out.relaxations_applied_total =
+                applied.len() + matched.arrays.iter().map(|s| s.needed).sum::<usize>();
             out.relaxations_applied = applied
                 .into_iter()
                 .take(report::MAX_APPLIED_LISTED)
                 .collect();
+            out.relaxations_in_arrays = matched.arrays;
+        }
+        Err(d) if d.kind == "unsupported_relaxation" => {
+            out.errors.push(CaseError {
+                side: "both",
+                kind: ErrorKind::Relaxation,
+                detail: format!("at {}: {}", d.path, d.note.unwrap_or_default()),
+            });
         }
         Err(mut d) => {
             if d.kind == "outcome" {

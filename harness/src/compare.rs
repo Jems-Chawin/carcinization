@@ -6,7 +6,7 @@
 //! case names for itself, and every use of one is returned to the caller so
 //! it lands in the report.
 
-use crate::value::{Shown, Value};
+use crate::value::{Dtype, Elem, Shown, Value};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
@@ -153,18 +153,37 @@ impl FloatRule {
         }
         match self.tolerance {
             Tolerance::Abs(eps) => (x - y).abs() <= eps,
-            Tolerance::Ulps(n) => {
-                // Position on the number line counted in representable
-                // floats; -0.0 and 0.0 are one step apart.
-                let rank = |bits: u64| {
-                    let mag = (bits & !(1 << 63)) as i128;
-                    if bits >> 63 == 1 { -mag - 1 } else { mag }
-                };
-                (rank(a) - rank(b)).unsigned_abs() <= n as u128
-            }
+            Tolerance::Ulps(n) => ulps_apart(a, b) <= n as u128,
+        }
+    }
+
+    /// How far apart two floats the rule allows are, in its unit.
+    fn deviation(&self, a: u64, b: u64) -> f64 {
+        match self.tolerance {
+            Tolerance::Abs(_) => (f64::from_bits(a) - f64::from_bits(b)).abs(),
+            Tolerance::Ulps(_) => ulps_apart(a, b) as f64,
+        }
+    }
+
+    fn relaxation(&self) -> &'static str {
+        match self.tolerance {
+            Tolerance::Ulps(_) => "float_ulps",
+            Tolerance::Abs(_) => "float_abs",
         }
     }
 }
+
+/// Binary64 floats between two bit patterns, counted on the number line;
+/// -0.0 and 0.0 are one step apart.
+fn ulps_apart(a: u64, b: u64) -> u128 {
+    let rank = |bits: u64| {
+        let mag = (bits & !(1 << 63)) as i128;
+        if bits >> 63 == 1 { -mag - 1 } else { mag }
+    };
+    (rank(a) - rank(b)).unsigned_abs()
+}
+
+impl FloatRule {}
 
 /// A relaxation that applies to the value at one path: where, and why.
 #[derive(Debug, Clone)]
@@ -219,8 +238,10 @@ fn render(path: &[Seg]) -> String {
 pub struct Difference {
     pub path: String,
     /// `outcome`, `type`, `value`, `length`, `missing_key`, `extra_key`,
-    /// `key_order`, `set_element`, `exception_type`, `exception_bases`,
-    /// `exception_message` or `exception_args`.
+    /// `key_order`, `set_element`, `ndarray_dtype`, `ndarray_shape`,
+    /// `exception_type`, `exception_bases`, `exception_message` or
+    /// `exception_args`; or `unsupported_relaxation`, which is an error of
+    /// the case and not a difference.
     pub kind: &'static str,
     pub original: Option<Shown>,
     pub candidate: Option<Shown>,
@@ -245,20 +266,49 @@ pub struct Applied {
     pub candidate: Shown,
 }
 
+/// What one float rule allowed inside one array: a summary, since an array
+/// can need it at every element.
+#[derive(Debug, Clone, Serialize)]
+pub struct ArrayRelaxed {
+    pub relaxation: &'static str,
+    /// The array's path.
+    pub path: String,
+    pub rule: String,
+    pub reason: String,
+    pub elements: usize,
+    /// How many elements needed the rule.
+    pub needed: usize,
+    /// The largest deviation, in the rule's unit: ulps, or the absolute
+    /// difference.
+    pub largest_deviation: String,
+    pub largest_at: String,
+    /// The first places that needed it, with both values.
+    pub first: Vec<Applied>,
+    #[serde(skip)]
+    largest: f64,
+}
+
+/// How many places an array summary lists.
+const ARRAY_PLACES_LISTED: usize = 5;
+
 type Diff = Box<Difference>;
 
 struct Comparer<'a> {
     relax: &'a Relax,
     path: Vec<Seg>,
     applied: Vec<Applied>,
+    arrays: Vec<ArrayRelaxed>,
 }
 
 /// What a successful comparison had to allow.
 #[derive(Debug, Default)]
 pub struct Matched {
-    /// Relaxations the case declared and the comparison needed. Empty means
-    /// bit-for-bit identical.
+    /// Relaxations the case declared and the comparison needed, outside
+    /// arrays. Empty, with `arrays` empty too, means bit-for-bit identical.
     pub applied: Vec<Applied>,
+    /// Float rules that elements of arrays needed, one entry per array and
+    /// rule.
+    pub arrays: Vec<ArrayRelaxed>,
     /// Things the harness does by rule, which a reader should know about.
     pub notes: Vec<String>,
 }
@@ -269,6 +319,7 @@ pub fn compare(original: &Outcome, candidate: &Outcome, relax: &Relax) -> Result
         relax,
         path: Vec::new(),
         applied: Vec::new(),
+        arrays: Vec::new(),
     };
     let mut notes = Vec::new();
     match (original, candidate) {
@@ -404,6 +455,7 @@ pub fn compare(original: &Outcome, candidate: &Outcome, relax: &Relax) -> Result
     }
     Ok(Matched {
         applied: c.applied,
+        arrays: c.arrays,
         notes,
     })
 }
@@ -466,6 +518,26 @@ impl Comparer<'_> {
             }
             (Value::Map(x), Value::Map(y)) => self.maps(x, y),
             (Value::Set(x), Value::Set(y)) => self.sets(x, y),
+            (
+                Value::Array {
+                    dtype: da,
+                    shape: sa,
+                    data: x,
+                },
+                Value::Array {
+                    dtype: db,
+                    shape: sb,
+                    data: y,
+                },
+            ) => {
+                if da != db {
+                    return Err(self.value_diff("ndarray_dtype", a, b, None));
+                }
+                if sa != sb {
+                    return Err(self.value_diff("ndarray_shape", a, b, None));
+                }
+                self.array(*da, sa, x, y)
+            }
             _ if a.type_name() != b.type_name() => Err(self.value_diff("type", a, b, None)),
             _ => Err(self.value_diff("value", a, b, None)),
         }
@@ -482,10 +554,7 @@ impl Comparer<'_> {
             .find(|r| r.matches(&self.path) && r.allows(x, y))
         {
             self.applied.push(Applied {
-                relaxation: match rule.tolerance {
-                    Tolerance::Ulps(_) => "float_ulps",
-                    Tolerance::Abs(_) => "float_abs",
-                },
+                relaxation: rule.relaxation(),
                 path: render(&self.path),
                 rule: Some(rule.path.clone()),
                 reason: Some(rule.reason.clone()),
@@ -495,6 +564,121 @@ impl Comparer<'_> {
             return Ok(());
         }
         Err(self.value_diff("value", a, b, None))
+    }
+
+    /// Elements of two arrays of the same dtype and shape, in C order. Each
+    /// element's path is the array's, then one index per dimension.
+    fn array(&mut self, dtype: Dtype, shape: &[usize], x: &[u8], y: &[u8]) -> Result<(), Diff> {
+        let base = self.path.len();
+        let at = render(&self.path);
+        let n = x.len() / dtype.size();
+        // By rule, in the order first needed.
+        let mut used: Vec<(usize, ArrayRelaxed)> = Vec::new();
+        let mut index = vec![0; shape.len()];
+        for i in 0..n {
+            let mut rest = i;
+            for (k, d) in shape.iter().enumerate().rev() {
+                index[k] = rest % d;
+                rest /= d;
+            }
+            self.path.extend(index.iter().map(|k| Seg::Index(*k)));
+            let r = self.element(Elem::at(dtype, x, i), Elem::at(dtype, y, i), &mut used);
+            self.path.truncate(base);
+            r?;
+        }
+        self.arrays.extend(used.into_iter().map(|(_, mut s)| {
+            s.path = at.clone();
+            s.elements = n;
+            s
+        }));
+        Ok(())
+    }
+
+    fn element(
+        &mut self,
+        p: Elem,
+        q: Elem,
+        used: &mut Vec<(usize, ArrayRelaxed)>,
+    ) -> Result<(), Diff> {
+        let relax = self.relax;
+        if let Elem::F4(_) = p
+            && let Some(r) = relax
+                .floats
+                .iter()
+                .find(|r| matches!(r.tolerance, Tolerance::Ulps(_)) && r.matches(&self.path))
+        {
+            let note = format!(
+                "the rule on {} gives ulps for a float32 element; ulps on float32 is not supported; use abs",
+                r.path
+            );
+            return Err(self.diff("unsupported_relaxation", None, None, Some(note)));
+        }
+        if p == q {
+            return Ok(());
+        }
+        // Every float32 is a binary64 exactly, so an abs rule compares them
+        // as such; their bits were compared above as float32.
+        let wide = |e: Elem| match e {
+            Elem::F8(b) => Some(b),
+            Elem::F4(b) => Some(f64::from(f32::from_bits(b)).to_bits()),
+            Elem::Int(_) | Elem::Bool(_) => None,
+        };
+        let differs = |c: &Self| c.diff("value", Some(p.show()), Some(q.show()), None);
+        let (Some(x), Some(y)) = (wide(p), wide(q)) else {
+            return Err(differs(self));
+        };
+        let Some(k) = relax
+            .floats
+            .iter()
+            .position(|r| r.matches(&self.path) && r.allows(x, y))
+        else {
+            return Err(differs(self));
+        };
+        let rule = &relax.floats[k];
+        let place = render(&self.path);
+        let i = match used.iter().position(|(j, _)| *j == k) {
+            Some(i) => i,
+            None => {
+                used.push((
+                    k,
+                    ArrayRelaxed {
+                        relaxation: rule.relaxation(),
+                        path: String::new(),
+                        rule: rule.path.clone(),
+                        reason: rule.reason.clone(),
+                        elements: 0,
+                        needed: 0,
+                        largest_deviation: String::new(),
+                        largest_at: String::new(),
+                        first: Vec::new(),
+                        largest: -1.0,
+                    },
+                ));
+                used.len() - 1
+            }
+        };
+        let s = &mut used[i].1;
+        s.needed += 1;
+        let dev = rule.deviation(x, y);
+        if dev > s.largest {
+            s.largest = dev;
+            s.largest_deviation = match rule.tolerance {
+                Tolerance::Ulps(_) => format!("{dev}"),
+                Tolerance::Abs(_) => format!("{dev:?}"),
+            };
+            s.largest_at = place.clone();
+        }
+        if s.first.len() < ARRAY_PLACES_LISTED {
+            s.first.push(Applied {
+                relaxation: rule.relaxation(),
+                path: place,
+                rule: None,
+                reason: None,
+                original: p.show(),
+                candidate: q.show(),
+            });
+        }
+        Ok(())
     }
 
     fn strings(&mut self, a: &Value, b: &Value) -> Result<(), Diff> {
@@ -640,6 +824,7 @@ impl Comparer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::value::Dtype;
 
     fn f(x: f64) -> Value {
         Value::Float(x.to_bits())
@@ -1166,5 +1351,255 @@ mod tests {
         let x = Value::Set((0..60_000).map(key).collect());
         let y = Value::Set((1..60_001).rev().map(key).collect());
         assert_eq!(differs(&x, &y).kind, "set_element");
+    }
+
+    // NumPy arrays.
+
+    fn arr(dtype: Dtype, shape: &[usize], data: Vec<u8>) -> Value {
+        Value::Array {
+            dtype,
+            shape: shape.to_vec(),
+            data,
+        }
+    }
+    fn f8s(xs: &[f64]) -> Vec<u8> {
+        xs.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+    fn f4bits(xs: &[u32]) -> Vec<u8> {
+        xs.iter().flat_map(|x| x.to_le_bytes()).collect()
+    }
+    fn with(rules: &[(&str, Tolerance)]) -> Relax {
+        Relax {
+            floats: rules
+                .iter()
+                .map(|(p, t)| FloatRule::new(p, t.clone(), "test").unwrap())
+                .collect(),
+            ..Relax::default()
+        }
+    }
+    fn matched(a: &Value, b: &Value, relax: &Relax) -> Result<Matched, Diff> {
+        super::compare(
+            &Outcome::Returned(a.clone()),
+            &Outcome::Returned(b.clone()),
+            relax,
+        )
+    }
+    /// One ulp up, for a positive float.
+    fn up(x: f64, n: u64) -> f64 {
+        f64::from_bits(x.to_bits() + n)
+    }
+
+    #[test]
+    fn arrays_compare_dtype_then_shape_then_each_element() {
+        let a = arr(Dtype::F8, &[2], f8s(&[1.0, 2.0]));
+        assert!(strict(&a, &a).unwrap().is_empty());
+
+        // float32 against float64 is never converted.
+        let b = arr(
+            Dtype::F4,
+            &[2],
+            f4bits(&[1.0f32.to_bits(), 2.0f32.to_bits()]),
+        );
+        let d = differs(&a, &b);
+        assert_eq!(d.kind, "ndarray_dtype");
+        assert_eq!(
+            d.original.unwrap().repr,
+            "<f8 shape (2,): [1.0, 2.0] (2 elements)"
+        );
+        assert_eq!(
+            d.candidate.unwrap().repr,
+            "<f4 shape (2,): [1.0, 2.0] (2 elements)"
+        );
+
+        let d = differs(&a, &arr(Dtype::F8, &[1, 2], f8s(&[1.0, 2.0])));
+        assert_eq!((d.kind, d.path.as_str()), ("ndarray_shape", "$"));
+
+        let d = differs(&a, &arr(Dtype::F8, &[2], f8s(&[1.0, 3.0])));
+        assert_eq!((d.kind, d.path.as_str()), ("value", "$[1]"));
+        assert_eq!(d.candidate.unwrap().repr, "3.0");
+
+        // A path into a 2-d array names the row, then the column.
+        let m = arr(Dtype::F8, &[2, 3], f8s(&[0.0, 1.0, 2.0, 3.0, 4.0, 5.0]));
+        let n = arr(Dtype::F8, &[2, 3], f8s(&[0.0, 1.0, 2.0, 3.0, 9.0, 5.0]));
+        let d = differs(
+            &Value::Tuple(vec![f(0.0), m]),
+            &Value::Tuple(vec![f(0.0), n]),
+        );
+        assert_eq!(d.path, "$[1][1][1]");
+    }
+
+    #[test]
+    fn an_array_is_never_equal_to_a_list() {
+        let a = arr(Dtype::F8, &[1], f8s(&[1.0]));
+        assert_eq!(differs(&a, &Value::List(vec![f(1.0)])).kind, "type");
+        assert_eq!(differs(&Value::Tuple(vec![f(1.0)]), &a).kind, "type");
+    }
+
+    #[test]
+    fn integers_and_bools_in_arrays_are_exact() {
+        let a = arr(
+            Dtype::I8,
+            &[2],
+            [1i64, -5].iter().flat_map(|x| x.to_le_bytes()).collect(),
+        );
+        let b = arr(
+            Dtype::I8,
+            &[2],
+            [1i64, -6].iter().flat_map(|x| x.to_le_bytes()).collect(),
+        );
+        let d = *matched(&a, &b, &with(&[("$[*]", Tolerance::Abs(10.0))])).unwrap_err();
+        assert_eq!((d.kind, d.path.as_str()), ("value", "$[1]"));
+        assert_eq!(d.original.unwrap().repr, "-5");
+        let d = differs(
+            &arr(Dtype::B1, &[2], vec![1, 0]),
+            &arr(Dtype::B1, &[2], vec![1, 1]),
+        );
+        assert_eq!((d.kind, d.path.as_str()), ("value", "$[1]"));
+    }
+
+    #[test]
+    fn float32_elements_compare_as_their_own_bits() {
+        let nan = |bits: u32| arr(Dtype::F4, &[1], f4bits(&[bits]));
+        assert!(
+            strict(&nan(0x7fc0_0000), &nan(0x7fc0_0000))
+                .unwrap()
+                .is_empty()
+        );
+        // Widened to binary64, these two NaNs could become one.
+        let d = differs(&nan(0x7fc0_0000), &nan(0x7fc0_0001));
+        assert_eq!(d.kind, "value");
+        let o = d.original.unwrap();
+        assert_eq!(
+            (o.ty.as_str(), o.bits.as_deref()),
+            ("float32", Some("0x7fc00000"))
+        );
+    }
+
+    #[test]
+    fn negative_zero_in_an_array_needs_a_rule_and_any_abs_covers_it() {
+        let (a, b) = (
+            arr(Dtype::F8, &[1], f8s(&[-0.0])),
+            arr(Dtype::F8, &[1], f8s(&[0.0])),
+        );
+        assert_eq!(differs(&a, &b).kind, "value");
+        assert!(matched(&a, &b, &with(&[("$[*]", Tolerance::Ulps(0))])).is_err());
+        let m = matched(&a, &b, &with(&[("$[*]", Tolerance::Abs(0.0))])).unwrap();
+        assert_eq!(m.arrays[0].needed, 1);
+    }
+
+    #[test]
+    fn a_rule_inside_an_array_is_summarised_per_array_and_rule() {
+        let x: Vec<f64> = (1..=10).map(f64::from).collect();
+        let mut y = x.clone();
+        y[3] = up(y[3], 1);
+        y[5] = up(y[5], 2);
+        y[7] = up(y[7], 1);
+        let (a, b) = (
+            arr(Dtype::F8, &[10], f8s(&x)),
+            arr(Dtype::F8, &[10], f8s(&y)),
+        );
+        let m = matched(&a, &b, &with(&[("$[*]", Tolerance::Ulps(2))])).unwrap();
+        // Each element is not listed on its own.
+        assert!(m.applied.is_empty());
+        let s = &m.arrays[..];
+        assert_eq!(s.len(), 1);
+        assert_eq!(
+            (
+                s[0].relaxation,
+                s[0].path.as_str(),
+                s[0].rule.as_str(),
+                s[0].reason.as_str()
+            ),
+            ("float_ulps", "$", "$[*]", "test")
+        );
+        assert_eq!((s[0].elements, s[0].needed), (10, 3));
+        assert_eq!(
+            (s[0].largest_deviation.as_str(), s[0].largest_at.as_str()),
+            ("2", "$[5]")
+        );
+        let firsts: Vec<&str> = s[0].first.iter().map(|p| p.path.as_str()).collect();
+        assert_eq!(firsts, ["$[3]", "$[5]", "$[7]"]);
+        assert_eq!(
+            s[0].first[0].candidate.bits.as_deref(),
+            Some("0x4010000000000001")
+        );
+
+        // Only the first five places are listed; the count is all of them.
+        let all: Vec<f64> = x.iter().map(|v| up(*v, 1)).collect();
+        let m = matched(
+            &a,
+            &arr(Dtype::F8, &[10], f8s(&all)),
+            &with(&[("$[*]", Tolerance::Ulps(1))]),
+        )
+        .unwrap();
+        assert_eq!((m.arrays[0].needed, m.arrays[0].first.len()), (10, 5));
+    }
+
+    #[test]
+    fn nodes_and_weights_each_get_their_own_rule_and_summary() {
+        let pair = |x: &[f64], w: &[f64]| {
+            Value::Tuple(vec![
+                arr(Dtype::F8, &[2], f8s(x)),
+                arr(Dtype::F8, &[2], f8s(w)),
+            ])
+        };
+        let a = pair(&[-0.5, 0.5], &[1e-30, 1.0]);
+        let b = pair(&[-0.5 - 1e-16, 0.5], &[up(1e-30, 3), 1.0]);
+        let relax = with(&[
+            ("$[0][*]", Tolerance::Abs(1e-15)),
+            ("$[1][*]", Tolerance::Ulps(4)),
+        ]);
+        let m = matched(&a, &b, &relax).unwrap();
+        let got: Vec<(&str, &str, usize)> = m
+            .arrays
+            .iter()
+            .map(|s| (s.relaxation, s.path.as_str(), s.needed))
+            .collect();
+        assert_eq!(got, [("float_abs", "$[0]", 1), ("float_ulps", "$[1]", 1)]);
+        assert_eq!(m.arrays[1].largest_deviation, "3");
+        // The same tolerance in absolute terms says nothing about tiny weights.
+        assert!(matched(&a, &pair(&[-0.5, 0.5], &[2e-30, 1.0]), &relax).is_err());
+    }
+
+    #[test]
+    fn a_rule_one_level_short_leaves_the_elements_strict() {
+        let a = arr(Dtype::F8, &[2, 2], f8s(&[1.0, 2.0, 3.0, 4.0]));
+        let b = arr(Dtype::F8, &[2, 2], f8s(&[1.0, 2.0, 3.0, up(4.0, 1)]));
+        let d = *matched(&a, &b, &with(&[("$[*]", Tolerance::Ulps(9))])).unwrap_err();
+        assert_eq!((d.kind, d.path.as_str()), ("value", "$[1][1]"));
+        assert!(matched(&a, &b, &with(&[("$[*][*]", Tolerance::Ulps(9))])).is_ok());
+    }
+
+    #[test]
+    fn float32_takes_abs_and_refuses_ulps() {
+        let one = 1.0f32.to_bits();
+        let (a, b) = (
+            arr(Dtype::F4, &[2], f4bits(&[one, one])),
+            arr(Dtype::F4, &[2], f4bits(&[one, one + 1])),
+        );
+        let m = matched(&a, &b, &with(&[("$[*]", Tolerance::Abs(1e-6))])).unwrap();
+        assert_eq!(
+            (m.arrays[0].relaxation, m.arrays[0].needed),
+            ("float_abs", 1)
+        );
+        assert!(matched(&a, &b, &with(&[("$[*]", Tolerance::Abs(1e-8))])).is_err());
+        // An ulps rule that reaches a float32 element is an error of the
+        // case, even where the elements are equal: its figure would count
+        // binary64 steps.
+        for b in [&a, &b] {
+            let d = *matched(&a, b, &with(&[("$[*]", Tolerance::Ulps(1))])).unwrap_err();
+            assert_eq!(
+                (d.kind, d.path.as_str()),
+                ("unsupported_relaxation", "$[0]")
+            );
+            assert!(
+                d.note
+                    .as_deref()
+                    .unwrap()
+                    .contains("ulps on float32 is not supported; use abs"),
+                "{:?}",
+                d.note
+            );
+        }
     }
 }

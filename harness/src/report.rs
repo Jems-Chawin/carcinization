@@ -5,7 +5,7 @@
 //! from nothing else.
 
 use crate::Options;
-use crate::compare::{Applied, Difference, Outcome, Relax};
+use crate::compare::{Applied, ArrayRelaxed, Difference, Outcome, Relax};
 use crate::provenance::{Git, digest_of, sha256_bytes, sha256_file, tool_version, tracked_digest};
 use crate::python::Built;
 use crate::side::Side;
@@ -16,7 +16,9 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub const REPORT_SCHEMA: &str = "carcinify/diff/report/1";
+/// 2: a case's float rules inside NumPy arrays are summarised per array
+/// (`relaxations_in_arrays`), and a case can fail with a `relaxation` error.
+pub const REPORT_SCHEMA: &str = "carcinify/diff/report/2";
 pub const MAX_APPLIED_LISTED: usize = 50;
 
 #[derive(Serialize)]
@@ -111,6 +113,8 @@ states! {
         BadCall => "bad_call",
         Input => "input",
         Protocol => "protocol",
+        // A relaxation the case declares cannot be applied where it reaches.
+        Relaxation => "relaxation",
     }
 }
 
@@ -367,7 +371,7 @@ pub struct Tools {
 pub struct CaseError {
     pub side: &'static str,
     /// `crashed`, `timeout`, `raised`, `did_not_raise`, `unencodable`,
-    /// `no_such_function`, `input` or `protocol`.
+    /// `no_such_function`, `input`, `protocol` or `relaxation`.
     pub kind: ErrorKind,
     pub detail: String,
 }
@@ -388,6 +392,10 @@ pub struct CaseReport {
     pub relaxations_applied: Vec<Applied>,
     #[serde(skip_serializing_if = "is_zero")]
     pub relaxations_applied_total: usize,
+    /// Float rules that elements of NumPy arrays needed: one summary per
+    /// array and rule, which `relaxations_applied` does not repeat.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub relaxations_in_arrays: Vec<ArrayRelaxed>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub first_difference: Option<Difference>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -439,6 +447,7 @@ impl CaseReport {
                 .then(|| case.relax_decl.clone()),
             relaxations_applied: Vec::new(),
             relaxations_applied_total: 0,
+            relaxations_in_arrays: Vec::new(),
             first_difference: None,
             errors: Vec::new(),
             notes: Vec::new(),
