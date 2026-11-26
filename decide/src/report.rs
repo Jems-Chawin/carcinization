@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 pub const DECLARATION_SCHEMA: &str = "carcinify/decide/declaration/2";
-pub const REPORT_SCHEMA: &str = "carcinify/decide/report/2";
+pub const REPORT_SCHEMA: &str = "carcinify/decide/report/3";
 pub const DRIVER: &str = include_str!("measure.py");
 
 /// Fewer uninstrumented runs than this say nothing about how much the
@@ -1886,6 +1886,13 @@ mod tests {
             0.62,
             0.618
         ));
+    }
+
+    #[test]
+    fn under_nine_tenths_by_less_than_the_drift_is_not_shown_faster() {
+        // 0.53 s is under 90% of the faster original (0.54 s), but 0.07 s
+        // below it, where the two timings of the original differ by 0.10 s.
+        assert!(!shown_faster(ALTERNATIVE_FASTER_AT_MOST, 0.70, 0.60, 0.53));
     }
 
     #[test]

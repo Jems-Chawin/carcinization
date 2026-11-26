@@ -478,12 +478,12 @@ The verdict is `contradicted`, exit 1, when:
 
 An alternative is shown to take at most a fraction of the original's time
 when its fastest run is at most that fraction of the faster of the two
-timings of the workload, before it and after it, and further below that
-than the two timings are apart. Otherwise the report says "not shown to be
-faster on this machine" and gives all three times: a port for speed is not
-contradicted on the alternative's account, and fixing the algorithm first
-is. The report names the rule that judged the alternative and what it
-found (`judged_by`).
+timings of the workload, before it and after it, and shorter than that
+faster timing by more than the two timings differ from each other.
+Otherwise the report says "not shown to be faster on this machine" and
+gives all three times: a port for speed is not contradicted on the
+alternative's account, and fixing the algorithm first is. The report names
+the rule that judged the alternative and what it found (`judged_by`).
 
 It is `incomplete`, exit 1, when the candidate never ran on the main
 thread, when the decision, the answer to "language or
