@@ -269,6 +269,17 @@ Used for typed inputs and for every output:
 | bytes | `{"t": "bytes", "hex": "00ff"}` |
 | list, tuple, set | `{"t": "list", "v": [...]}`, likewise `tuple`, `set` |
 | dict | `{"t": "map", "v": [[key, value], ...]}` in iteration order |
+| NumPy array | `{"t": "ndarray", "dtype": "<f8", "shape": [2, 3], "hex": "..."}` |
+
+An array's `hex` is its elements' bytes in C order, little-endian, whatever
+the array's own layout and byte order. Its `dtype` is one of `<f8`, `<f4`,
+`<i8`, `<i4` and `|b1`. Only an exact `numpy.ndarray` is encoded: another
+dtype, a subclass (`numpy.ma.MaskedArray`), a NumPy scalar
+(`numpy.float64`), and a bool array holding bytes other than 0 and 1 (a
+view can make one) fail the case with what they are named. The driver
+never imports NumPy to encode; as a typed input, an array reaches each side
+as its own writable copy, and a side whose interpreter has no NumPy fails
+the case saying so.
 
 ### What identical means
 
@@ -281,6 +292,7 @@ Used for typed inputs and for every output:
 | list, tuple | element by element; a list is not a tuple |
 | dict | keys, values and key order |
 | set | elements, in no order |
+| NumPy array | dtype (`ndarray_dtype`), then shape (`ndarray_shape`), then each element as its type is compared, float32 by its own 32 bits. Byte order, memory layout, flags and the base array are not values. An array is never equal to a list |
 | exception | type, `str(e)` and `e.args` |
 
 Exception types are compared by full name, `module.ClassName`, with one
@@ -327,6 +339,14 @@ The only way to loosen a comparison is for a case to say so, by name:
   value, then `[3]`, `["key"]` or `[*]`. Either `ulps` (a count of
   representable floats) or `abs` (a decimal string). A `reason` is required.
   A tolerance never covers NaN or infinity. Floats elsewhere stay exact.
+  `-0.0` against `0.0` is one step under `ulps`, and any `abs` covers it,
+  `"0"` included. Inside a NumPy array a path names each element as if the
+  array were nested lists: `$[1][*]` is every element of a 1-d array
+  returned second, `$[0][2][*]` the third row of a 2-d one. A path one
+  level short matches nothing, and the elements stay exact. `abs` applies
+  to float32 and float64 elements. `ulps` applies to float64 only: an
+  `ulps` rule that reaches a float32 element makes the case an error
+  (`relaxation`), since its figure counts binary64 steps.
 - `key_order`: dicts whose key order is not compared, each named by its
   path in the same notation, with a `reason`. `$` is the returned value
   itself if that is a dict; `$[*]` is every dict directly inside it. A dict
@@ -337,7 +357,11 @@ The only way to loosen a comparison is for a case to say so, by name:
   does not cover, this is the only way that case can match.
 
 The report lists what each case declared and every place a relaxation was
-actually needed, with both values. Such a case is counted as
+actually needed, with both values. Inside a NumPy array, where a rule can
+be needed at every element, it gives one summary per array and rule
+instead (`relaxations_in_arrays`): how many elements needed it out of how
+many, the largest deviation in the rule's unit (ulps, or the absolute
+difference) and where, and the first five places with both values. Such a case is counted as
 `identical_with_relaxations`, not `identical`, and one such case is enough
 to change the verdict from `pass` to `pass_with_relaxations` and the last
 line of output from `PASS` to `PASS WITH RELAXATIONS: n of m case(s) ...`.
@@ -465,7 +489,9 @@ A `different` case has `first_difference`: the path, both values (floats with
 their bits), and `record`, the simple fields of the dict around the
 difference. An `error` case says which side failed and how: `crashed`,
 `timeout`, `raised`, `did_not_raise`, `unencodable`, `no_such_function`,
-`refused_function`, `bad_call`, `input`, `protocol`. Each case also records
+`refused_function`, `bad_call`, `input`, `protocol`, `relaxation`. A
+difference between two arrays shows each by dtype, shape and its first
+eight elements. Each case also records
 whether each side `returned` or `raised`, and `notes` for anything the
 comparison did by rule (an exception compared by class name).
 
@@ -814,6 +840,10 @@ sibling directory providing its own driver; nothing has been built for one.
     returns nothing, so it does not change a result. It does use one frame
     of the recursion limit while it runs, so code that recurses to within
     one frame of the limit can hit it one level earlier.
+- NumPy arrays: five dtypes (float64, float32, int64, int32, bool), no
+  NumPy scalars, no subclasses, and no `ulps` on float32. Each of these is
+  refused by name, not converted. `carcinify decide --record-calls` does
+  not write arrays.
 - The record that guards against a stale build covers the crate's
   workspace and its path dependencies. Under `--allow-dirty` it does not
   cover a file that git ignores, and it never covers a file outside those
@@ -847,4 +877,13 @@ on stderr.
 ```sh
 CARCINIFY_PYTHON=$PWD/.venv/bin/python CARCINIFY_MATURIN=$PWD/.venv/bin/maturin \
     cargo test -p carcinify --test diff-example --test diff-mixed -- --ignored
+```
+
+The tests of NumPy arrays in `tests/cli.rs` need an interpreter with NumPy
+and are ignored by default. They use small arrays from the fixtures' own
+functions:
+
+```sh
+CARCINIFY_NUMPY_PYTHON=$PWD/target/numpy-venv/bin/python \
+    cargo test -p carcinify --test diff -- --ignored
 ```

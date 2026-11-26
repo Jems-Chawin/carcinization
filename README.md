@@ -67,7 +67,7 @@ this workspace behind the one binary in [`carcinify/`](carcinify/):
 |---|---|---|
 | [`carcinify decide`](decide/README.md) | Measures where a Python workload spends its time and checks a declared decision to port, to fix the algorithm first, or not to port, against it | [1 decide](skill/steps/01-decide/STEP.md) |
 | [`carcinify deps`](deps/README.md) | Reads the imports of the code to be ported and looks up on crates.io what the proposal names for each | [2 dependency check](skill/steps/02-dependency-check/STEP.md) |
-| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical | 3 compare (tool only; the step is not written) |
+| [`carcinify diff`](harness/README.md) | Runs the Python original and the Rust port on the same cases and reports whether the outputs are identical, NumPy arrays included: by dtype, shape and elements, with floats exact unless a case names a tolerance | 3 compare (tool only; the step is not written) |
 | [`carcinify structure`](structure/README.md) | Counts allocations on the port's hot path at two input sizes and lists the copies made in the code reachable from it | [6 structure report](skill/steps/06-structure-report/STEP.md) |
 | [`carcinify speed`](speed/README.md) | Times the Python original and the port from the Python caller, behind a load gate, on macOS and Linux arm64, compares the two platforms, and counts what the binding allocates | [7 speed](skill/steps/07-speed/STEP.md) |
 
@@ -145,6 +145,9 @@ was seen.
 - `carcinify diff` compares the values two implementations return for the
   cases it is given. It is not a benchmark, it says nothing about inputs
   nobody wrote a case for, and it has not been run on a real project.
+- `carcinify diff` compares NumPy arrays of five dtypes (float64, float32,
+  int64, int32, bool) and no NumPy scalars; anything else is refused by
+  name.
 - `carcinify structure`: an entry point defined twice, under `cfg(feature)`
   and `cfg(not(feature))`, cannot be declared.
 - `carcinify structure` now sees three things the step-four pilot ran
