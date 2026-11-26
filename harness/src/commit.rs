@@ -229,14 +229,15 @@ pub fn build_inputs(
         });
     }
 
-    // 2. Every source file rustc read, from the dep-info of this build.
+    // 2. Every source file rustc read, from the dep-info of this build,
+    //    as read while its target directory was locked.
     //    One route to a false stop is left: a library that was renamed
     //    leaves its old dep-info file behind. The message covers it.
     let stale_hint = format!(
         "read by the build: compiled into the crate, or an input of its build script, according to the dep-info beside the built library; if the library was renamed since an earlier build, an old record may name it: delete {} and run again",
         target_dir.display()
     );
-    for path in dep_info_paths(target_dir)? {
+    for path in built.dep_info.iter().cloned() {
         let path = if path.is_absolute() {
             path
         } else {
@@ -332,4 +333,55 @@ pub fn build_environment() -> BTreeMap<String, String> {
                 || k.starts_with("MATURIN_")
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Hosted CI run 45836248153: another build of the same crate cleaned
+    /// the target directory between this build and the check of its
+    /// sources. What the build's own dep-info named is used, not what the
+    /// directory holds later.
+    #[test]
+    fn the_sources_are_those_the_build_recorded_though_the_target_dir_was_cleaned_since() {
+        let root =
+            std::env::temp_dir().join(format!("carcinify-commit-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let crate_dir = root.join("rs");
+        let target_dir = crate_dir.join("target/carcinify-diff/default");
+        std::fs::create_dir_all(crate_dir.join("src")).unwrap();
+        std::fs::create_dir_all(target_dir.join("release")).unwrap();
+        std::fs::create_dir_all(root.join("wheel")).unwrap();
+        std::fs::write(crate_dir.join("Cargo.toml"), "[package]\n").unwrap();
+        std::fs::write(crate_dir.join("src/lib.rs"), "").unwrap();
+        std::fs::write(crate_dir.join("src/extra.rs"), "").unwrap();
+        let root = root.canonicalize().unwrap();
+        let crate_dir = root.join("rs");
+        let git = Git {
+            root: root.clone(),
+            commit: "0".repeat(40),
+            dirty: Vec::new(),
+            submodules: Vec::new(),
+        };
+        let tracked: BTreeSet<PathBuf> =
+            [crate_dir.join("Cargo.toml"), crate_dir.join("src/lib.rs")].into();
+        let built = Built {
+            crate_dir: Some(crate_dir.clone()),
+            workspace_dir: Some(crate_dir.clone()),
+            target_dir: Some(root.join("rs/target/carcinify-diff/default")),
+            dep_info: [crate_dir.join("src/lib.rs"), crate_dir.join("src/extra.rs")].into(),
+            load_roots: vec![root.join("wheel")],
+            ..Built::default()
+        };
+        let inputs = build_inputs(&git, &tracked, &built);
+        let _ = std::fs::remove_dir_all(&root);
+        let inputs = inputs.unwrap();
+        let paths: Vec<&str> = inputs
+            .not_in_commit
+            .iter()
+            .map(|n| n.path.as_str())
+            .collect();
+        assert_eq!(paths, ["rs/src/extra.rs"]);
+    }
 }

@@ -58,6 +58,11 @@ pub struct Built {
     /// PyO3 side: the target directory this run built in.
     #[serde(skip)]
     pub target_dir: Option<PathBuf>,
+    /// PyO3 side: the source files the dep-info beside the built library
+    /// named, read while the target directory was still locked: another
+    /// build of the same crate may clean it as soon as the lock is let go.
+    #[serde(skip)]
+    pub dep_info: std::collections::BTreeSet<PathBuf>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub build_command: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -419,6 +424,9 @@ pub fn prepare(
             }
             build.record()?;
             let wheel = &unpack_wheel(name, tools, &out, &unpacked)?;
+            // Read under the lock: a build of the same crate waiting for it
+            // may clean the crate, dep-info and all, as soon as it is free.
+            let dep_info = crate::commit::dep_info_paths(&target_dir)?;
             drop(lock);
             let built = Built {
                 kind: "pyo3",
@@ -429,6 +437,7 @@ pub fn prepare(
                 workspace_dir: Some(workspace_dir),
                 rebuilt_from_clean: Some(cleaned),
                 target_dir: Some(target_dir),
+                dep_info,
                 build_command: Some(cmd),
                 wheel: Some(Wheel {
                     file: wheel
