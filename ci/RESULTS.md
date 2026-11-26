@@ -506,6 +506,44 @@ What it does not show: that spinning is on time on a hosted Mac. Sleeps
 are on time on this Mac, so a local pass does not test that; the next
 hosted run will.
 
+Run 45626449458 of the workflow, on 2026-11-25 at c87dd30, started by the
+push; 13:43 to 14:19 UTC, set up as the one before. Rust 1.100.0 and
+maturin 1.16.0 on both. Linux passed; macOS failed in one decide test. The
+run before it, 45616333688 at 33918ff, passed on both systems, and in both
+runs the speed suites passed on the hosted Mac with the fixture spinning.
+
+- Linux x86-64, image `ubuntu-26.04` version 20261116.202.1, kernel
+  7.0.0-1020-azure, 4 CPUs, Python 3.13.18: exit 0, 35 rows as expected.
+  The decide suite: 37 passed and 1 ignored in 698 s, no run repeated; the
+  NumPy test passed in 239 s; speed 99 passed and 8 ignored in 118 s,
+  speed-maturin 8 passed in 83 s, 5 speed runs repeated as too busy.
+- macOS arm64, image `macos-26-arm64` version 20261117.0516.1, Darwin
+  25.6.0, 3 CPUs, Python 3.12.10: **failed**. The decide suite: 36 passed,
+  1 failed and 1 ignored in 956 s, 1 run repeated as busy; the NumPy test
+  passed in 152 s; speed 99 passed and 8 ignored in 100 s, speed-maturin 8
+  passed in 114 s, 4 speed runs repeated as too busy. Every other row was
+  as expected.
+
+The failing test, `the_algorithm_question_is_set_against_the_decision`,
+names the workload's own function as a better algorithm already tried,
+declares the decision to fix the algorithm first, and expects the tool to
+find the alternative no faster. The tool timed the workload, and then the
+same function as the alternative in a process of its own: 0.618 s against
+0.727 s, 1.18 times faster. The rule then was "faster at 90% of the
+original's time or less", so there was no contradiction. The alternative's
+fastest run was below all three of the workload's (0.727 to 0.783 s), and
+no run was left out as disturbed: whatever made the same code faster
+happened between the two processes, and nothing in the tool compared them.
+Of the 18 hosted jobs so far this is the one failure of this test: 0 of 9
+on Linux, 1 of 9 on macOS.
+
+Since then the workload is timed again after the alternative, and an
+alternative is faster only when it is at most the rule's fraction of the
+faster of the two timings, by more than they differ (decide/README.md,
+"What contradicts a decision"). Otherwise the report says it is not shown
+to be faster on this machine. What this does not show: that the second
+timing catches what happened here. Only hosted runs can show that.
+
 ## Differences found, and what was done
 
 The first Linux run (commit d1374ae) had 25 failing tests. All had one of
