@@ -101,8 +101,10 @@ called.
 4. **On Python 3.12 and later, one run under `sys.monitoring`**, which
    times the calls the project's code makes into compiled code while the
    candidate runs.
-5. **The alternative**, if one is named: plain runs, like step 1. **The
-   stand-in workload**, if one is named: plain runs, and steps 3 and 4.
+5. **The alternative**, if one is named: plain runs, like step 1, and then
+   step 1 again, so that the alternative is timed between two timings of
+   the workload. **The stand-in workload**, if one is named: plain runs,
+   and steps 3 and 4.
 6. **With `--record-calls <file>`, one more run with a hook on the
    candidate**, untimed, which writes each distinct call of the candidate
    from outside it as a case line of `carcinify diff`, in its typed value
@@ -446,6 +448,15 @@ read the same under heavy load as under none, because a thread that mostly
 sleeps is served first; that is why the process computes without pause.
 And the limits are choices: a machine at 9% passes.
 
+Neither check compares one process with the next. On a hosted Mac the
+workload's own function, named as the alternative and timed in a process
+after the workload, read 1.18 times faster, below all three of the
+workload's runs, and no run was disturbed by either check. Why is not
+known. A machine whose speed changed between the two processes would do
+it, and the loops would not see that if the slowed time still counted as
+CPU time. So the workload is timed again after the alternative, and the
+alternative is judged against both timings (see the next section).
+
 ### What contradicts a decision
 
 The verdict is `contradicted`, exit 1, when:
@@ -458,12 +469,21 @@ The verdict is `contradicted`, exit 1, when:
   met;
 - the decision is `port` for speed and the author says a better algorithm
   exists in Python and has not been tried;
-- the decision is `port` for speed and the alternative in Python takes half
-  the original's time or less: make the change, then decide on the improved
-  code;
+- the decision is `port` for speed and the alternative in Python is shown
+  to take half the original's time or less: make the change, then decide
+  on the improved code;
 - the decision is `fix_algorithm_first` and the alternative measured is not
-  faster (over 90% of the original's time);
+  shown to take 90% of the original's time or less;
 - the only goal of a port is memory safety. Python has it.
+
+An alternative is shown to take at most a fraction of the original's time
+when its fastest run is at most that fraction of the faster of the two
+timings of the workload, before it and after it, and further below that
+than the two timings are apart. Otherwise the report says "not shown to be
+faster on this machine" and gives all three times: a port for speed is not
+contradicted on the alternative's account, and fixing the algorithm first
+is. The report names the rule that judged the alternative and what it
+found (`judged_by`).
 
 It is `incomplete`, exit 1, when the candidate never ran on the main
 thread, when the decision, the answer to "language or

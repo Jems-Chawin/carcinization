@@ -146,10 +146,11 @@ answer down in the declaration.
 
 If a better algorithm exists, **make the change in the source language
 first** and name it in the declaration; the tool measures it in the same
-run and prints both. It is cheaper than a port, it can be reviewed by the
-people who know the code, and it tells you how much of the hoped-for gain
-was never the language's. Then run this step again on the improved code:
-what is left is what a port can win.
+run, between two timings of the original, and prints all three. It is
+cheaper than a port, it can be reviewed by the people who know the code,
+and it tells you how much of the hoped-for gain was never the language's.
+Then run this step again on the improved code: what is left is what a port
+can win.
 
 A port that also changes the algorithm will be faster, and nobody will know
 which change did it.
