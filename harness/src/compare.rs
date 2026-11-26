@@ -183,8 +183,6 @@ fn ulps_apart(a: u64, b: u64) -> u128 {
     (rank(a) - rank(b)).unsigned_abs()
 }
 
-impl FloatRule {}
-
 /// A relaxation that applies to the value at one path: where, and why.
 #[derive(Debug, Clone)]
 pub struct PathRule {
@@ -1413,6 +1411,14 @@ mod tests {
 
         let d = differs(&a, &arr(Dtype::F8, &[1, 2], f8s(&[1.0, 2.0])));
         assert_eq!((d.kind, d.path.as_str()), ("ndarray_shape", "$"));
+        // When both differ, the dtype is named: that is the change a port
+        // makes on purpose.
+        let c = arr(
+            Dtype::F4,
+            &[1, 2],
+            f4bits(&[1.0f32.to_bits(), 2.0f32.to_bits()]),
+        );
+        assert_eq!(differs(&a, &c).kind, "ndarray_dtype");
 
         let d = differs(&a, &arr(Dtype::F8, &[2], f8s(&[1.0, 3.0])));
         assert_eq!((d.kind, d.path.as_str()), ("value", "$[1]"));
@@ -1536,7 +1542,7 @@ mod tests {
     }
 
     #[test]
-    fn nodes_and_weights_each_get_their_own_rule_and_summary() {
+    fn two_arrays_each_get_their_own_rule_and_summary() {
         let pair = |x: &[f64], w: &[f64]| {
             Value::Tuple(vec![
                 arr(Dtype::F8, &[2], f8s(x)),
@@ -1557,7 +1563,7 @@ mod tests {
             .collect();
         assert_eq!(got, [("float_abs", "$[0]", 1), ("float_ulps", "$[1]", 1)]);
         assert_eq!(m.arrays[1].largest_deviation, "3");
-        // The same tolerance in absolute terms says nothing about tiny weights.
+        // An absolute tolerance would say nothing about values this small.
         assert!(matched(&a, &pair(&[-0.5, 0.5], &[2e-30, 1.0]), &relax).is_err());
     }
 

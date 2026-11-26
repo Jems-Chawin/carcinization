@@ -221,12 +221,6 @@ def arrays_last_bit():
     return (np.array([-0.5, 0.5]), np.array([0.1, 0.2]))
 
 
-def arrays_big_endian():
-    import numpy as np
-
-    return np.array([1.5, 2.5])
-
-
 def arrays_float32_ulps():
     import numpy as np
 
@@ -258,3 +252,19 @@ def arrays_list():
 def arrays_in(a, flag):
     a[0] = -1.0
     return (a, type(a).__name__, a.flags.writeable, flag)
+
+
+class Opaque:
+    pass
+
+
+def opaque():
+    return Opaque()
+
+
+def numpy_not_loaded():
+    import sys
+
+    if "numpy" in sys.modules:
+        raise AssertionError("numpy was imported")
+    return True

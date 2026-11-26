@@ -3161,7 +3161,7 @@ fn a_last_bit_in_an_array_fails_until_a_named_rule_allows_it() {
     assert_eq!(r.case(0)["first_difference"]["path"], "$[1][1]");
 
     let r = run_numpy(
-        r#"{"id": "c", "fn": "arrays_last_bit", "relax": {"floats": [{"path": "$[0][*]", "abs": "1e-15", "reason": "nodes"}, {"path": "$[1][*]", "ulps": 1, "reason": "weights"}]}}"#,
+        r#"{"id": "c", "fn": "arrays_last_bit", "relax": {"floats": [{"path": "$[0][*]", "abs": "1e-15", "reason": "first array"}, {"path": "$[1][*]", "ulps": 1, "reason": "second array"}]}}"#,
     );
     assert_eq!(r.code, 0, "{}", r.stdout);
     assert_eq!(r.report["schema"], "carcinify/diff/report/2");
@@ -3233,14 +3233,16 @@ fn a_typed_array_input_reaches_each_side_as_its_own_writable_copy() {
 
 #[test]
 #[ignore = "needs an interpreter with NumPy in CARCINIFY_NUMPY_PYTHON"]
-fn the_driver_does_not_import_numpy_for_cases_without_arrays() {
-    // A side that never touches NumPy runs as before, with NumPy installed.
-    let r = run_numpy(r#"{"id": "c", "fn": "echo", "args": [1, "a"]}"#);
-    assert_eq!(r.code, 0, "{}", r.stdout);
-    let probe = Command::new(numpy_python())
-        .args(["-c", "import sys; sys.path.insert(0, sys.argv[1]); import driver; print('numpy' in sys.modules)"])
-        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../harness/src/python"))
-        .output()
-        .unwrap();
-    assert_eq!(String::from_utf8_lossy(&probe.stdout).trim(), "False");
+fn the_driver_does_not_import_numpy_to_encode() {
+    // The first case makes each side's driver look for an array type in an
+    // output it cannot encode; the second raises, in the same process, if
+    // NumPy was imported. Neither side's own code imports it.
+    let r = run_numpy(
+        r#"{"id": "opaque", "fn": "opaque"}
+{"id": "unloaded", "fn": "numpy_not_loaded"}"#,
+    );
+    let e = &r.case(0)["errors"][0];
+    assert_eq!(e["kind"], "unencodable", "{e}");
+    assert!(e["detail"].as_str().unwrap().contains("Opaque"), "{e}");
+    assert_eq!(r.case(1)["result"], "identical", "{}", r.case(1));
 }
