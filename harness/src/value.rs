@@ -4,6 +4,8 @@
 //! number that matters is ever a JSON number: floats are sixteen hex digits
 //! of their IEEE-754 binary64 bit pattern, integers are decimal strings.
 //! The harness therefore never rounds, widens or normalises anything.
+//! A NumPy array travels as its dtype, its shape and its elements' bytes in
+//! C order, little-endian.
 
 use serde::Serialize;
 use serde_json::Value as J;
@@ -28,6 +30,98 @@ pub enum Value {
     Map(Vec<(Value, Value)>),
     /// Unordered; duplicates are rejected on decode.
     Set(Vec<Value>),
+    /// A NumPy array: its elements' bytes in C order, little-endian, of
+    /// length `shape`'s product times the dtype's size.
+    Array {
+        dtype: Dtype,
+        shape: Vec<usize>,
+        data: Vec<u8>,
+    },
+}
+
+/// The array element types the format has. Others are refused by name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dtype {
+    F8,
+    F4,
+    I8,
+    I4,
+    B1,
+}
+
+impl Dtype {
+    /// The name on the wire, NumPy's `dtype.str`.
+    pub fn wire(self) -> &'static str {
+        match self {
+            Dtype::F8 => "<f8",
+            Dtype::F4 => "<f4",
+            Dtype::I8 => "<i8",
+            Dtype::I4 => "<i4",
+            Dtype::B1 => "|b1",
+        }
+    }
+
+    fn parse(s: &str) -> Option<Dtype> {
+        [Dtype::F8, Dtype::F4, Dtype::I8, Dtype::I4, Dtype::B1]
+            .into_iter()
+            .find(|d| d.wire() == s)
+    }
+
+    pub fn size(self) -> usize {
+        match self {
+            Dtype::F8 | Dtype::I8 => 8,
+            Dtype::F4 | Dtype::I4 => 4,
+            Dtype::B1 => 1,
+        }
+    }
+}
+
+/// One element of an array, read from its bytes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Elem {
+    F8(u64),
+    F4(u32),
+    Int(i64),
+    Bool(bool),
+}
+
+impl Elem {
+    /// Element `i` (in C order) of an array's data.
+    pub fn at(dtype: Dtype, data: &[u8], i: usize) -> Elem {
+        let b = &data[i * dtype.size()..(i + 1) * dtype.size()];
+        let n = |w: usize| {
+            let mut a = [0u8; 8];
+            a[..w].copy_from_slice(b);
+            u64::from_le_bytes(a)
+        };
+        match dtype {
+            Dtype::F8 => Elem::F8(n(8)),
+            Dtype::F4 => Elem::F4(n(4) as u32),
+            Dtype::I8 => Elem::Int(n(8) as i64),
+            Dtype::I4 => Elem::Int(n(4) as u32 as i32 as i64),
+            Dtype::B1 => Elem::Bool(b[0] == 1),
+        }
+    }
+
+    pub fn show(self) -> Shown {
+        let (ty, repr, bits) = match self {
+            Elem::F8(b) => return Value::Float(b).show(),
+            // Like f64's, f32's Debug is the shortest text that reads back
+            // to the same bits.
+            Elem::F4(b) => (
+                "float32",
+                format!("{:?}", f32::from_bits(b)),
+                Some(format!("0x{b:08x}")),
+            ),
+            Elem::Int(n) => ("int", n.to_string(), None),
+            Elem::Bool(b) => ("bool", b.to_string(), None),
+        };
+        Shown {
+            ty: ty.to_string(),
+            repr,
+            bits,
+        }
+    }
 }
 
 fn obj<'a>(j: &'a J, allowed: &[&str]) -> Result<&'a serde_json::Map<String, J>, String> {
@@ -49,6 +143,23 @@ fn field<'a>(m: &'a serde_json::Map<String, J>, name: &str) -> Result<&'a J, Str
 fn lower_hex(s: &str) -> bool {
     s.bytes()
         .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
+fn hex_bytes(s: &str, what: &str) -> Result<Vec<u8>, String> {
+    if !s.len().is_multiple_of(2) || !lower_hex(s) {
+        return Err(format!("{what} must be lower-case hex of even length"));
+    }
+    let nib = |c: u8| {
+        if c.is_ascii_digit() {
+            c - b'0'
+        } else {
+            c - b'a' + 10
+        }
+    };
+    Ok(s.as_bytes()
+        .chunks(2)
+        .map(|p| nib(p[0]) << 4 | nib(p[1]))
+        .collect())
 }
 
 fn canonical_int(s: &str) -> bool {
@@ -134,20 +245,41 @@ impl Value {
                 let s = field(m, "hex")?
                     .as_str()
                     .ok_or("bytes hex must be a string")?;
-                if s.len() % 2 != 0 || !lower_hex(s) {
-                    return Err("bytes hex must be lower-case hex of even length".to_string());
+                Ok(Value::Bytes(hex_bytes(s, "bytes hex")?))
+            }
+            "ndarray" => {
+                let m = obj(j, &["t", "dtype", "shape", "hex"])?;
+                let name = field(m, "dtype")?
+                    .as_str()
+                    .ok_or("ndarray dtype must be a string")?;
+                let dtype = Dtype::parse(name).ok_or_else(|| {
+                    format!("ndarray dtype {name:?} is not one of <f8, <f4, <i8, <i4 and |b1")
+                })?;
+                let shape = field(m, "shape")?
+                    .as_array()
+                    .ok_or("ndarray shape must be an array")?
+                    .iter()
+                    .map(|n| n.as_u64().and_then(|n| usize::try_from(n).ok()))
+                    .collect::<Option<Vec<usize>>>()
+                    .ok_or("ndarray shape must hold non-negative integers")?;
+                let s = field(m, "hex")?
+                    .as_str()
+                    .ok_or("ndarray hex must be a string")?;
+                let data = hex_bytes(s, "ndarray hex")?;
+                let want = shape
+                    .iter()
+                    .try_fold(dtype.size(), |n, d| n.checked_mul(*d))
+                    .ok_or("ndarray shape has more elements than can be counted")?;
+                if data.len() != want {
+                    return Err(format!(
+                        "ndarray of shape {shape:?} and dtype {name} needs {want} bytes, got {}",
+                        data.len()
+                    ));
                 }
-                let b = s.as_bytes();
-                let nib = |c: u8| {
-                    if c.is_ascii_digit() {
-                        c - b'0'
-                    } else {
-                        c - b'a' + 10
-                    }
-                };
-                Ok(Value::Bytes(
-                    b.chunks(2).map(|p| nib(p[0]) << 4 | nib(p[1])).collect(),
-                ))
+                if dtype == Dtype::B1 && data.iter().any(|b| *b > 1) {
+                    return Err("bool ndarray holds a byte other than 0 and 1".to_string());
+                }
+                Ok(Value::Array { dtype, shape, data })
             }
             "list" | "tuple" | "set" => {
                 let m = obj(j, &["t", "v"])?;
@@ -208,6 +340,7 @@ impl Value {
             Value::Tuple(_) => "tuple",
             Value::Map(_) => "map",
             Value::Set(_) => "set",
+            Value::Array { .. } => "ndarray",
         }
     }
 
@@ -266,6 +399,12 @@ impl Value {
                     out.push(',');
                 }
                 out.push('}');
+            }
+            Value::Array { dtype, shape, data } => {
+                let _ = write!(out, "a{}{shape:?}:", dtype.wire());
+                for x in data {
+                    let _ = write!(out, "{x:02x}");
+                }
             }
             Value::Set(v) => {
                 let mut items: Vec<String> = v.iter().map(Value::canon).collect();
@@ -332,6 +471,30 @@ impl Value {
             Value::Tuple(v) => (format!("tuple of {} item(s)", v.len()), None),
             Value::Map(v) => (format!("map of {} entr(y/ies)", v.len()), None),
             Value::Set(v) => (format!("set of {} element(s)", v.len()), None),
+            Value::Array { dtype, shape, data } => {
+                const SHOWN: usize = 8;
+                let n = data.len() / dtype.size();
+                let mut items: Vec<String> = (0..n.min(SHOWN))
+                    .map(|i| Elem::at(*dtype, data, i).show().repr)
+                    .collect();
+                if n > SHOWN {
+                    items.push("...".to_string());
+                }
+                let dims: Vec<String> = shape.iter().map(usize::to_string).collect();
+                let dims = match dims.len() {
+                    1 => format!("({},)", dims[0]),
+                    _ => format!("({})", dims.join(", ")),
+                };
+                let unit = if n == 1 { "element" } else { "elements" };
+                (
+                    format!(
+                        "{} shape {dims}: [{}] ({n} {unit})",
+                        dtype.wire(),
+                        items.join(", ")
+                    ),
+                    None,
+                )
+            }
         };
         Shown {
             ty: self.type_name().to_string(),
@@ -407,6 +570,106 @@ mod tests {
         .collect();
         let unique: BTreeSet<&String> = forms.iter().collect();
         assert_eq!(unique.len(), forms.len());
+    }
+
+    fn array(dtype: &str, shape: J, hex: &str) -> J {
+        json!({"t": "ndarray", "dtype": dtype, "shape": shape, "hex": hex})
+    }
+
+    #[test]
+    fn an_array_decodes_with_its_dtype_shape_and_bytes() {
+        // 1.0 and 2.0 as little-endian binary64, in a 1 x 2 array.
+        let v = Value::decode(&array(
+            "<f8",
+            json!([1, 2]),
+            "000000000000f03f0000000000000040",
+        ))
+        .unwrap();
+        let Value::Array { dtype, shape, data } = &v else {
+            panic!("not an array: {v:?}");
+        };
+        assert_eq!(
+            (*dtype, shape.as_slice(), data.len()),
+            (Dtype::F8, &[1, 2][..], 16)
+        );
+        assert_eq!(v.type_name(), "ndarray");
+        // Every dtype the format has, and a 0-d array (one element) and an
+        // empty one (none).
+        for (dtype, shape, hex) in [
+            ("<f4", json!([1]), "0000803f"),
+            ("<i8", json!([]), "ffffffffffffffff"),
+            ("<i4", json!([0, 3]), ""),
+            ("|b1", json!([2]), "0100"),
+        ] {
+            let j = array(dtype, shape, hex);
+            assert!(Value::decode(&j).is_ok(), "refused {j}");
+        }
+    }
+
+    #[test]
+    fn an_array_outside_the_format_is_refused() {
+        for bad in [
+            // one byte short, and one too many
+            array("<f8", json!([2]), "000000000000f03f00000000000000"),
+            array("<f8", json!([1]), "000000000000f03f00"),
+            // a shape whose element count overflows
+            array("<f8", json!([4294967296u64, 4294967296u64, 2]), ""),
+            // a dtype not in the format, and big-endian, which the encoder
+            // never writes
+            array("<c16", json!([0]), ""),
+            array(">f8", json!([1]), "3ff0000000000000"),
+            array("float64", json!([0]), ""),
+            // a bool byte other than 0 and 1
+            array("|b1", json!([1]), "02"),
+            // shapes that are not lists of non-negative integers
+            array("<f8", json!([-1]), ""),
+            array("<f8", json!(2), "0000000000000000"),
+            array("<f8", json!([1.5]), ""),
+            json!({"t": "ndarray", "dtype": "<f8", "shape": [0]}),
+            json!({"t": "ndarray", "dtype": "<f8", "shape": [0], "hex": "", "order": "C"}),
+        ] {
+            assert!(Value::decode(&bad).is_err(), "accepted {bad}");
+        }
+    }
+
+    #[test]
+    fn arrays_that_differ_in_dtype_shape_or_bytes_have_different_canonical_forms() {
+        let forms: Vec<String> = [
+            array("<f8", json!([1]), "000000000000f03f"),
+            array("<i8", json!([1]), "000000000000f03f"),
+            array("<f8", json!([1, 1]), "000000000000f03f"),
+            array("<f8", json!([]), "000000000000f03f"),
+            array("<f8", json!([1]), "000000000000f0bf"),
+            array("<f4", json!([2]), "000000000000f03f"),
+            json!({"t": "list", "v": [{"t": "float", "bits": "3ff0000000000000"}]}),
+        ]
+        .iter()
+        .map(|j| Value::decode(j).unwrap().canon())
+        .collect();
+        let unique: BTreeSet<&String> = forms.iter().collect();
+        assert_eq!(unique.len(), forms.len());
+    }
+
+    #[test]
+    fn an_array_is_shown_by_dtype_shape_and_its_first_eight_elements() {
+        let hex: String = (1..=10u64)
+            .flat_map(|i| (i as f64).to_le_bytes())
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        let v = Value::decode(&array("<f8", json!([10]), &hex)).unwrap();
+        let s = v.show();
+        assert_eq!(s.ty, "ndarray");
+        assert_eq!(
+            s.repr,
+            "<f8 shape (10,): [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, ...] (10 elements)"
+        );
+        let v = Value::decode(&array("|b1", json!([1, 2]), "0100")).unwrap();
+        assert_eq!(
+            v.show().repr,
+            "|b1 shape (1, 2): [true, false] (2 elements)"
+        );
+        let v = Value::decode(&array("<i4", json!([]), "ffffffff")).unwrap();
+        assert_eq!(v.show().repr, "<i4 shape (): [-1] (1 element)");
     }
 
     #[test]
