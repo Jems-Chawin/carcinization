@@ -170,6 +170,41 @@ fn canonical_int(s: &str) -> bool {
         && s != "-0"
 }
 
+/// The fields of an `ndarray` wire value, checked against each other.
+fn decode_array(m: &serde_json::Map<String, J>) -> Result<Value, String> {
+    let name = field(m, "dtype")?
+        .as_str()
+        .ok_or("ndarray dtype must be a string")?;
+    let dtype = Dtype::parse(name).ok_or_else(|| {
+        format!("ndarray dtype {name:?} is not one of <f8, <f4, <i8, <i4 and |b1")
+    })?;
+    let shape = field(m, "shape")?
+        .as_array()
+        .ok_or("ndarray shape must be an array")?
+        .iter()
+        .map(|n| n.as_u64().and_then(|n| usize::try_from(n).ok()))
+        .collect::<Option<Vec<usize>>>()
+        .ok_or("ndarray shape must hold non-negative integers")?;
+    let s = field(m, "hex")?
+        .as_str()
+        .ok_or("ndarray hex must be a string")?;
+    let data = hex_bytes(s, "ndarray hex")?;
+    let want = shape
+        .iter()
+        .try_fold(dtype.size(), |n, d| n.checked_mul(*d))
+        .ok_or("ndarray shape has more elements than can be counted")?;
+    if data.len() != want {
+        return Err(format!(
+            "ndarray of shape {shape:?} and dtype {name} needs {want} bytes, got {}",
+            data.len()
+        ));
+    }
+    if dtype == Dtype::B1 && data.iter().any(|b| *b > 1) {
+        return Err("bool ndarray holds a byte other than 0 and 1".to_string());
+    }
+    Ok(Value::Array { dtype, shape, data })
+}
+
 impl Value {
     /// Decodes one wire value, rejecting anything not in the format.
     pub fn decode(j: &J) -> Result<Value, String> {
@@ -247,40 +282,7 @@ impl Value {
                     .ok_or("bytes hex must be a string")?;
                 Ok(Value::Bytes(hex_bytes(s, "bytes hex")?))
             }
-            "ndarray" => {
-                let m = obj(j, &["t", "dtype", "shape", "hex"])?;
-                let name = field(m, "dtype")?
-                    .as_str()
-                    .ok_or("ndarray dtype must be a string")?;
-                let dtype = Dtype::parse(name).ok_or_else(|| {
-                    format!("ndarray dtype {name:?} is not one of <f8, <f4, <i8, <i4 and |b1")
-                })?;
-                let shape = field(m, "shape")?
-                    .as_array()
-                    .ok_or("ndarray shape must be an array")?
-                    .iter()
-                    .map(|n| n.as_u64().and_then(|n| usize::try_from(n).ok()))
-                    .collect::<Option<Vec<usize>>>()
-                    .ok_or("ndarray shape must hold non-negative integers")?;
-                let s = field(m, "hex")?
-                    .as_str()
-                    .ok_or("ndarray hex must be a string")?;
-                let data = hex_bytes(s, "ndarray hex")?;
-                let want = shape
-                    .iter()
-                    .try_fold(dtype.size(), |n, d| n.checked_mul(*d))
-                    .ok_or("ndarray shape has more elements than can be counted")?;
-                if data.len() != want {
-                    return Err(format!(
-                        "ndarray of shape {shape:?} and dtype {name} needs {want} bytes, got {}",
-                        data.len()
-                    ));
-                }
-                if dtype == Dtype::B1 && data.iter().any(|b| *b > 1) {
-                    return Err("bool ndarray holds a byte other than 0 and 1".to_string());
-                }
-                Ok(Value::Array { dtype, shape, data })
-            }
+            "ndarray" => decode_array(obj(j, &["t", "dtype", "shape", "hex"])?),
             "list" | "tuple" | "set" => {
                 let m = obj(j, &["t", "v"])?;
                 let arr = field(m, "v")?
