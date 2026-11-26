@@ -53,8 +53,12 @@ fn declare_targets(name: &str, suite: &str, targets: Vec<J>) -> PathBuf {
 
 /// `carcinify speed <args> --allow-dirty`: the fixture is in this
 /// repository, whose tree may not match its commit while it is worked on.
-/// Never under a gate unless `env` says so.
+/// Never under a gate unless `env` says so. A build takes `TIMING`, as a
+/// run does: a PyO3 build compiles the port again from a clean crate, and
+/// beside a timed run it is load the test made itself.
 fn speed(args: &[&Path], env: &[(&str, &str)]) -> (i32, String) {
+    let _one = (args.first() == Some(&Path::new("build")))
+        .then(|| TIMING.lock().unwrap_or_else(|e| e.into_inner()));
     let mut command = Command::new(env!("CARGO_BIN_EXE_carcinify"));
     command
         .arg("speed")
@@ -312,17 +316,23 @@ fn too_busy(report: &J) -> Vec<String> {
     why
 }
 
-/// A run, again while the machine was too busy for it, up to five times.
-/// Each repeat is printed, and written to the file named in
+/// A run, again while the machine was too busy for it, up to five times;
+/// if the fifth is too busy as well, the test gives up and says so. Each
+/// repeat is printed, and written to the file named in
 /// `CARCINIFY_SPEED_ATTEMPTS` when that is set; ci/run-all.sh counts them,
 /// so that a drop rule which began to fire on a quiet machine would show.
 fn quiet(attempt: &mut dyn FnMut() -> (i32, String, J)) -> (i32, String, J) {
     let mut last = attempt();
-    for n in 1..5 {
+    for n in 1..=5 {
         let why = too_busy(&last.2);
         if why.is_empty() {
             break;
         }
+        assert!(
+            n < 5,
+            "the machine is too busy to run this test: five runs in a row were too busy: {}",
+            why.join("; ")
+        );
         let name = std::thread::current().name().unwrap_or("?").to_string();
         let line = format!("{name}\tattempt {n} too busy: {}", why.join("; "));
         eprintln!("{line}");
