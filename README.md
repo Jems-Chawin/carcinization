@@ -33,14 +33,14 @@ PyO3. Its answers match the original's on 595 comparison cases. Timed with
 `carcinify speed`, the search is 31 times faster on macOS and 28 times on
 Linux arm64 (in a container on the same Mac) on a made-up network of 40
 operands, and 22 and 8.5 times on one of 120 operands. Through
-`np.einsum_path` the gain is 6.8 times on macOS and 5.9 on Linux arm64.
-The earlier figures, 26 to 28 and 18, came from a script whose inputs
-shared one string object per label, which made the original's set
-operations faster. At 120 operands, Linux's default CPU target has LLVM
-vectorize one loop of the port, and on Linux in Docker that vectorized
-loop is the slow one; on macOS it is not. Step 7's text says what this
-means for anyone shipping a Linux aarch64 wheel. What the port showed the
-tools lack sets the next work.
+`np.einsum_path`, on a different made-up network of 40 operands, the gain
+is 6.8 times on macOS and 5.9 on Linux arm64. The earlier figures, 26 to 28
+and 18, came from a script whose inputs shared one string object per label,
+which made the original's set operations faster. At 120 operands, Linux's
+default CPU target has LLVM vectorize one loop of the port, and on Linux in
+Docker that vectorized loop is the slow one; on macOS it is not. Step 7's
+text says what this means for anyone shipping a Linux aarch64 wheel. What
+the port showed the tools lack sets the next work.
 
 What is planned and is not built, with no date for any of it:
 
@@ -86,19 +86,19 @@ describes the layout.
 
 Results and how to repeat them are in [`ci/RESULTS.md`](ci/RESULTS.md).
 
-- macOS arm64, Python 3.12: all test suites and worked examples pass. On
-  GitHub runners: two passes, on 2026-11-18, at commit 7675eec on a runner
-  with 5 CPUs and at 28955a7 on one with 3 CPUs, 33 rows each.
+- macOS arm64, Python 3.12: all test suites and worked examples pass.
+  GitHub's runners run them on every push, mostly on 3 CPUs; some of those
+  runs failed on macOS, and `ci/RESULTS.md` records each failure with what
+  was changed after it.
 - Debian 13 on arm64 (glibc, Python 3.13), in a container on a Mac: all
   test suites pass, and every worked example ends with the same verdict,
   exit status, and case and allocation counts as on macOS. What is judged
   by time differs: `carcinify decide` raises a flag more or a flag fewer on
   some examples, and the times are other times. That is one distribution,
   one Python and one kernel, the container host's.
-- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): three passes, on
-  GitHub runners on 2026-11-18 at commits 6e209ff, 7675eec and 28955a7:
-  all test suites, and the worked examples as expected, 33 rows, without
-  the three that ask crates.io. Not run anywhere else on x86-64; an earlier attempt under
+- Linux x86-64 (Ubuntu 26.04, Python 3.13, 4 CPUs): the same on GitHub's
+  runners on every push, without the three worked examples that ask
+  crates.io. Not run anywhere else on x86-64; an earlier attempt under
   emulation hung in the build.
 - Not tested: Windows, musl, a Python without the GIL.
 
@@ -143,8 +143,9 @@ was seen.
   workload with nothing said: its time came out about 30% long and a
   Python candidate's share two to three points low, never high.
 - `carcinify diff` compares the values two implementations return for the
-  cases it is given. It is not a benchmark, it says nothing about inputs
-  nobody wrote a case for, and it has not been run on a real project.
+  cases it is given. It is not a benchmark, and it says nothing about
+  inputs nobody wrote a case for. It has been run on one real project, the
+  einsum port, on 595 cases.
 - `carcinify diff` compares NumPy arrays of five dtypes (float64, float32,
   int64, int32, bool) and no NumPy scalars; anything else is refused by
   name.
@@ -215,9 +216,10 @@ work and tried to break it, and a human decided what to build and what to
 accept. The audit reports and the history of findings and fixes are not
 part of this repository.
 
-This repository was published as a single commit. Commit ids in the text
-refer to the development history, which is not published; that the pilot's
-rule was committed before its runs is the author's statement.
+This repository's history starts at a71ea89, published as one commit on
+2026-11-17, and everything after it is published. Commit ids in the text
+from before it refer to the development history, which is not; that the
+pilot's rule was committed before its runs is the author's statement.
 
 ## Licence
 
